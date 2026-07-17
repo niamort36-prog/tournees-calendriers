@@ -14,11 +14,15 @@
       GitHub Pages : https://niamort36-prog.github.io/tournees-calendriers/
 - [x] Adresses BAN du département 87 embarquées dans le site (contournement CORS),
       rafraîchies à chaque déploiement
-- [ ] Compte Supabase + schéma de base (comptes, synchro, temps réel)
+- [x] Projet Supabase (enopjnyqycrtydgtuiys, région UE) + schéma déployé
+      (profils/rôles, tournées, adresses, RLS, temps réel)
+- [x] Synchronisation multi-appareils vérifiée : fusion au démarrage, envoi à
+      chaque action, file hors-ligne, temps réel (< 3 s)
 
 ## Phase 3 — Comptes et rôles
-- [ ] Authentification Supabase, rôles admin / normal
-- [ ] Centres de secours, création de comptes SP par l'admin
+- [x] Authentification (e-mail + mot de passe, confirmation désactivée),
+      premier compte = admin, suivants = normal — compte admin : Roy Romain
+- [ ] Centres de secours, création de comptes SP par l'admin (écran « Équipe »)
 - [ ] Changement de mot de passe par l'admin + réinitialisation
 
 ## Phase 4 — Campagnes et équipes
