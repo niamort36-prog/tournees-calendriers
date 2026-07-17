@@ -22,8 +22,12 @@
 ## Phase 3 — Comptes et rôles
 - [x] Authentification (e-mail + mot de passe, confirmation désactivée),
       premier compte = admin, suivants = normal — compte admin : Roy Romain
-- [ ] Centres de secours, création de comptes SP par l'admin (écran « Équipe »)
-- [ ] Changement de mot de passe par l'admin + réinitialisation
+- [x] Écran « Équipe » (admins) : création de comptes SP (e-mail + mot de passe
+      initial), rôles, centres de secours (champ libre avec suggestions)
+- [x] Changement de mot de passe des comptes Normal par l'admin, suppression de
+      comptes — via la fonction serveur « bright-action » (garde-fous : un compte
+      normal ne peut rien faire, les autres admins sont protégés)
+- [ ] Réinitialisation de mot de passe en autonomie (e-mail « mot de passe oublié »)
 
 ## Phase 4 — Campagnes et équipes
 - [ ] Campagnes (nom, calendriers commandés, taille des paquets, archivage)
