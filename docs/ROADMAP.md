@@ -10,8 +10,11 @@
 - [x] Fiche tournée : nom, couleur, dispo conseillée, distribués N-1, estimation
 
 ## Phase 2 — Mise en ligne
-- [ ] Dépôt GitHub + déploiement GitHub Pages (avec l'utilisateur)
-- [ ] Compte Supabase + schéma de base + proxy Edge Function pour les fichiers BAN
+- [x] Dépôt GitHub (niamort36-prog/tournees-calendriers) + déploiement automatique
+      GitHub Pages : https://niamort36-prog.github.io/tournees-calendriers/
+- [x] Adresses BAN du département 87 embarquées dans le site (contournement CORS),
+      rafraîchies à chaque déploiement
+- [ ] Compte Supabase + schéma de base (comptes, synchro, temps réel)
 
 ## Phase 3 — Comptes et rôles
 - [ ] Authentification Supabase, rôles admin / normal
