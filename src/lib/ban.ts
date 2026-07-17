@@ -19,7 +19,9 @@ import {
 
 const API_ADRESSE = 'https://api-adresse.data.gouv.fr';
 const API_GEO = 'https://geo.api.gouv.fr';
-const BAN_DATA_BASE = (import.meta.env.VITE_BAN_DATA_BASE as string | undefined) ?? '/ban-data';
+// Chemin relatif : en dev il tombe sur le proxy Vite, en production sur les
+// fichiers copiés dans le site par le déploiement (dist/ban-data/).
+const BAN_DATA_BASE = (import.meta.env.VITE_BAN_DATA_BASE as string | undefined) ?? './ban-data';
 
 export type EtatChargement = (message: string, progression: number | null) => void;
 
@@ -85,6 +87,12 @@ export async function chargerDepartement(dept: string, onEtat: EtatChargement): 
   onEtat(messageTelechargement, 0);
 
   const reponse = await fetch(`${BAN_DATA_BASE}/adresses-${dept}.csv.gz`);
+  if (reponse.status === 404) {
+    throw new Error(
+      `Les adresses du département ${dept} ne sont pas encore disponibles dans l'application en ligne. ` +
+        `Demandez à l'administrateur du site de l'ajouter.`,
+    );
+  }
   if (!reponse.ok || !reponse.body) {
     throw new Error(`Téléchargement des adresses impossible (HTTP ${reponse.status}).`);
   }
