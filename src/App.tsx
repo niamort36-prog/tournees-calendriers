@@ -3,11 +3,13 @@ import MapView from './components/MapView';
 import Sidebar from './components/Sidebar';
 import SearchBar from './components/SearchBar';
 import Login from './components/Login';
+import Equipe from './components/Equipe';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 
 export default function App() {
   const [panneauOuvert, setPanneauOuvert] = useState(true);
+  const [equipeOuverte, setEquipeOuverte] = useState(false);
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -48,6 +50,11 @@ export default function App() {
           <span className="sous-titre">Amicale des Sapeurs-Pompiers</span>
         </div>
         <SearchBar />
+        {profil?.role === 'admin' && (
+          <button className="btn-equipe" onClick={() => setEquipeOuverte(true)}>
+            👥 Équipe
+          </button>
+        )}
         {profil && (
           <div className="utilisateur">
             👤 {profil.nom}
@@ -65,6 +72,7 @@ export default function App() {
           ☰ Tournées
         </button>
       </header>
+      {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
       <div className="contenu">
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">
