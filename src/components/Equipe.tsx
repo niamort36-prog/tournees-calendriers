@@ -4,6 +4,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { FONCTION_ADMIN } from '../config';
 import { useAppStore } from '../store/useAppStore';
 
 interface Membre {
@@ -52,7 +53,7 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
   const appelerFonction = async (corps: Record<string, unknown>): Promise<string | null> => {
     if (!supabase) return "La base partagée n'est pas configurée.";
     setEnCours(true);
-    const { data, error } = await supabase.functions.invoke('admin-utilisateurs', { body: corps });
+    const { data, error } = await supabase.functions.invoke(FONCTION_ADMIN, { body: corps });
     setEnCours(false);
     if (error) return "Fonction d'administration injoignable — est-elle bien déployée dans Supabase ?";
     if (data?.erreur) return String(data.erreur);
