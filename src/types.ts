@@ -17,6 +17,13 @@ export const LIBELLE_STATUT: Record<StatutAdresse, string> = {
   refus: 'Refus / pas intéressé',
 };
 
+export interface Profil {
+  id: string;
+  nom: string;
+  role: 'admin' | 'normal';
+  centre: string;
+}
+
 export interface Tournee {
   id: string;
   nom: string;

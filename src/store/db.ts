@@ -25,12 +25,20 @@ export interface BanCommuneAdresses {
   adresses: BanAdresseBrute[];
 }
 
+/** Opération de synchronisation en attente (écriture faite hors connexion). */
+export interface EnAttente {
+  cle?: number;
+  operation: unknown;
+  quand: string;
+}
+
 class BaseLocale extends Dexie {
   tournees!: Table<Tournee, string>;
   adresses!: Table<AdressePoint, string>;
   banDepartements!: Table<BanDepartementCache, string>;
   banCommunes!: Table<BanCommuneMeta, string>;
   banAdressesCommunes!: Table<BanCommuneAdresses, string>;
+  enAttente!: Table<EnAttente, number>;
 
   constructor() {
     super('tournees-calendriers');
@@ -40,6 +48,9 @@ class BaseLocale extends Dexie {
       banDepartements: 'dept',
       banCommunes: 'codeInsee, dept',
       banAdressesCommunes: 'codeInsee',
+    });
+    this.version(2).stores({
+      enAttente: '++cle',
     });
   }
 }

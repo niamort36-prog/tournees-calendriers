@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.18.3",
+    "@supabase/supabase-js": "^2.110.7",
     "dexie": "^4.0.11",
     "leaflet": "^1.9.4",
     "react": "^19.1.0",

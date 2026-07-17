@@ -1,10 +1,25 @@
-// État global de l'application (zustand) : tournées, adresses, modes d'édition.
-// Chaque action écrit d'abord en base locale (IndexedDB) puis met à jour l'état.
+// État global de l'application (zustand) : session, tournées, adresses, modes.
+// Chaque action écrit d'abord en base locale (IndexedDB), met à jour l'état,
+// puis pousse vers Supabase (file d'attente automatique si hors-ligne).
 
 import { create } from 'zustand';
+import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
-import type { AdressePoint, Tournee } from '../types';
+import type { AdressePoint, Profil, Tournee } from '../types';
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
+import { supabase, supabaseActif } from '../lib/supabase';
+import {
+  abonnerTempsReel,
+  syncAdresse,
+  syncAdresses,
+  syncRemplacerAdresses,
+  syncSupprimerAdresse,
+  syncSupprimerTournee,
+  syncTournee,
+  tirerEtFusionner,
+  viderFileAttente,
+  type Changement,
+} from '../lib/sync';
 import type { LatLng } from '../lib/geo';
 
 const PALETTE = [
@@ -40,8 +55,20 @@ function nouvelleAdresse(p: PingGroupe, tourneeId: string): AdressePoint {
   };
 }
 
+function traduireErreurAuth(message: string): string {
+  if (message.includes('Invalid login credentials')) return 'E-mail ou mot de passe incorrect.';
+  if (message.includes('already registered')) return 'Un compte existe déjà avec cet e-mail.';
+  if (message.includes('at least 6 characters')) return 'Le mot de passe doit faire au moins 6 caractères.';
+  if (message.includes('Email not confirmed'))
+    return "E-mail non confirmé : cliquez sur le lien reçu par e-mail (ou demandez à l'admin de désactiver la confirmation).";
+  if (message.includes('valid email')) return 'Adresse e-mail invalide.';
+  return message;
+}
+
 interface EtatApp {
   pret: boolean;
+  session: Session | null;
+  profil: Profil | null;
   tournees: Tournee[];
   adresses: AdressePoint[];
   selectionTourneeId: string | null;
@@ -52,6 +79,10 @@ interface EtatApp {
   cadrage: Cadrage;
 
   init: () => Promise<void>;
+  connexion: (email: string, mdp: string) => Promise<string | null>;
+  inscription: (email: string, mdp: string, nom: string) => Promise<string | null>;
+  deconnexion: () => Promise<void>;
+
   selectionnerTournee: (id: string | null) => void;
   cadrerSur: (c: Cadrage) => void;
   viderCadrage: () => void;
@@ -75,8 +106,95 @@ export const useAppStore = create<EtatApp>((set, get) => {
   const onEtat = (message: string, progression: number | null) =>
     set({ chargement: { actif: true, message, progression } });
 
+  // ----- réception des changements des autres appareils (temps réel) -----
+  // Les événements arrivent un par un : on les regroupe un court instant
+  // avant de les appliquer, pour éviter des centaines de rafraîchissements.
+  let tampon: Changement[] = [];
+  let minuterieTampon: number | null = null;
+  let desabonner: (() => void) | null = null;
+
+  const appliquerTampon = async () => {
+    minuterieTampon = null;
+    const lots = tampon;
+    tampon = [];
+    const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
+    const tournees = new Map(get().tournees.map((t) => [t.id, t]));
+    const adresses = new Map(get().adresses.map((a) => [a.id, a]));
+    let change = false;
+    for (const c of lots) {
+      if (c.table === 'tournees') {
+        if (c.type === 'delete') {
+          if (tournees.delete(c.id)) {
+            change = true;
+            await db.tournees.delete(c.id);
+            await db.adresses.where('tourneeId').equals(c.id).delete();
+            for (const a of [...adresses.values()]) if (a.tourneeId === c.id) adresses.delete(a.id);
+          }
+        } else {
+          const locale = tournees.get(c.tournee.id);
+          if (!locale || plusRecent(c.tournee.modifieLe, locale.modifieLe)) {
+            tournees.set(c.tournee.id, c.tournee);
+            await db.tournees.put(c.tournee);
+            change = true;
+          }
+        }
+      } else {
+        if (c.type === 'delete') {
+          if (adresses.delete(c.id)) {
+            change = true;
+            await db.adresses.delete(c.id);
+          }
+        } else {
+          const locale = adresses.get(c.adresse.id);
+          if (!locale || plusRecent(c.adresse.modifieLe, locale.modifieLe)) {
+            adresses.set(c.adresse.id, c.adresse);
+            await db.adresses.put(c.adresse);
+            change = true;
+          }
+        }
+      }
+    }
+    if (change) {
+      set({ tournees: [...tournees.values()], adresses: [...adresses.values()] });
+    }
+  };
+
+  const surChangementDistant = (c: Changement) => {
+    tampon.push(c);
+    if (minuterieTampon === null) minuterieTampon = window.setTimeout(() => void appliquerTampon(), 250);
+  };
+
+  // ----- après connexion : profil, rattrapage, fusion, temps réel -----
+  const apresConnexion = async () => {
+    const session = get().session;
+    if (!supabase || !session) return;
+    try {
+      const { data } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
+      if (data) set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
+      await viderFileAttente();
+      onEtat('Synchronisation des tournées…', null);
+      const fusion = await tirerEtFusionner(get().tournees, get().adresses);
+      await db.transaction('rw', db.tournees, db.adresses, async () => {
+        await db.tournees.clear();
+        await db.tournees.bulkPut(fusion.tournees);
+        await db.adresses.clear();
+        await db.adresses.bulkPut(fusion.adresses);
+      });
+      set({ tournees: fusion.tournees, adresses: fusion.adresses, chargement: CHARGEMENT_INACTIF });
+    } catch {
+      set({
+        chargement: CHARGEMENT_INACTIF,
+        erreur: 'Synchronisation impossible pour le moment (connexion ?). Vos saisies restent enregistrées sur cet appareil.',
+      });
+    }
+    desabonner?.();
+    desabonner = abonnerTempsReel(surChangementDistant);
+  };
+
   return {
     pret: false,
+    session: null,
+    profil: null,
     tournees: [],
     adresses: [],
     selectionTourneeId: null,
@@ -88,7 +206,45 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
     init: async () => {
       const [tournees, adresses] = await Promise.all([db.tournees.toArray(), db.adresses.toArray()]);
-      set({ tournees, adresses, pret: true });
+      set({ tournees, adresses });
+      if (!supabaseActif || !supabase) {
+        set({ pret: true });
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      set({ session: data.session, pret: true });
+      if (data.session) void apresConnexion();
+      supabase.auth.onAuthStateChange((_evenement, session) => {
+        const avait = get().session;
+        set({ session });
+        if (session && !avait) void apresConnexion();
+        if (!session) {
+          desabonner?.();
+          desabonner = null;
+          set({ profil: null });
+        }
+      });
+      window.addEventListener('online', () => void viderFileAttente());
+    },
+
+    connexion: async (email, mdp) => {
+      if (!supabase) return "La base partagée n'est pas configurée.";
+      const { error } = await supabase.auth.signInWithPassword({ email, password: mdp });
+      return error ? traduireErreurAuth(error.message) : null;
+    },
+
+    inscription: async (email, mdp, nom) => {
+      if (!supabase) return "La base partagée n'est pas configurée.";
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: mdp,
+        options: { data: { nom } },
+      });
+      return error ? traduireErreurAuth(error.message) : null;
+    },
+
+    deconnexion: async () => {
+      await supabase?.auth.signOut();
     },
 
     selectionnerTournee: (id) => set({ selectionTourneeId: id, modeAjout: false, deplacementAdresseId: null }),
@@ -127,6 +283,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
             ? 'Aucune adresse trouvée dans cette zone. Vous pouvez en ajouter à la main avec « ➕ Adresse ».'
             : null,
         }));
+        await syncTournee(tournee);
+        await syncAdresses(adresses);
       } catch (e) {
         set({ chargement: CHARGEMENT_INACTIF, erreur: e instanceof Error ? e.message : String(e) });
       }
@@ -138,6 +296,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const maj = { ...tournee, ...patch, modifieLe: new Date().toISOString() };
       await db.tournees.put(maj);
       set((s) => ({ tournees: s.tournees.map((t) => (t.id === id ? maj : t)) }));
+      await syncTournee(maj);
     },
 
     majPolygone: async (id, poly) => {
@@ -169,6 +328,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
           adresses: [...s.adresses.filter((a) => a.tourneeId !== id), ...conservees],
           chargement: CHARGEMENT_INACTIF,
         }));
+        await syncTournee(tourneeMaj);
+        await syncRemplacerAdresses(id, conservees);
       } catch (e) {
         set({ chargement: CHARGEMENT_INACTIF, erreur: e instanceof Error ? e.message : String(e) });
       }
@@ -184,6 +345,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         adresses: s.adresses.filter((a) => a.tourneeId !== id),
         selectionTourneeId: s.selectionTourneeId === id ? null : s.selectionTourneeId,
       }));
+      await syncSupprimerTournee(id);
     },
 
     ajouterAdresse: async (tourneeId, lat, lng) => {
@@ -211,12 +373,20 @@ export const useAppStore = create<EtatApp>((set, get) => {
       await db.adresses.put(adresse);
       // si cette adresse BAN avait été supprimée avant, on la retire des exclusions
       const tournee = get().tournees.find((t) => t.id === tourneeId);
+      let tourneeMaj: Tournee | null = null;
       if (tournee && adresse.banId && tournee.banIdsExclus.includes(adresse.banId)) {
-        const maj = { ...tournee, banIdsExclus: tournee.banIdsExclus.filter((b) => b !== adresse.banId) };
-        await db.tournees.put(maj);
-        set((s) => ({ tournees: s.tournees.map((t) => (t.id === tourneeId ? maj : t)) }));
+        tourneeMaj = {
+          ...tournee,
+          banIdsExclus: tournee.banIdsExclus.filter((b) => b !== adresse.banId),
+          modifieLe: maintenant,
+        };
+        await db.tournees.put(tourneeMaj);
+        const fige = tourneeMaj;
+        set((s) => ({ tournees: s.tournees.map((t) => (t.id === tourneeId ? fige : t)) }));
       }
       set((s) => ({ adresses: [...s.adresses, adresse], chargement: CHARGEMENT_INACTIF }));
+      await syncAdresse(adresse);
+      if (tourneeMaj) await syncTournee(tourneeMaj);
     },
 
     renommerAdresse: async (id, libelle) => {
@@ -225,6 +395,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const maj = { ...adresse, libelle: libelle.trim(), modifieLe: new Date().toISOString() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      await syncAdresse(maj);
     },
 
     deplacerAdresse: async (id, lat, lng) => {
@@ -233,6 +404,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const maj = { ...adresse, lat, lng, modifieLe: new Date().toISOString() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)), deplacementAdresseId: null }));
+      await syncAdresse(maj);
     },
 
     supprimerAdresse: async (id) => {
@@ -241,12 +413,20 @@ export const useAppStore = create<EtatApp>((set, get) => {
       await db.adresses.delete(id);
       // mémorise l'exclusion pour ne pas recréer ce ping lors d'un recalcul de zone
       const tournee = get().tournees.find((t) => t.id === adresse.tourneeId);
+      let tourneeMaj: Tournee | null = null;
       if (tournee && adresse.banId && !adresse.manuelle) {
-        const maj = { ...tournee, banIdsExclus: [...tournee.banIdsExclus, adresse.banId] };
-        await db.tournees.put(maj);
-        set((s) => ({ tournees: s.tournees.map((t) => (t.id === tournee.id ? maj : t)) }));
+        tourneeMaj = {
+          ...tournee,
+          banIdsExclus: [...tournee.banIdsExclus, adresse.banId],
+          modifieLe: new Date().toISOString(),
+        };
+        await db.tournees.put(tourneeMaj);
+        const fige = tourneeMaj;
+        set((s) => ({ tournees: s.tournees.map((t) => (t.id === fige.id ? fige : t)) }));
       }
       set((s) => ({ adresses: s.adresses.filter((a) => a.id !== id) }));
+      await syncSupprimerAdresse(id);
+      if (tourneeMaj) await syncTournee(tourneeMaj);
     },
   };
 });

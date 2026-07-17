@@ -492,6 +492,168 @@ body {
   font-size: 13px;
 }
 
+/* ---------- Connexion ---------- */
+
+.ecran-attente {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ecran-connexion {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--marine) 0%, #2d4f85 60%, #46689e 100%);
+  padding: 16px;
+}
+
+.carte-connexion {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 30px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.connexion-logo {
+  font-size: 44px;
+}
+
+.carte-connexion h1 {
+  margin: 6px 0 2px;
+  font-size: 22px;
+  color: var(--marine);
+}
+
+.connexion-sous-titre {
+  margin: 0 0 18px;
+  color: var(--texte-doux);
+  font-size: 13px;
+}
+
+.connexion-onglets {
+  display: flex;
+  background: var(--fond);
+  border-radius: 9px;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.connexion-onglets button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--texte-doux);
+}
+
+.connexion-onglets button.actif {
+  background: #fff;
+  color: var(--texte);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.carte-connexion label {
+  display: block;
+  text-align: left;
+  font-size: 12px;
+  color: var(--texte-doux);
+  margin-bottom: 10px;
+}
+
+.carte-connexion label input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.connexion-valider {
+  width: 100%;
+  margin-top: 6px;
+  background: var(--rouge);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 11px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.connexion-valider:disabled {
+  opacity: 0.6;
+}
+
+.connexion-erreur,
+.connexion-info {
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.connexion-erreur {
+  background: #fdecea;
+  color: #92251f;
+}
+
+.connexion-info {
+  background: #e8f5e9;
+  color: #1f6427;
+}
+
+.connexion-note {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  color: var(--texte-doux);
+}
+
+/* ---------- Utilisateur connecté (en-tête) ---------- */
+
+.utilisateur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.badge-admin {
+  background: var(--rouge);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.btn-sortir {
+  background: var(--marine-clair);
+  color: #cdd9ec;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-sortir:hover {
+  color: #fff;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {
