@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sI --max-time 20 \"https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-57.csv.gz\")",
+      "Bash(curl -s --max-time 20 -A \"AppliCalendriersTest/1.0\" -o /dev/null -w \"%{http_code} %{content_type} %{size_download} bytes\\\\n\" \"https://tile.openstreetmap.org/13/4237/2812.png\")",
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(curl -sI --max-time 20 -H \"Origin: https://exemple.github.io\" \"https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-57.csv.gz\")",
+      "Bash(curl -sI --max-time 15 -H \"Origin: https://exemple.github.io\" \"https://api-adresse.data.gouv.fr/search/?q=metz&limit=1\")",
+      "Bash(curl -s --max-time 20 -D - -o /dev/null -H \"Origin: https://exemple.github.io\" -H \"Range: bytes=0-100\" \"https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-57.csv.gz\")"
+    ]
+  }
+}

@@ -1,0 +1,130 @@
+// Panneau latéral : liste des tournées avec leurs infos et actions.
+
+import { useEffect, useState } from 'react';
+import { useAppStore } from '../store/useAppStore';
+import type { Tournee } from '../types';
+
+function CarteTournee({ tournee }: { tournee: Tournee }) {
+  const adresses = useAppStore((s) => s.adresses);
+  const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
+  const [nom, setNom] = useState(tournee.nom);
+  const [dispo, setDispo] = useState(tournee.dispoConseillee);
+  useEffect(() => setNom(tournee.nom), [tournee.nom]);
+  useEffect(() => setDispo(tournee.dispoConseillee), [tournee.dispoConseillee]);
+
+  const points = adresses.filter((a) => a.tourneeId === tournee.id);
+  const nbCalendriers = points.reduce((n, a) => n + 1 + a.autresAdresses.length, 0);
+  const selectionnee = selectionTourneeId === tournee.id;
+  const s = useAppStore.getState;
+
+  return (
+    <div
+      className={'tournee-carte' + (selectionnee ? ' selectionnee' : '')}
+      style={{ borderLeftColor: tournee.couleur }}
+      onClick={() => s().selectionnerTournee(tournee.id)}
+    >
+      <div className="tournee-entete">
+        <span className="pastille" style={{ background: tournee.couleur }} />
+        <input
+          className="tournee-nom"
+          value={nom}
+          onChange={(e) => setNom(e.target.value)}
+          onBlur={() => {
+            if (nom.trim() && nom !== tournee.nom) void s().majTournee(tournee.id, { nom: nom.trim() });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+        />
+      </div>
+      <div className="tournee-stats">
+        📍 {points.length} point{points.length > 1 ? 's' : ''} · ≈ {nbCalendriers} calendrier
+        {nbCalendriers > 1 ? 's' : ''}
+      </div>
+      <label className="tournee-champ">
+        Dispo conseillée
+        <input
+          value={dispo}
+          placeholder="ex. 2 équipes, 3 soirées"
+          onChange={(e) => setDispo(e.target.value)}
+          onBlur={() => {
+            if (dispo !== tournee.dispoConseillee) void s().majTournee(tournee.id, { dispoConseillee: dispo });
+          }}
+        />
+      </label>
+      <label className="tournee-champ">
+        Distribués l'an dernier
+        <input
+          type="number"
+          min={0}
+          value={tournee.calendriersAnneeDerniere ?? ''}
+          onChange={(e) =>
+            void s().majTournee(tournee.id, {
+              calendriersAnneeDerniere: e.target.value === '' ? null : Number(e.target.value),
+            })
+          }
+        />
+      </label>
+      <div className="tournee-actions">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            s().selectionnerTournee(tournee.id);
+            s().cadrerSur({ type: 'zone', points: tournee.polygone });
+          }}
+        >
+          🎯 Voir
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            s().selectionnerTournee(tournee.id);
+            s().activerModeAjout(true);
+          }}
+        >
+          ➕ Adresse
+        </button>
+        <button
+          className="danger"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`Supprimer la tournée « ${tournee.nom} » et toutes ses adresses ?`)) {
+              void s().supprimerTournee(tournee.id);
+            }
+          }}
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
+  const tournees = useAppStore((s) => s.tournees);
+  return (
+    <aside className={'panneau' + (ouvert ? ' ouvert' : '')}>
+      <div className="panneau-entete">
+        <h2>Mes tournées</h2>
+        <button className="panneau-fermer" onClick={onFermer} title="Fermer le panneau">
+          ✕
+        </button>
+      </div>
+      <div className="panneau-corps">
+        {tournees.length === 0 ? (
+          <div className="panneau-vide">
+            <p>🗺️ Aucune tournée pour l'instant.</p>
+            <p>
+              Cherchez votre commune dans la barre du haut, puis dessinez la zone d'une tournée avec
+              l'outil <strong>polygone</strong> (en haut à gauche de la carte).
+            </p>
+            <p>Les adresses de la zone apparaîtront automatiquement ✨</p>
+          </div>
+        ) : (
+          tournees.map((t) => <CarteTournee key={t.id} tournee={t} />)
+        )}
+      </div>
+      <div className="panneau-note">Version de démonstration : les données restent sur cet appareil.</div>
+    </aside>
+  );
+}

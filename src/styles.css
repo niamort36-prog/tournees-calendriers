@@ -1,0 +1,522 @@
+/* Thème : bleu marine pompier + rouge, propre et simple. */
+
+:root {
+  --marine: #1d3557;
+  --marine-clair: #2b4a7a;
+  --rouge: #e63946;
+  --fond: #f4f6fa;
+  --carte-blanche: #ffffff;
+  --texte: #22303f;
+  --texte-doux: #64748b;
+  --bordure: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--texte);
+  background: var(--fond);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---------- En-tête ---------- */
+
+.entete {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--marine);
+  color: #fff;
+  position: relative;
+  z-index: 1200;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.titre {
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.titre .sous-titre {
+  display: block;
+  font-size: 11px;
+  color: #bcd0ee;
+  margin-top: 1px;
+}
+
+.btn-panneau {
+  margin-left: auto;
+  background: var(--rouge);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-panneau:hover {
+  filter: brightness(1.1);
+}
+
+/* ---------- Recherche ---------- */
+
+.recherche {
+  position: relative;
+  flex: 1;
+  max-width: 460px;
+}
+
+.recherche input {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  background: var(--marine-clair);
+  color: #fff;
+  outline: none;
+}
+
+.recherche input::placeholder {
+  color: #9db5d8;
+}
+
+.recherche input:focus {
+  background: #fff;
+  color: var(--texte);
+}
+
+.recherche-resultats {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  color: var(--texte);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 3000;
+}
+
+.recherche-resultats li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.recherche-resultats li:hover {
+  background: var(--fond);
+}
+
+/* ---------- Contenu ---------- */
+
+.contenu {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.carte-conteneur {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.carte {
+  position: absolute;
+  inset: 0;
+}
+
+.carte.curseur-vise {
+  cursor: crosshair;
+}
+
+.carte.curseur-vise .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* ---------- Panneau latéral ---------- */
+
+.panneau {
+  display: none;
+  width: 330px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid var(--bordure);
+  flex-direction: column;
+}
+
+.panneau.ouvert {
+  display: flex;
+}
+
+.panneau-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.panneau-entete h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.panneau-fermer {
+  border: none;
+  background: none;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--texte-doux);
+}
+
+.panneau-corps {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.panneau-vide {
+  color: var(--texte-doux);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 8px;
+}
+
+.panneau-note {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--texte-doux);
+  border-top: 1px solid var(--bordure);
+}
+
+/* ---------- Carte de tournée ---------- */
+
+.tournee-carte {
+  background: var(--carte-blanche);
+  border: 1px solid var(--bordure);
+  border-left: 5px solid var(--rouge);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.tournee-carte:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.tournee-carte.selectionnee {
+  box-shadow: 0 3px 12px rgba(29, 53, 87, 0.18);
+  background: #fbfdff;
+}
+
+.tournee-entete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pastille {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tournee-nom {
+  flex: 1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--texte);
+}
+
+.tournee-nom:hover,
+.tournee-nom:focus {
+  border-color: var(--bordure);
+  background: #fff;
+  outline: none;
+}
+
+.tournee-stats {
+  font-size: 13px;
+  color: var(--texte-doux);
+  margin: 6px 0;
+}
+
+.tournee-champ {
+  display: block;
+  font-size: 12px;
+  color: var(--texte-doux);
+  margin: 6px 0;
+}
+
+.tournee-champ input {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--texte);
+}
+
+.tournee-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tournee-actions button {
+  border: 1px solid var(--bordure);
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tournee-actions button:hover {
+  background: var(--fond);
+}
+
+.tournee-actions button.danger {
+  margin-left: auto;
+  color: var(--rouge);
+}
+
+/* ---------- Superpositions carte ---------- */
+
+.bandeau-mode {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--marine);
+  color: #fff;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1100;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  max-width: 92%;
+}
+
+.bandeau-mode button {
+  background: var(--rouge);
+  border: none;
+  color: #fff;
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.voile-chargement {
+  position: absolute;
+  inset: 0;
+  background: rgba(29, 53, 87, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1150;
+}
+
+.carte-chargement {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 28px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  min-width: 280px;
+  max-width: 90%;
+}
+
+.chargement-message {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  border: 4px solid var(--bordure);
+  border-top-color: var(--rouge);
+  border-radius: 50%;
+  animation: tourne 0.9s linear infinite;
+}
+
+@keyframes tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.barre {
+  margin-top: 12px;
+  height: 8px;
+  background: var(--bordure);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.barre-remplie {
+  height: 100%;
+  background: var(--rouge);
+  transition: width 0.2s;
+}
+
+.toast-erreur {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7f1d1d;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1100;
+  max-width: 92%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.toast-erreur button {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ---------- Popup adresse ---------- */
+
+.popup-adresse {
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.popup-titre {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.popup-sous-titre {
+  color: var(--texte-doux);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.popup-groupe {
+  background: #eef4ff;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.popup-statut {
+  font-size: 12px;
+  color: var(--texte-doux);
+  margin-bottom: 8px;
+}
+
+.popup-actions,
+.popup-renommer {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.popup-actions button,
+.popup-renommer button {
+  border: 1px solid var(--bordure);
+  background: #fff;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.popup-actions button:hover {
+  background: var(--fond);
+}
+
+.popup-actions button.danger {
+  color: var(--rouge);
+}
+
+.popup-renommer input {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 720px) {
+  .entete {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .titre {
+    font-size: 16px;
+  }
+
+  .recherche {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .panneau {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(330px, 88vw);
+    z-index: 1300;
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.25);
+  }
+}
