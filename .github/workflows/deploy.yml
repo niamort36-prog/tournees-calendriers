@@ -35,7 +35,7 @@ jobs:
       - name: Adresses BAN des départements embarqués
         run: |
           mkdir -p dist/ban-data
-          for dept in 57; do
+          for dept in 87; do
             curl -fsSL "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-${dept}.csv.gz" \
               -o "dist/ban-data/adresses-${dept}.csv.gz"
           done
