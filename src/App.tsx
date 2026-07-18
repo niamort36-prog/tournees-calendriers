@@ -5,6 +5,7 @@ import SearchBar from './components/SearchBar';
 import Login from './components/Login';
 import Equipe from './components/Equipe';
 import CampagneFenetre from './components/Campagne';
+import EquipesTournees from './components/EquipesTournees';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 
@@ -12,7 +13,9 @@ export default function App() {
   const [panneauOuvert, setPanneauOuvert] = useState(true);
   const [equipeOuverte, setEquipeOuverte] = useState(false);
   const [campagneOuverte, setCampagneOuverte] = useState(false);
+  const [equipesOuvertes, setEquipesOuvertes] = useState(false);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
+  const notification = useAppStore((s) => s.notification);
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -56,9 +59,12 @@ export default function App() {
         <button className="btn-equipe" onClick={() => setCampagneOuverte(true)}>
           📅 {campagneActive ? campagneActive.nom : 'Campagne'}
         </button>
+        <button className="btn-equipe" onClick={() => setEquipesOuvertes(true)}>
+          🚒 Équipes
+        </button>
         {profil?.role === 'admin' && (
           <button className="btn-equipe" onClick={() => setEquipeOuverte(true)}>
-            👥 Équipe
+            👥 Membres
           </button>
         )}
         {profil && (
@@ -80,6 +86,7 @@ export default function App() {
       </header>
       {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
       {campagneOuverte && <CampagneFenetre onFermer={() => setCampagneOuverte(false)} />}
+      {equipesOuvertes && <EquipesTournees onFermer={() => setEquipesOuvertes(false)} />}
       <div className="contenu">
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">
@@ -109,6 +116,12 @@ export default function App() {
             <div className="toast-erreur">
               <span>⚠️ {erreur}</span>
               <button onClick={() => useAppStore.getState().fermerErreur()}>✕</button>
+            </div>
+          )}
+          {notification && (
+            <div className="toast-notification">
+              <span>{notification}</span>
+              <button onClick={() => useAppStore.getState().fermerNotification()}>✕</button>
             </div>
           )}
         </main>

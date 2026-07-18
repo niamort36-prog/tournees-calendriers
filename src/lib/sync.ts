@@ -6,7 +6,7 @@
 
 import { supabase } from './supabase';
 import { db, type EnAttente } from '../store/db';
-import type { AdressePoint, Campagne, StatutAdresse, Tournee } from '../types';
+import type { AdressePoint, Campagne, Equipe, StatutAdresse, Tournee } from '../types';
 
 // ---------- correspondance application <-> colonnes SQL ----------
 
@@ -64,6 +64,28 @@ function ligneVersCampagne(l: Record<string, unknown>): Campagne {
   };
 }
 
+function equipeVersLigne(e: Equipe) {
+  return {
+    id: e.id,
+    nom: e.nom,
+    membres: e.membres,
+    tournee_id: e.tourneeId,
+    cree_le: e.creeLe,
+    modifie_le: e.modifieLe,
+  };
+}
+
+function ligneVersEquipe(l: Record<string, unknown>): Equipe {
+  return {
+    id: l.id as string,
+    nom: (l.nom as string) ?? '',
+    membres: (l.membres as string[]) ?? [],
+    tourneeId: (l.tournee_id as string | null) ?? null,
+    creeLe: l.cree_le as string,
+    modifieLe: l.modifie_le as string,
+  };
+}
+
 function adresseVersLigne(a: AdressePoint) {
   return {
     id: a.id,
@@ -115,6 +137,8 @@ type Operation =
   | { table: 'tournees'; op: 'delete'; id: string }
   | { table: 'campagnes'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'campagnes'; op: 'delete'; id: string }
+  | { table: 'equipes'; op: 'upsert'; donnees: Record<string, unknown> }
+  | { table: 'equipes'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'upsert'; donnees: Record<string, unknown> | Record<string, unknown>[] }
   | { table: 'adresses'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'remplacer'; tourneeId: string; donnees: Record<string, unknown>[] };
@@ -166,6 +190,9 @@ export const syncTournee = (t: Tournee) =>
 export const syncSupprimerTournee = (id: string) => pousser({ table: 'tournees', op: 'delete', id });
 export const syncCampagne = (c: Campagne) =>
   pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
+export const syncEquipe = (e: Equipe) =>
+  pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
+export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });
 export const syncAdresse = (a: AdressePoint) =>
   pousser({ table: 'adresses', op: 'upsert', donnees: adresseVersLigne(a) });
 export const syncAdresses = (liste: AdressePoint[]) =>
@@ -178,7 +205,9 @@ export const syncRemplacerAdresses = (tourneeId: string, liste: AdressePoint[]) 
 
 // ---------- lecture complète (avec pagination PostgREST) ----------
 
-async function chargerTable(table: 'tournees' | 'adresses' | 'campagnes'): Promise<Record<string, unknown>[]> {
+async function chargerTable(
+  table: 'tournees' | 'adresses' | 'campagnes' | 'equipes',
+): Promise<Record<string, unknown>[]> {
   if (!supabase) return [];
   const lignes: Record<string, unknown>[] = [];
   const parPage = 1000;
@@ -197,6 +226,7 @@ export interface ResultatFusion {
   tournees: Tournee[];
   adresses: AdressePoint[];
   campagnes: Campagne[];
+  equipes: Equipe[];
 }
 
 /**
@@ -208,15 +238,18 @@ export async function tirerEtFusionner(
   tourneesLocales: Tournee[],
   adressesLocales: AdressePoint[],
   campagnesLocales: Campagne[],
+  equipesLocales: Equipe[],
 ): Promise<ResultatFusion> {
-  const [lignesT, lignesA, lignesC] = await Promise.all([
+  const [lignesT, lignesA, lignesC, lignesE] = await Promise.all([
     chargerTable('tournees'),
     chargerTable('adresses'),
     chargerTable('campagnes'),
+    chargerTable('equipes'),
   ]);
   const distantesT = lignesT.map(ligneVersTournee);
   const distantesA = lignesA.map(ligneVersAdresse);
   const distantesC = lignesC.map(ligneVersCampagne);
+  const distantesE = lignesE.map(ligneVersEquipe);
 
   const resultatT = new Map<string, Tournee>(distantesT.map((t) => [t.id, t]));
   const aPousserT: Tournee[] = [];
@@ -248,14 +281,29 @@ export async function tirerEtFusionner(
     }
   }
 
-  // pousse d'abord les tournées (les adresses y font référence)
+  const resultatE = new Map<string, Equipe>(distantesE.map((e) => [e.id, e]));
+  const aPousserE: Equipe[] = [];
+  for (const locale of equipesLocales) {
+    const distante = resultatE.get(locale.id);
+    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+      resultatE.set(locale.id, locale);
+      aPousserE.push(locale);
+    }
+  }
+
+  // pousse d'abord les tournées (adresses et équipes y font référence)
   for (const t of aPousserT) await syncTournee(t);
   await syncAdresses(aPousserA);
   for (const c of aPousserC) await syncCampagne(c);
+  for (const e of aPousserE) await syncEquipe(e);
 
-  // ne garde que les adresses dont la tournée existe encore
+  // ne garde que les adresses dont la tournée existe encore ; une équipe dont
+  // la tournée a disparu redevient « sans tournée »
   const adresses = [...resultatA.values()].filter((a) => resultatT.has(a.tourneeId));
-  return { tournees: [...resultatT.values()], adresses, campagnes: [...resultatC.values()] };
+  const equipes = [...resultatE.values()].map((e) =>
+    e.tourneeId && !resultatT.has(e.tourneeId) ? { ...e, tourneeId: null } : e,
+  );
+  return { tournees: [...resultatT.values()], adresses, campagnes: [...resultatC.values()], equipes };
 }
 
 // ---------- temps réel ----------
@@ -266,7 +314,9 @@ export type Changement =
   | { table: 'adresses'; type: 'upsert'; adresse: AdressePoint }
   | { table: 'adresses'; type: 'delete'; id: string }
   | { table: 'campagnes'; type: 'upsert'; campagne: Campagne }
-  | { table: 'campagnes'; type: 'delete'; id: string };
+  | { table: 'campagnes'; type: 'delete'; id: string }
+  | { table: 'equipes'; type: 'upsert'; equipe: Equipe }
+  | { table: 'equipes'; type: 'delete'; id: string };
 
 /** S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt. */
 export function abonnerTempsReel(onChangement: (c: Changement) => void): () => void {
@@ -296,6 +346,14 @@ export function abonnerTempsReel(onChangement: (c: Changement) => void): () => v
         if (id) onChangement({ table: 'campagnes', type: 'delete', id });
       } else {
         onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new as Record<string, unknown>) });
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipes' }, (p) => {
+      if (p.eventType === 'DELETE') {
+        const id = (p.old as { id?: string }).id;
+        if (id) onChangement({ table: 'equipes', type: 'delete', id });
+      } else {
+        onChangement({ table: 'equipes', type: 'upsert', equipe: ligneVersEquipe(p.new as Record<string, unknown>) });
       }
     })
     .subscribe();

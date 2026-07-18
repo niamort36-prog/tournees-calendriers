@@ -37,6 +37,17 @@ export interface Campagne {
   modifieLe: string;
 }
 
+export interface Equipe {
+  id: string;
+  nom: string;
+  /** Ids des profils membres de l'équipe. */
+  membres: string[];
+  /** Tournée attribuée (null si pas encore affectée). */
+  tourneeId: string | null;
+  creeLe: string;
+  modifieLe: string;
+}
+
 export interface Tournee {
   id: string;
   nom: string;

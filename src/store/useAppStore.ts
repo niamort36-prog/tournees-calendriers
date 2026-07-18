@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
-import type { AdressePoint, Campagne, Profil, Tournee } from '../types';
+import type { AdressePoint, Campagne, Equipe, Profil, Tournee } from '../types';
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
 import { supabase, supabaseActif } from '../lib/supabase';
 import {
@@ -13,6 +13,8 @@ import {
   syncAdresse,
   syncAdresses,
   syncCampagne,
+  syncEquipe,
+  syncSupprimerEquipe,
   syncRemplacerAdresses,
   syncSupprimerAdresse,
   syncSupprimerTournee,
@@ -74,6 +76,10 @@ interface EtatApp {
   tournees: Tournee[];
   adresses: AdressePoint[];
   campagnes: Campagne[];
+  equipes: Equipe[];
+  /** Tous les profils (pour composer les équipes et afficher les noms). */
+  annuaire: Profil[];
+  notification: string | null;
   selectionTourneeId: string | null;
   modeAjout: boolean;
   deplacementAdresseId: string | null;
@@ -97,6 +103,12 @@ interface EtatApp {
   creerCampagne: (nom: string) => Promise<void>;
   majCampagne: (id: string, patch: Partial<Campagne>) => Promise<void>;
   archiverCampagne: (id: string) => Promise<void>;
+
+  creerEquipe: (nom: string) => Promise<void>;
+  majEquipe: (id: string, patch: Partial<Equipe>) => Promise<void>;
+  supprimerEquipe: (id: string) => Promise<void>;
+  rafraichirAnnuaire: () => Promise<void>;
+  fermerNotification: () => void;
 
   creerTourneeDepuisPolygone: (poly: LatLng[]) => Promise<void>;
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
@@ -128,9 +140,43 @@ export const useAppStore = create<EtatApp>((set, get) => {
     const tournees = new Map(get().tournees.map((t) => [t.id, t]));
     const adresses = new Map(get().adresses.map((a) => [a.id, a]));
     const campagnes = new Map(get().campagnes.map((c) => [c.id, c]));
+    const equipes = new Map(get().equipes.map((e) => [e.id, e]));
+    const monId = get().profil?.id ?? null;
+    let notification: string | null = null;
     let change = false;
     for (const c of lots) {
-      if (c.table === 'campagnes') {
+      if (c.table === 'equipes') {
+        if (c.type === 'delete') {
+          const avant = equipes.get(c.id);
+          if (equipes.delete(c.id)) {
+            change = true;
+            await db.equipes.delete(c.id);
+            if (monId && avant?.membres.includes(monId)) {
+              notification = `📣 L'équipe « ${avant.nom} » a été dissoute.`;
+            }
+          }
+        } else {
+          const locale = equipes.get(c.equipe.id);
+          if (!locale || plusRecent(c.equipe.modifieLe, locale.modifieLe)) {
+            // notification si mon affectation change (fait par un autre appareil)
+            if (monId) {
+              const avantDedans = locale?.membres.includes(monId) ?? false;
+              const apresDedans = c.equipe.membres.includes(monId);
+              if (apresDedans && (!avantDedans || locale?.tourneeId !== c.equipe.tourneeId)) {
+                const t = c.equipe.tourneeId ? tournees.get(c.equipe.tourneeId) : null;
+                notification =
+                  `📣 Équipe « ${c.equipe.nom} »` +
+                  (t ? ` : tu es affecté(e) à la tournée « ${t.nom} »` : " : tu fais partie de l'équipe");
+              } else if (!apresDedans && avantDedans) {
+                notification = `📣 Tu ne fais plus partie de l'équipe « ${c.equipe.nom} ».`;
+              }
+            }
+            equipes.set(c.equipe.id, c.equipe);
+            await db.equipes.put(c.equipe);
+            change = true;
+          }
+        }
+      } else if (c.table === 'campagnes') {
         if (c.type === 'delete') {
           if (campagnes.delete(c.id)) {
             change = true;
@@ -181,6 +227,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
         tournees: [...tournees.values()],
         adresses: [...adresses.values()],
         campagnes: [...campagnes.values()],
+        equipes: [...equipes.values()],
+        ...(notification ? { notification } : {}),
       });
     }
   };
@@ -193,16 +241,23 @@ export const useAppStore = create<EtatApp>((set, get) => {
   // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
   const resynchroniser = async () => {
     await viderFileAttente();
-    const fusion = await tirerEtFusionner(get().tournees, get().adresses, get().campagnes);
-    await db.transaction('rw', db.tournees, db.adresses, db.campagnes, async () => {
+    const fusion = await tirerEtFusionner(get().tournees, get().adresses, get().campagnes, get().equipes);
+    await db.transaction('rw', db.tournees, db.adresses, db.campagnes, db.equipes, async () => {
       await db.tournees.clear();
       await db.tournees.bulkPut(fusion.tournees);
       await db.adresses.clear();
       await db.adresses.bulkPut(fusion.adresses);
       await db.campagnes.clear();
       await db.campagnes.bulkPut(fusion.campagnes);
+      await db.equipes.clear();
+      await db.equipes.bulkPut(fusion.equipes);
     });
-    set({ tournees: fusion.tournees, adresses: fusion.adresses, campagnes: fusion.campagnes });
+    set({
+      tournees: fusion.tournees,
+      adresses: fusion.adresses,
+      campagnes: fusion.campagnes,
+      equipes: fusion.equipes,
+    });
   };
 
   // ----- après connexion : profil, rattrapage, fusion, temps réel -----
@@ -212,6 +267,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
     try {
       const { data } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
       if (data) set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
+      const annuaire = await supabase.from('profils').select('id, nom, role, centre').order('nom');
+      if (annuaire.data) set({ annuaire: annuaire.data as Profil[] });
       onEtat('Synchronisation des tournées…', null);
       await resynchroniser();
       set({ chargement: CHARGEMENT_INACTIF });
@@ -232,6 +289,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
     tournees: [],
     adresses: [],
     campagnes: [],
+    equipes: [],
+    annuaire: [],
+    notification: null,
     selectionTourneeId: null,
     modeAjout: false,
     deplacementAdresseId: null,
@@ -240,12 +300,13 @@ export const useAppStore = create<EtatApp>((set, get) => {
     cadrage: null,
 
     init: async () => {
-      const [tournees, adresses, campagnes] = await Promise.all([
+      const [tournees, adresses, campagnes, equipes] = await Promise.all([
         db.tournees.toArray(),
         db.adresses.toArray(),
         db.campagnes.toArray(),
+        db.equipes.toArray(),
       ]);
-      set({ tournees, adresses, campagnes });
+      set({ tournees, adresses, campagnes, equipes });
       if (!supabaseActif || !supabase) {
         set({ pret: true });
         return;
@@ -342,6 +403,45 @@ export const useAppStore = create<EtatApp>((set, get) => {
         });
       }
     },
+
+    creerEquipe: async (nom) => {
+      if (!nom.trim()) return;
+      const maintenant = new Date().toISOString();
+      const equipe: Equipe = {
+        id: crypto.randomUUID(),
+        nom: nom.trim(),
+        membres: [],
+        tourneeId: null,
+        creeLe: maintenant,
+        modifieLe: maintenant,
+      };
+      await db.equipes.put(equipe);
+      set((s) => ({ equipes: [...s.equipes, equipe] }));
+      await syncEquipe(equipe);
+    },
+
+    majEquipe: async (id, patch) => {
+      const equipe = get().equipes.find((e) => e.id === id);
+      if (!equipe) return;
+      const maj = { ...equipe, ...patch, modifieLe: new Date().toISOString() };
+      await db.equipes.put(maj);
+      set((s) => ({ equipes: s.equipes.map((e) => (e.id === id ? maj : e)) }));
+      await syncEquipe(maj);
+    },
+
+    supprimerEquipe: async (id) => {
+      await db.equipes.delete(id);
+      set((s) => ({ equipes: s.equipes.filter((e) => e.id !== id) }));
+      await syncSupprimerEquipe(id);
+    },
+
+    rafraichirAnnuaire: async () => {
+      if (!supabase || !get().session) return;
+      const { data } = await supabase.from('profils').select('id, nom, role, centre').order('nom');
+      if (data) set({ annuaire: data as Profil[] });
+    },
+
+    fermerNotification: () => set({ notification: null }),
 
     creerTourneeDepuisPolygone: async (poly) => {
       try {

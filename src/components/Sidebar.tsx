@@ -8,6 +8,9 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
   const adresses = useAppStore((s) => s.adresses);
   const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
+  const equipes = useAppStore((s) => s.equipes);
+  const annuaire = useAppStore((s) => s.annuaire);
+  const profil = useAppStore((s) => s.profil);
   const [nom, setNom] = useState(tournee.nom);
   const [dispo, setDispo] = useState(tournee.dispoConseillee);
   useEffect(() => setNom(tournee.nom), [tournee.nom]);
@@ -23,6 +26,9 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
   const taille = campagneActive?.taillePaquet ?? null;
   const paquets = taille && base > 0 ? Math.ceil(base / taille) : null;
 
+  const equipesIci = equipes.filter((e) => e.tourneeId === tournee.id);
+  const maTournee = profil !== null && equipesIci.some((e) => e.membres.includes(profil.id));
+
   return (
     <div
       className={'tournee-carte' + (selectionnee ? ' selectionnee' : '')}
@@ -31,6 +37,7 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
     >
       <div className="tournee-entete">
         <span className="pastille" style={{ background: tournee.couleur }} />
+        {maTournee && <span className="badge-ma-tournee">⭐</span>}
         <input
           className="tournee-nom"
           value={nom}
@@ -53,6 +60,18 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
           {paquets * taille} calendriers
         </div>
       )}
+      {equipesIci.map((e) => {
+        const noms = e.membres
+          .map((id) => annuaire.find((p) => p.id === id)?.nom)
+          .filter(Boolean)
+          .join(', ');
+        return (
+          <div key={e.id} className="tournee-equipe">
+            🧑‍🚒 <strong>{e.nom}</strong>
+            {noms ? ` — ${noms}` : ''}
+          </div>
+        );
+      })}
       <label className="tournee-champ">
         Dispo conseillée
         <input

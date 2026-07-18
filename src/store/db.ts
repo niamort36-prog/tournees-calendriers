@@ -3,7 +3,7 @@
 // file d'attente de synchronisation quand Supabase sera branché.
 
 import Dexie, { type Table } from 'dexie';
-import type { Tournee, AdressePoint, BanAdresseBrute, Campagne } from '../types';
+import type { Tournee, AdressePoint, BanAdresseBrute, Campagne, Equipe } from '../types';
 import type { Bbox } from '../lib/geo';
 
 export interface BanDepartementCache {
@@ -36,6 +36,7 @@ class BaseLocale extends Dexie {
   tournees!: Table<Tournee, string>;
   adresses!: Table<AdressePoint, string>;
   campagnes!: Table<Campagne, string>;
+  equipes!: Table<Equipe, string>;
   banDepartements!: Table<BanDepartementCache, string>;
   banCommunes!: Table<BanCommuneMeta, string>;
   banAdressesCommunes!: Table<BanCommuneAdresses, string>;
@@ -55,6 +56,9 @@ class BaseLocale extends Dexie {
     });
     this.version(3).stores({
       campagnes: 'id',
+    });
+    this.version(4).stores({
+      equipes: 'id',
     });
   }
 }

@@ -1003,6 +1003,155 @@ body {
   color: var(--texte-doux);
 }
 
+/* ---------- Équipes de tournée ---------- */
+
+.badge-ma-tournee {
+  font-size: 14px;
+}
+
+.tournee-equipe {
+  background: #eef4ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  margin: 6px 0;
+  color: #1e3a5f;
+}
+
+.equipe-creation {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.equipe-creation input {
+  flex: 1;
+  padding: 9px 11px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.equipe-creation button {
+  background: var(--rouge);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.equipe-tournee-carte {
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.equipe-tournee-entete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.equipe-icone {
+  font-size: 18px;
+}
+
+.equipe-tournee-entete select {
+  padding: 7px 9px;
+  border: 1px solid var(--bordure);
+  border-radius: 7px;
+  font-size: 12.5px;
+  background: #fff;
+  max-width: 220px;
+}
+
+.equipe-tournee-entete button.danger {
+  border: 1px solid var(--bordure);
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 9px;
+  cursor: pointer;
+  color: var(--rouge);
+}
+
+.equipe-membres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.equipe-vide-note {
+  font-size: 12px;
+  color: var(--texte-doux);
+}
+
+.membre-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fond);
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+
+.membre-chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--texte-doux);
+  font-size: 11px;
+  padding: 0;
+}
+
+.membre-chip button:hover {
+  color: var(--rouge);
+}
+
+.membre-ajout {
+  padding: 6px 9px;
+  border: 1px dashed var(--bordure);
+  border-radius: 999px;
+  font-size: 12.5px;
+  background: #fff;
+  color: var(--texte-doux);
+}
+
+.toast-notification {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #14532d;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1101;
+  max-width: 92%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.toast-notification button {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {
