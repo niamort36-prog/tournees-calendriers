@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Tournee } from '../types';
+import DecompteFenetre from './DecompteFenetre';
+import { formatEuros, totalDecompte, trouverDecompte, type Tournee } from '../types';
 
-function CarteTournee({ tournee }: { tournee: Tournee }) {
+function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: () => void }) {
   const adresses = useAppStore((s) => s.adresses);
   const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
@@ -28,6 +29,9 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
 
   const equipesIci = equipes.filter((e) => e.tourneeId === tournee.id);
   const maTournee = profil !== null && equipesIci.some((e) => e.membres.includes(profil.id));
+
+  const decomptes = useAppStore((st) => st.decomptes);
+  const decompteIci = trouverDecompte(decomptes, tournee.id, campagneActive?.id ?? null);
 
   return (
     <div
@@ -72,6 +76,12 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
           </div>
         );
       })}
+      {decompteIci?.termine && (
+        <div className="tournee-decompte">
+          💶 <strong>{formatEuros(totalDecompte(decompteIci).total)}</strong> · Reçu n°
+          {decompteIci.numeroRecu}
+        </div>
+      )}
       <label className="tournee-champ">
         Dispo conseillée
         <input
@@ -116,6 +126,15 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
           ➕ Adresse
         </button>
         <button
+          title="Fin de tournée / décompte"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDecompte();
+          }}
+        >
+          {decompteIci?.termine ? '💶' : '🏁'}
+        </button>
+        <button
           className="danger"
           onClick={(e) => {
             e.stopPropagation();
@@ -133,6 +152,7 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
 
 export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
   const tournees = useAppStore((s) => s.tournees);
+  const [decompteTourneeId, setDecompteTourneeId] = useState<string | null>(null);
   return (
     <aside className={'panneau' + (ouvert ? ' ouvert' : '')}>
       <div className="panneau-entete">
@@ -152,10 +172,15 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
             <p>Les adresses de la zone apparaîtront automatiquement ✨</p>
           </div>
         ) : (
-          tournees.map((t) => <CarteTournee key={t.id} tournee={t} />)
+          tournees.map((t) => (
+            <CarteTournee key={t.id} tournee={t} onDecompte={() => setDecompteTourneeId(t.id)} />
+          ))
         )}
       </div>
-      <div className="panneau-note">Version de démonstration : les données restent sur cet appareil.</div>
+      <div className="panneau-note">Données partagées : chaque modification est enregistrée et synchronisée.</div>
+      {decompteTourneeId && (
+        <DecompteFenetre tourneeId={decompteTourneeId} onFermer={() => setDecompteTourneeId(null)} />
+      )}
     </aside>
   );
 }

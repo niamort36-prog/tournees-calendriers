@@ -5,7 +5,11 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
-import type { AdressePoint, Campagne, Equipe, Profil, Tournee } from '../types';
+import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '../types';
+import { formatEuros, totalDecompte, trouverDecompte } from '../types';
+
+// verrou anti-doublon : une seule création de décompte à la fois par tournée
+const decomptesEnCreation = new Map<string, Promise<string>>();
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
 import { supabase, supabaseActif } from '../lib/supabase';
 import {
@@ -13,6 +17,7 @@ import {
   syncAdresse,
   syncAdresses,
   syncCampagne,
+  syncDecompte,
   syncEquipe,
   syncSupprimerEquipe,
   syncRemplacerAdresses,
@@ -77,6 +82,7 @@ interface EtatApp {
   adresses: AdressePoint[];
   campagnes: Campagne[];
   equipes: Equipe[];
+  decomptes: Decompte[];
   /** Tous les profils (pour composer les équipes et afficher les noms). */
   annuaire: Profil[];
   notification: string | null;
@@ -109,6 +115,12 @@ interface EtatApp {
   creerCampagne: (nom: string) => Promise<void>;
   majCampagne: (id: string, patch: Partial<Campagne>) => Promise<void>;
   archiverCampagne: (id: string) => Promise<void>;
+
+  /** Trouve (ou crée) le décompte de la tournée pour la campagne en cours. */
+  obtenirOuCreerDecompte: (tourneeId: string) => Promise<string>;
+  majDecompte: (id: string, patch: Partial<Decompte>) => Promise<void>;
+  validerFinTournee: (id: string) => Promise<void>;
+  rouvrirDecompte: (id: string) => Promise<void>;
 
   creerEquipe: (nom: string) => Promise<void>;
   majEquipe: (id: string, patch: Partial<Equipe>) => Promise<void>;
@@ -155,11 +167,31 @@ export const useAppStore = create<EtatApp>((set, get) => {
     const adresses = new Map(get().adresses.map((a) => [a.id, a]));
     const campagnes = new Map(get().campagnes.map((c) => [c.id, c]));
     const equipes = new Map(get().equipes.map((e) => [e.id, e]));
+    const decomptes = new Map(get().decomptes.map((d) => [d.id, d]));
     const monId = get().profil?.id ?? null;
     let notification: string | null = null;
     let change = false;
     for (const c of lots) {
-      if (c.table === 'equipes') {
+      if (c.table === 'decomptes') {
+        if (c.type === 'delete') {
+          if (decomptes.delete(c.id)) {
+            change = true;
+            await db.decomptes.delete(c.id);
+          }
+        } else {
+          const local = decomptes.get(c.decompte.id);
+          if (!local || plusRecent(c.decompte.modifieLe, local.modifieLe)) {
+            // prévient les admins quand une tournée vient d'être terminée ailleurs
+            if (c.decompte.termine && !local?.termine && get().profil?.role === 'admin') {
+              const t = tournees.get(c.decompte.tourneeId);
+              notification = `🏁 Tournée « ${t?.nom ?? '?'} » terminée — total ${formatEuros(totalDecompte(c.decompte).total)}`;
+            }
+            decomptes.set(c.decompte.id, c.decompte);
+            await db.decomptes.put(c.decompte);
+            change = true;
+          }
+        }
+      } else if (c.table === 'equipes') {
         if (c.type === 'delete') {
           const avant = equipes.get(c.id);
           if (equipes.delete(c.id)) {
@@ -242,6 +274,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         adresses: [...adresses.values()],
         campagnes: [...campagnes.values()],
         equipes: [...equipes.values()],
+        decomptes: [...decomptes.values()],
         ...(notification ? { notification } : {}),
       });
     }
@@ -255,22 +288,35 @@ export const useAppStore = create<EtatApp>((set, get) => {
   // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
   const resynchroniser = async () => {
     await viderFileAttente();
-    const fusion = await tirerEtFusionner(get().tournees, get().adresses, get().campagnes, get().equipes);
-    await db.transaction('rw', db.tournees, db.adresses, db.campagnes, db.equipes, async () => {
-      await db.tournees.clear();
-      await db.tournees.bulkPut(fusion.tournees);
-      await db.adresses.clear();
-      await db.adresses.bulkPut(fusion.adresses);
-      await db.campagnes.clear();
-      await db.campagnes.bulkPut(fusion.campagnes);
-      await db.equipes.clear();
-      await db.equipes.bulkPut(fusion.equipes);
-    });
+    const fusion = await tirerEtFusionner(
+      get().tournees,
+      get().adresses,
+      get().campagnes,
+      get().equipes,
+      get().decomptes,
+    );
+    await db.transaction(
+      'rw',
+      [db.tournees, db.adresses, db.campagnes, db.equipes, db.decomptes],
+      async () => {
+        await db.tournees.clear();
+        await db.tournees.bulkPut(fusion.tournees);
+        await db.adresses.clear();
+        await db.adresses.bulkPut(fusion.adresses);
+        await db.campagnes.clear();
+        await db.campagnes.bulkPut(fusion.campagnes);
+        await db.equipes.clear();
+        await db.equipes.bulkPut(fusion.equipes);
+        await db.decomptes.clear();
+        await db.decomptes.bulkPut(fusion.decomptes);
+      },
+    );
     set({
       tournees: fusion.tournees,
       adresses: fusion.adresses,
       campagnes: fusion.campagnes,
       equipes: fusion.equipes,
+      decomptes: fusion.decomptes,
     });
   };
 
@@ -304,6 +350,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     adresses: [],
     campagnes: [],
     equipes: [],
+    decomptes: [],
     annuaire: [],
     notification: null,
     selectionTourneeId: null,
@@ -319,13 +366,14 @@ export const useAppStore = create<EtatApp>((set, get) => {
     cadrage: null,
 
     init: async () => {
-      const [tournees, adresses, campagnes, equipes] = await Promise.all([
+      const [tournees, adresses, campagnes, equipes, decomptes] = await Promise.all([
         db.tournees.toArray(),
         db.adresses.toArray(),
         db.campagnes.toArray(),
         db.equipes.toArray(),
+        db.decomptes.toArray(),
       ]);
-      set({ tournees, adresses, campagnes, equipes });
+      set({ tournees, adresses, campagnes, equipes, decomptes });
       if (!supabaseActif || !supabase) {
         set({ pret: true });
         return;
@@ -421,6 +469,74 @@ export const useAppStore = create<EtatApp>((set, get) => {
           erreur: 'Campagne archivée, mais la resynchronisation a échoué : rechargez la page.',
         });
       }
+    },
+
+    obtenirOuCreerDecompte: async (tourneeId) => {
+      const campagneId = get().campagnes.find((c) => c.statut === 'active')?.id ?? null;
+      const existant = trouverDecompte(get().decomptes, tourneeId, campagneId);
+      if (existant) return existant.id;
+      const cle = `${tourneeId}|${campagneId ?? ''}`;
+      const enCours = decomptesEnCreation.get(cle);
+      if (enCours) return enCours;
+      const creation = (async () => {
+        const maintenant = new Date().toISOString();
+        // participants pré-remplis avec les membres des équipes de la tournée
+        const participants = [
+          ...new Set(
+            get()
+              .equipes.filter((e) => e.tourneeId === tourneeId)
+              .flatMap((e) => e.membres),
+          ),
+        ];
+        const decompte: Decompte = {
+          id: crypto.randomUUID(),
+          tourneeId,
+          campagneId,
+          participants,
+          seances: [],
+          especes: {},
+          cheques: [],
+          cb: null,
+          calendriersDistribues: null,
+          termine: false,
+          termineLe: null,
+          numeroRecu: null,
+          creeLe: maintenant,
+          modifieLe: maintenant,
+        };
+        await db.decomptes.put(decompte);
+        set((s) => ({ decomptes: [...s.decomptes, decompte] }));
+        await syncDecompte(decompte);
+        return decompte.id;
+      })().finally(() => decomptesEnCreation.delete(cle));
+      decomptesEnCreation.set(cle, creation);
+      return creation;
+    },
+
+    majDecompte: async (id, patch) => {
+      const decompte = get().decomptes.find((d) => d.id === id);
+      if (!decompte) return;
+      const maj = { ...decompte, ...patch, modifieLe: new Date().toISOString() };
+      await db.decomptes.put(maj);
+      set((s) => ({ decomptes: s.decomptes.map((d) => (d.id === id ? maj : d)) }));
+      await syncDecompte(maj);
+    },
+
+    validerFinTournee: async (id) => {
+      const decompte = get().decomptes.find((d) => d.id === id);
+      if (!decompte) return;
+      const numero =
+        decompte.numeroRecu ??
+        Math.max(0, ...get().decomptes.map((d) => d.numeroRecu ?? 0)) + 1;
+      await get().majDecompte(id, {
+        termine: true,
+        termineLe: new Date().toISOString(),
+        numeroRecu: numero,
+      });
+    },
+
+    rouvrirDecompte: async (id) => {
+      await get().majDecompte(id, { termine: false });
     },
 
     creerEquipe: async (nom) => {
@@ -582,13 +698,15 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     supprimerTournee: async (id) => {
-      await db.transaction('rw', db.tournees, db.adresses, async () => {
+      await db.transaction('rw', [db.tournees, db.adresses, db.decomptes], async () => {
         await db.tournees.delete(id);
         await db.adresses.where('tourneeId').equals(id).delete();
+        await db.decomptes.where('tourneeId').equals(id).delete();
       });
       set((s) => ({
         tournees: s.tournees.filter((t) => t.id !== id),
         adresses: s.adresses.filter((a) => a.tourneeId !== id),
+        decomptes: s.decomptes.filter((d) => d.tourneeId !== id),
         selectionTourneeId: s.selectionTourneeId === id ? null : s.selectionTourneeId,
       }));
       await syncSupprimerTournee(id);
