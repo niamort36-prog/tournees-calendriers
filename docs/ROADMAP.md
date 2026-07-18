@@ -30,9 +30,13 @@
 - [ ] Réinitialisation de mot de passe en autonomie (e-mail « mot de passe oublié »)
 
 ## Phase 4 — Campagnes et équipes
-- [ ] Campagnes (nom, calendriers commandés, taille des paquets, archivage)
+- [x] Campagnes : création (admin), calendriers commandés, taille des paquets,
+      compteurs commandés/distribués/restants, « à prendre : X paquets » par
+      tournée, pastille dans l'en-tête
+- [x] Archivage annuel (RPC « archiver_campagne ») : photo dans
+      archives_adresses, distribués N-1 recalculés par tournée, pings remis à
+      zéro avec mémoire (« L'an dernier : refus » dans la popup)
 - [ ] Équipes, attribution aux tournées, notifications de changement
-- [ ] Reprise des infos d'une campagne à l'autre (refus, distribués…)
 
 ## Phase 5 — Vue téléphone (terrain)
 - [ ] Carte + vue liste par proximité, statuts couleur, saisies rapides
