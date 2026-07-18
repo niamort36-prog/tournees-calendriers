@@ -83,6 +83,12 @@ interface EtatApp {
   selectionTourneeId: string | null;
   modeAjout: boolean;
   deplacementAdresseId: string | null;
+  /** Adresse dont la fiche est ouverte (vue tournée). */
+  adresseOuverteId: string | null;
+  vueListe: boolean;
+  positionGPS: { lat: number; lng: number } | null;
+  gpsActif: boolean;
+  centreCarte: { lat: number; lng: number } | null;
   chargement: { actif: boolean; message: string; progression: number | null };
   erreur: string | null;
   cadrage: Cadrage;
@@ -114,6 +120,14 @@ interface EtatApp {
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
   majPolygone: (id: string, poly: LatLng[]) => Promise<void>;
   supprimerTournee: (id: string) => Promise<void>;
+
+  ouvrirAdresse: (id: string) => void;
+  fermerAdresse: () => void;
+  basculerVueListe: () => void;
+  fermerVueListe: () => void;
+  setCentreCarte: (c: { lat: number; lng: number }) => void;
+  demarrerGPS: () => void;
+  majAdresse: (id: string, patch: Partial<AdressePoint>) => Promise<void>;
 
   ajouterAdresse: (tourneeId: string, lat: number, lng: number) => Promise<void>;
   renommerAdresse: (id: string, libelle: string) => Promise<void>;
@@ -295,6 +309,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
     selectionTourneeId: null,
     modeAjout: false,
     deplacementAdresseId: null,
+    adresseOuverteId: null,
+    vueListe: false,
+    positionGPS: null,
+    gpsActif: false,
+    centreCarte: null,
     chargement: CHARGEMENT_INACTIF,
     erreur: null,
     cadrage: null,
@@ -442,6 +461,45 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     fermerNotification: () => set({ notification: null }),
+
+    ouvrirAdresse: (id) => set({ adresseOuverteId: id, vueListe: false }),
+    fermerAdresse: () => set({ adresseOuverteId: null }),
+    basculerVueListe: () => set((s) => ({ vueListe: !s.vueListe, adresseOuverteId: null })),
+    fermerVueListe: () => set({ vueListe: false }),
+    setCentreCarte: (c) => set({ centreCarte: c }),
+
+    demarrerGPS: () => {
+      if (get().gpsActif) return;
+      if (!('geolocation' in navigator)) {
+        set({ erreur: "La géolocalisation n'est pas disponible sur cet appareil." });
+        return;
+      }
+      set({ gpsActif: true });
+      let premierPoint = true;
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          const point = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          set({ positionGPS: point });
+          if (premierPoint) {
+            premierPoint = false;
+            set({ cadrage: { type: 'point', ...point, zoom: 17 } });
+          }
+        },
+        () => {
+          set({ gpsActif: false, erreur: 'Position GPS indisponible (autorisation refusée ?).' });
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+      );
+    },
+
+    majAdresse: async (id, patch) => {
+      const adresse = get().adresses.find((a) => a.id === id);
+      if (!adresse) return;
+      const maj = { ...adresse, ...patch, modifieLe: new Date().toISOString() };
+      await db.adresses.put(maj);
+      set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      await syncAdresse(maj);
+    },
 
     creerTourneeDepuisPolygone: async (poly) => {
       try {

@@ -6,6 +6,8 @@ import Login from './components/Login';
 import Equipe from './components/Equipe';
 import CampagneFenetre from './components/Campagne';
 import EquipesTournees from './components/EquipesTournees';
+import FicheAdresse from './components/FicheAdresse';
+import ListeAdresses from './components/ListeAdresses';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 
@@ -16,6 +18,8 @@ export default function App() {
   const [equipesOuvertes, setEquipesOuvertes] = useState(false);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const notification = useAppStore((s) => s.notification);
+  const vueListe = useAppStore((s) => s.vueListe);
+  const gpsActif = useAppStore((s) => s.gpsActif);
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -30,7 +34,12 @@ export default function App() {
 
   useEffect(() => {
     const surTouche = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') useAppStore.getState().annulerModes();
+      if (e.key === 'Escape') {
+        const s = useAppStore.getState();
+        s.annulerModes();
+        s.fermerAdresse();
+        s.fermerVueListe();
+      }
     };
     window.addEventListener('keydown', surTouche);
     return () => window.removeEventListener('keydown', surTouche);
@@ -91,6 +100,24 @@ export default function App() {
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">
           <MapView />
+          <div className="boutons-flottants">
+            <button title="Liste des adresses par proximité" onClick={() => useAppStore.getState().basculerVueListe()}>
+              📋
+            </button>
+            <button
+              title="Ma position"
+              className={gpsActif ? 'actif' : ''}
+              onClick={() => {
+                const s = useAppStore.getState();
+                if (!s.gpsActif) s.demarrerGPS();
+                else if (s.positionGPS) s.cadrerSur({ type: 'point', ...s.positionGPS, zoom: 17 });
+              }}
+            >
+              📍
+            </button>
+          </div>
+          {vueListe && <ListeAdresses />}
+          <FicheAdresse />
           {(modeAjout || deplacementAdresseId) && (
             <div className="bandeau-mode">
               {modeAjout
