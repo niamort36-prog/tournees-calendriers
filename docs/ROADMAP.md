@@ -54,10 +54,12 @@
 - [ ] Sonnerie des rappels appli fermée (avec la PWA, phase 7)
 
 ## Phase 6 — Fin de tournée et comptabilité
-- [ ] Décompte pièces/billets/chèques + CB, total automatique
-- [ ] Contrôle des points restants, dates/demi-journées
-- [ ] Reçus PDF numérotés, exports Excel, graphiques/camemberts
-- [ ] Fenêtre de notifications PC
+- [x] Fenêtre 🏁 fin de tournée : contrôle des points restants, participants,
+      demi-journées datées avec voiture utilisée, calendriers distribués
+- [x] Décompte espèces par coupure / chèques par montant / CB, total auto,
+      validation avec numéro de reçu unique, notification admin temps réel
+- [ ] Reçus imprimables (PDF), exports Excel, graphiques/camemberts
+- [ ] Fenêtre de notifications PC (récap des fins de tournée, adresses à valider)
 
 ## Phase 7 — Hors-ligne complet (PWA)
 - [ ] Service worker, file de synchronisation, dernière modif gagne + traçabilité
