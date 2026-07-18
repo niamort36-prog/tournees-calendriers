@@ -36,7 +36,11 @@
 - [x] Archivage annuel (RPC « archiver_campagne ») : photo dans
       archives_adresses, distribués N-1 recalculés par tournée, pings remis à
       zéro avec mémoire (« L'an dernier : refus » dans la popup)
-- [ ] Équipes, attribution aux tournées, notifications de changement
+- [x] Équipes : composition depuis l'annuaire des comptes (fenêtre 🚒 Équipes,
+      admin), attribution aux tournées, badge ⭐ « Ma tournée », équipes et
+      membres visibles sur chaque tournée
+- [x] Notification en direct (toast) quand son affectation change — les vraies
+      notifications push (appli fermée) viendront avec la PWA (phase 7)
 
 ## Phase 5 — Vue téléphone (terrain)
 - [ ] Carte + vue liste par proximité, statuts couleur, saisies rapides
