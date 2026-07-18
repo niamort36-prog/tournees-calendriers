@@ -4,12 +4,15 @@ import Sidebar from './components/Sidebar';
 import SearchBar from './components/SearchBar';
 import Login from './components/Login';
 import Equipe from './components/Equipe';
+import CampagneFenetre from './components/Campagne';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 
 export default function App() {
   const [panneauOuvert, setPanneauOuvert] = useState(true);
   const [equipeOuverte, setEquipeOuverte] = useState(false);
+  const [campagneOuverte, setCampagneOuverte] = useState(false);
+  const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -50,6 +53,9 @@ export default function App() {
           <span className="sous-titre">Amicale des Sapeurs-Pompiers</span>
         </div>
         <SearchBar />
+        <button className="btn-equipe" onClick={() => setCampagneOuverte(true)}>
+          📅 {campagneActive ? campagneActive.nom : 'Campagne'}
+        </button>
         {profil?.role === 'admin' && (
           <button className="btn-equipe" onClick={() => setEquipeOuverte(true)}>
             👥 Équipe
@@ -73,6 +79,7 @@ export default function App() {
         </button>
       </header>
       {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
+      {campagneOuverte && <CampagneFenetre onFermer={() => setCampagneOuverte(false)} />}
       <div className="contenu">
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">

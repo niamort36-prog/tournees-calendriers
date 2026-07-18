@@ -6,7 +6,7 @@
 
 import { supabase } from './supabase';
 import { db, type EnAttente } from '../store/db';
-import type { AdressePoint, StatutAdresse, Tournee } from '../types';
+import type { AdressePoint, Campagne, StatutAdresse, Tournee } from '../types';
 
 // ---------- correspondance application <-> colonnes SQL ----------
 
@@ -38,6 +38,32 @@ function ligneVersTournee(l: Record<string, unknown>): Tournee {
   };
 }
 
+function campagneVersLigne(c: Campagne) {
+  return {
+    id: c.id,
+    nom: c.nom,
+    calendriers_commandes: c.calendriersCommandes,
+    taille_paquet: c.taillePaquet,
+    statut: c.statut,
+    cree_le: c.creeLe,
+    archivee_le: c.archiveeLe,
+    modifie_le: c.modifieLe,
+  };
+}
+
+function ligneVersCampagne(l: Record<string, unknown>): Campagne {
+  return {
+    id: l.id as string,
+    nom: (l.nom as string) ?? '',
+    calendriersCommandes: (l.calendriers_commandes as number | null) ?? null,
+    taillePaquet: (l.taille_paquet as number | null) ?? null,
+    statut: (l.statut as 'active' | 'archivee') ?? 'active',
+    creeLe: l.cree_le as string,
+    archiveeLe: (l.archivee_le as string | null) ?? null,
+    modifieLe: l.modifie_le as string,
+  };
+}
+
 function adresseVersLigne(a: AdressePoint) {
   return {
     id: a.id,
@@ -51,6 +77,7 @@ function adresseVersLigne(a: AdressePoint) {
     lng: a.lng,
     autres_adresses: a.autresAdresses,
     statut: a.statut,
+    statut_precedent: a.statutPrecedent ?? null,
     somme: a.somme,
     calendriers_laisses: a.calendriersLaisses,
     rappel_le: a.rappelLe,
@@ -72,6 +99,7 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
     lng: l.lng as number,
     autresAdresses: (l.autres_adresses as string[]) ?? [],
     statut: (l.statut as StatutAdresse) ?? 'a_faire',
+    statutPrecedent: (l.statut_precedent as StatutAdresse | null) ?? null,
     somme: (l.somme as number | null) ?? null,
     calendriersLaisses: (l.calendriers_laisses as number | null) ?? null,
     rappelLe: (l.rappel_le as string | null) ?? null,
@@ -85,6 +113,8 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
 type Operation =
   | { table: 'tournees'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'tournees'; op: 'delete'; id: string }
+  | { table: 'campagnes'; op: 'upsert'; donnees: Record<string, unknown> }
+  | { table: 'campagnes'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'upsert'; donnees: Record<string, unknown> | Record<string, unknown>[] }
   | { table: 'adresses'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'remplacer'; tourneeId: string; donnees: Record<string, unknown>[] };
@@ -134,6 +164,8 @@ export async function viderFileAttente(): Promise<void> {
 export const syncTournee = (t: Tournee) =>
   pousser({ table: 'tournees', op: 'upsert', donnees: tourneeVersLigne(t) });
 export const syncSupprimerTournee = (id: string) => pousser({ table: 'tournees', op: 'delete', id });
+export const syncCampagne = (c: Campagne) =>
+  pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
 export const syncAdresse = (a: AdressePoint) =>
   pousser({ table: 'adresses', op: 'upsert', donnees: adresseVersLigne(a) });
 export const syncAdresses = (liste: AdressePoint[]) =>
@@ -146,7 +178,7 @@ export const syncRemplacerAdresses = (tourneeId: string, liste: AdressePoint[]) 
 
 // ---------- lecture complète (avec pagination PostgREST) ----------
 
-async function chargerTable(table: 'tournees' | 'adresses'): Promise<Record<string, unknown>[]> {
+async function chargerTable(table: 'tournees' | 'adresses' | 'campagnes'): Promise<Record<string, unknown>[]> {
   if (!supabase) return [];
   const lignes: Record<string, unknown>[] = [];
   const parPage = 1000;
@@ -164,6 +196,7 @@ const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
 export interface ResultatFusion {
   tournees: Tournee[];
   adresses: AdressePoint[];
+  campagnes: Campagne[];
 }
 
 /**
@@ -174,10 +207,16 @@ export interface ResultatFusion {
 export async function tirerEtFusionner(
   tourneesLocales: Tournee[],
   adressesLocales: AdressePoint[],
+  campagnesLocales: Campagne[],
 ): Promise<ResultatFusion> {
-  const [lignesT, lignesA] = await Promise.all([chargerTable('tournees'), chargerTable('adresses')]);
+  const [lignesT, lignesA, lignesC] = await Promise.all([
+    chargerTable('tournees'),
+    chargerTable('adresses'),
+    chargerTable('campagnes'),
+  ]);
   const distantesT = lignesT.map(ligneVersTournee);
   const distantesA = lignesA.map(ligneVersAdresse);
+  const distantesC = lignesC.map(ligneVersCampagne);
 
   const resultatT = new Map<string, Tournee>(distantesT.map((t) => [t.id, t]));
   const aPousserT: Tournee[] = [];
@@ -199,13 +238,24 @@ export async function tirerEtFusionner(
     }
   }
 
+  const resultatC = new Map<string, Campagne>(distantesC.map((c) => [c.id, c]));
+  const aPousserC: Campagne[] = [];
+  for (const locale of campagnesLocales) {
+    const distante = resultatC.get(locale.id);
+    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+      resultatC.set(locale.id, locale);
+      aPousserC.push(locale);
+    }
+  }
+
   // pousse d'abord les tournées (les adresses y font référence)
   for (const t of aPousserT) await syncTournee(t);
   await syncAdresses(aPousserA);
+  for (const c of aPousserC) await syncCampagne(c);
 
   // ne garde que les adresses dont la tournée existe encore
   const adresses = [...resultatA.values()].filter((a) => resultatT.has(a.tourneeId));
-  return { tournees: [...resultatT.values()], adresses };
+  return { tournees: [...resultatT.values()], adresses, campagnes: [...resultatC.values()] };
 }
 
 // ---------- temps réel ----------
@@ -214,7 +264,9 @@ export type Changement =
   | { table: 'tournees'; type: 'upsert'; tournee: Tournee }
   | { table: 'tournees'; type: 'delete'; id: string }
   | { table: 'adresses'; type: 'upsert'; adresse: AdressePoint }
-  | { table: 'adresses'; type: 'delete'; id: string };
+  | { table: 'adresses'; type: 'delete'; id: string }
+  | { table: 'campagnes'; type: 'upsert'; campagne: Campagne }
+  | { table: 'campagnes'; type: 'delete'; id: string };
 
 /** S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt. */
 export function abonnerTempsReel(onChangement: (c: Changement) => void): () => void {
@@ -236,6 +288,14 @@ export function abonnerTempsReel(onChangement: (c: Changement) => void): () => v
         if (id) onChangement({ table: 'adresses', type: 'delete', id });
       } else {
         onChangement({ table: 'adresses', type: 'upsert', adresse: ligneVersAdresse(p.new as Record<string, unknown>) });
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'campagnes' }, (p) => {
+      if (p.eventType === 'DELETE') {
+        const id = (p.old as { id?: string }).id;
+        if (id) onChangement({ table: 'campagnes', type: 'delete', id });
+      } else {
+        onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new as Record<string, unknown>) });
       }
     })
     .subscribe();

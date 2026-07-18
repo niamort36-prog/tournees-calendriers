@@ -36,6 +36,13 @@ function ouvrirPopupAdresse(map: L.Map, adresseId: string) {
   statut.textContent = `Statut : ${LIBELLE_STATUT[adresse.statut]}`;
   div.append(statut);
 
+  if (adresse.statutPrecedent) {
+    const precedent = document.createElement('div');
+    precedent.className = 'popup-precedent';
+    precedent.textContent = `🕘 L'an dernier : ${LIBELLE_STATUT[adresse.statutPrecedent]}`;
+    div.append(precedent);
+  }
+
   const actions = document.createElement('div');
   actions.className = 'popup-actions';
 

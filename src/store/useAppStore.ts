@@ -5,13 +5,14 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
-import type { AdressePoint, Profil, Tournee } from '../types';
+import type { AdressePoint, Campagne, Profil, Tournee } from '../types';
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
 import { supabase, supabaseActif } from '../lib/supabase';
 import {
   abonnerTempsReel,
   syncAdresse,
   syncAdresses,
+  syncCampagne,
   syncRemplacerAdresses,
   syncSupprimerAdresse,
   syncSupprimerTournee,
@@ -47,6 +48,7 @@ function nouvelleAdresse(p: PingGroupe, tourneeId: string): AdressePoint {
     lng: p.lng,
     autresAdresses: p.autres,
     statut: 'a_faire',
+    statutPrecedent: null,
     somme: null,
     calendriersLaisses: null,
     rappelLe: null,
@@ -71,6 +73,7 @@ interface EtatApp {
   profil: Profil | null;
   tournees: Tournee[];
   adresses: AdressePoint[];
+  campagnes: Campagne[];
   selectionTourneeId: string | null;
   modeAjout: boolean;
   deplacementAdresseId: string | null;
@@ -90,6 +93,10 @@ interface EtatApp {
   activerModeAjout: (actif: boolean) => void;
   commencerDeplacement: (adresseId: string | null) => void;
   annulerModes: () => void;
+
+  creerCampagne: (nom: string) => Promise<void>;
+  majCampagne: (id: string, patch: Partial<Campagne>) => Promise<void>;
+  archiverCampagne: (id: string) => Promise<void>;
 
   creerTourneeDepuisPolygone: (poly: LatLng[]) => Promise<void>;
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
@@ -120,9 +127,24 @@ export const useAppStore = create<EtatApp>((set, get) => {
     const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
     const tournees = new Map(get().tournees.map((t) => [t.id, t]));
     const adresses = new Map(get().adresses.map((a) => [a.id, a]));
+    const campagnes = new Map(get().campagnes.map((c) => [c.id, c]));
     let change = false;
     for (const c of lots) {
-      if (c.table === 'tournees') {
+      if (c.table === 'campagnes') {
+        if (c.type === 'delete') {
+          if (campagnes.delete(c.id)) {
+            change = true;
+            await db.campagnes.delete(c.id);
+          }
+        } else {
+          const locale = campagnes.get(c.campagne.id);
+          if (!locale || plusRecent(c.campagne.modifieLe, locale.modifieLe)) {
+            campagnes.set(c.campagne.id, c.campagne);
+            await db.campagnes.put(c.campagne);
+            change = true;
+          }
+        }
+      } else if (c.table === 'tournees') {
         if (c.type === 'delete') {
           if (tournees.delete(c.id)) {
             change = true;
@@ -155,13 +177,32 @@ export const useAppStore = create<EtatApp>((set, get) => {
       }
     }
     if (change) {
-      set({ tournees: [...tournees.values()], adresses: [...adresses.values()] });
+      set({
+        tournees: [...tournees.values()],
+        adresses: [...adresses.values()],
+        campagnes: [...campagnes.values()],
+      });
     }
   };
 
   const surChangementDistant = (c: Changement) => {
     tampon.push(c);
     if (minuterieTampon === null) minuterieTampon = window.setTimeout(() => void appliquerTampon(), 250);
+  };
+
+  // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
+  const resynchroniser = async () => {
+    await viderFileAttente();
+    const fusion = await tirerEtFusionner(get().tournees, get().adresses, get().campagnes);
+    await db.transaction('rw', db.tournees, db.adresses, db.campagnes, async () => {
+      await db.tournees.clear();
+      await db.tournees.bulkPut(fusion.tournees);
+      await db.adresses.clear();
+      await db.adresses.bulkPut(fusion.adresses);
+      await db.campagnes.clear();
+      await db.campagnes.bulkPut(fusion.campagnes);
+    });
+    set({ tournees: fusion.tournees, adresses: fusion.adresses, campagnes: fusion.campagnes });
   };
 
   // ----- après connexion : profil, rattrapage, fusion, temps réel -----
@@ -171,16 +212,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
     try {
       const { data } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
       if (data) set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
-      await viderFileAttente();
       onEtat('Synchronisation des tournées…', null);
-      const fusion = await tirerEtFusionner(get().tournees, get().adresses);
-      await db.transaction('rw', db.tournees, db.adresses, async () => {
-        await db.tournees.clear();
-        await db.tournees.bulkPut(fusion.tournees);
-        await db.adresses.clear();
-        await db.adresses.bulkPut(fusion.adresses);
-      });
-      set({ tournees: fusion.tournees, adresses: fusion.adresses, chargement: CHARGEMENT_INACTIF });
+      await resynchroniser();
+      set({ chargement: CHARGEMENT_INACTIF });
     } catch {
       set({
         chargement: CHARGEMENT_INACTIF,
@@ -197,6 +231,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     profil: null,
     tournees: [],
     adresses: [],
+    campagnes: [],
     selectionTourneeId: null,
     modeAjout: false,
     deplacementAdresseId: null,
@@ -205,8 +240,12 @@ export const useAppStore = create<EtatApp>((set, get) => {
     cadrage: null,
 
     init: async () => {
-      const [tournees, adresses] = await Promise.all([db.tournees.toArray(), db.adresses.toArray()]);
-      set({ tournees, adresses });
+      const [tournees, adresses, campagnes] = await Promise.all([
+        db.tournees.toArray(),
+        db.adresses.toArray(),
+        db.campagnes.toArray(),
+      ]);
+      set({ tournees, adresses, campagnes });
       if (!supabaseActif || !supabase) {
         set({ pret: true });
         return;
@@ -254,6 +293,55 @@ export const useAppStore = create<EtatApp>((set, get) => {
     activerModeAjout: (actif) => set({ modeAjout: actif, deplacementAdresseId: null }),
     commencerDeplacement: (adresseId) => set({ deplacementAdresseId: adresseId, modeAjout: false }),
     annulerModes: () => set({ modeAjout: false, deplacementAdresseId: null }),
+
+    creerCampagne: async (nom) => {
+      if (!nom.trim() || get().campagnes.some((c) => c.statut === 'active')) return;
+      const maintenant = new Date().toISOString();
+      const campagne: Campagne = {
+        id: crypto.randomUUID(),
+        nom: nom.trim(),
+        calendriersCommandes: null,
+        taillePaquet: null,
+        statut: 'active',
+        creeLe: maintenant,
+        archiveeLe: null,
+        modifieLe: maintenant,
+      };
+      await db.campagnes.put(campagne);
+      set((s) => ({ campagnes: [...s.campagnes, campagne] }));
+      await syncCampagne(campagne);
+    },
+
+    majCampagne: async (id, patch) => {
+      const campagne = get().campagnes.find((c) => c.id === id);
+      if (!campagne) return;
+      const maj = { ...campagne, ...patch, modifieLe: new Date().toISOString() };
+      await db.campagnes.put(maj);
+      set((s) => ({ campagnes: s.campagnes.map((c) => (c.id === id ? maj : c)) }));
+      await syncCampagne(maj);
+    },
+
+    archiverCampagne: async (id) => {
+      if (!supabase) {
+        set({ erreur: "L'archivage nécessite la connexion à la base partagée." });
+        return;
+      }
+      set({ chargement: { actif: true, message: 'Archivage de la campagne…', progression: null } });
+      const { error } = await supabase.rpc('archiver_campagne', { campagne: id });
+      if (error) {
+        set({ chargement: CHARGEMENT_INACTIF, erreur: 'Archivage impossible : ' + error.message });
+        return;
+      }
+      try {
+        await resynchroniser();
+        set({ chargement: CHARGEMENT_INACTIF });
+      } catch {
+        set({
+          chargement: CHARGEMENT_INACTIF,
+          erreur: 'Campagne archivée, mais la resynchronisation a échoué : rechargez la page.',
+        });
+      }
+    },
 
     creerTourneeDepuisPolygone: async (poly) => {
       try {
@@ -364,6 +452,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         lng,
         autresAdresses: [],
         statut: 'a_faire',
+        statutPrecedent: null,
         somme: null,
         calendriersLaisses: null,
         rappelLe: null,

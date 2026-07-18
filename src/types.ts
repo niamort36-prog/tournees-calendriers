@@ -24,6 +24,19 @@ export interface Profil {
   centre: string;
 }
 
+export interface Campagne {
+  id: string;
+  nom: string;
+  /** Nombre de calendriers commandés pour la campagne. */
+  calendriersCommandes: number | null;
+  /** Taille des paquets livrés (ex. 25) → calcul du nombre à prendre par tournée. */
+  taillePaquet: number | null;
+  statut: 'active' | 'archivee';
+  creeLe: string;
+  archiveeLe: string | null;
+  modifieLe: string;
+}
+
 export interface Tournee {
   id: string;
   nom: string;
@@ -55,6 +68,8 @@ export interface AdressePoint {
   /** Autres adresses regroupées sur le même point (immeuble, même bâtiment). */
   autresAdresses: string[];
   statut: StatutAdresse;
+  /** Statut lors de la campagne précédente (rempli par l'archivage). */
+  statutPrecedent: StatutAdresse | null;
   /** Champs remplis en tournée (phases suivantes). */
   somme: number | null;
   calendriersLaisses: number | null;

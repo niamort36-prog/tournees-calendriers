@@ -7,6 +7,7 @@ import type { Tournee } from '../types';
 function CarteTournee({ tournee }: { tournee: Tournee }) {
   const adresses = useAppStore((s) => s.adresses);
   const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
+  const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const [nom, setNom] = useState(tournee.nom);
   const [dispo, setDispo] = useState(tournee.dispoConseillee);
   useEffect(() => setNom(tournee.nom), [tournee.nom]);
@@ -16,6 +17,11 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
   const nbCalendriers = points.reduce((n, a) => n + 1 + a.autresAdresses.length, 0);
   const selectionnee = selectionTourneeId === tournee.id;
   const s = useAppStore.getState;
+
+  // combien de calendriers prendre en début de tournée (arrondi au paquet)
+  const base = tournee.calendriersAnneeDerniere ?? nbCalendriers;
+  const taille = campagneActive?.taillePaquet ?? null;
+  const paquets = taille && base > 0 ? Math.ceil(base / taille) : null;
 
   return (
     <div
@@ -41,6 +47,12 @@ function CarteTournee({ tournee }: { tournee: Tournee }) {
         📍 {points.length} point{points.length > 1 ? 's' : ''} · ≈ {nbCalendriers} calendrier
         {nbCalendriers > 1 ? 's' : ''}
       </div>
+      {paquets !== null && taille && (
+        <div className="tournee-a-prendre">
+          🎒 À prendre : {paquets} paquet{paquets > 1 ? 's' : ''} de {taille} ={' '}
+          {paquets * taille} calendriers
+        </div>
+      )}
       <label className="tournee-champ">
         Dispo conseillée
         <input
