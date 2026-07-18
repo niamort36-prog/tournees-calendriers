@@ -43,9 +43,15 @@
       notifications push (appli fermée) viendront avec la PWA (phase 7)
 
 ## Phase 5 — Vue téléphone (terrain)
-- [ ] Carte + vue liste par proximité, statuts couleur, saisies rapides
-- [ ] Rappels date/heure, voiture par demi-journée, position GPS temps réel
+- [x] Fiche adresse tactile : statuts couleur (gris/vert/rouge/bleu), somme et
+      calendriers laissés, rappel date/heure, note, renommer/déplacer/supprimer
+- [x] Vue liste par proximité (GPS sinon centre de carte), compteur fait/total,
+      indicateurs, sélecteur de tournée (défaut : ma tournée d'équipe)
+- [x] Position GPS : point bleu suivi en continu, bouton 📍
+- [ ] Partage des positions GPS entre équipes (carte temps réel)
+- [ ] Voiture par demi-journée (avec la fin de tournée, phase 6)
 - [ ] Modifications d'adresses en attente de validation admin
+- [ ] Sonnerie des rappels appli fermée (avec la PWA, phase 7)
 
 ## Phase 6 — Fin de tournée et comptabilité
 - [ ] Décompte pièces/billets/chèques + CB, total automatique
@@ -57,6 +63,9 @@
 - [ ] Service worker, file de synchronisation, dernière modif gagne + traçabilité
 
 ## Limites connues (v1)
+- Sans « pierres tombales », une suppression peut être annulée par la fusion si
+  un appareil resté hors ligne garde l'ancienne copie en cache (il la repousse
+  au serveur à sa reconnexion). À traiter en phase hors-ligne.
 - Une zone à cheval sur deux départements ne charge que le département du centre
   de la zone.
 - Les tuiles OSM publiques suffisent pour un usage amicale ; alternative IGN
