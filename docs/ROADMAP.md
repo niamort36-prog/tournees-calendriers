@@ -58,7 +58,10 @@
       demi-journées datées avec voiture utilisée, calendriers distribués
 - [x] Décompte espèces par coupure / chèques par montant / CB, total auto,
       validation avec numéro de reçu unique, notification admin temps réel
-- [ ] Reçus imprimables (PDF), exports Excel, graphiques/camemberts
+- [x] Reçu imprimable (impression/PDF) : n° de reçu, participants, voitures,
+      détail par coupure, chèques, CB, total, signatures
+- [x] Fenêtre 📊 Synthèse : compteurs, camemberts (statuts, paiements),
+      barres par tournée ; export Excel (Tournées/Adresses/Décomptes/Campagne)
 - [ ] Fenêtre de notifications PC (récap des fins de tournée, adresses à valider)
 
 ## Phase 7 — Hors-ligne complet (PWA)
