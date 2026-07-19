@@ -2027,6 +2027,16 @@ body {
   filter: brightness(1.12);
 }
 
+/* ---------- Hors ligne ---------- */
+
+.bandeau-hors-ligne {
+  background: #9a3412;
+  color: #fff;
+  text-align: center;
+  font-size: 12.5px;
+  padding: 6px 12px;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {

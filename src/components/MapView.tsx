@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import { useAppStore } from '../store/useAppStore';
+import { supabaseActif } from '../lib/supabase';
 import { COULEUR_STATUT } from '../types';
 import type { LatLng } from '../lib/geo';
 
@@ -23,6 +24,7 @@ export default function MapView() {
   const deplacementAdresseId = useAppStore((s) => s.deplacementAdresseId);
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
+  const estAdmin = useAppStore((s) => !supabaseActif || s.profil?.role === 'admin');
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return;
@@ -33,21 +35,6 @@ export default function MapView() {
     }).addTo(map);
 
     map.pm.setLang('fr');
-    map.pm.addControls({
-      position: 'topleft',
-      drawPolygon: true,
-      drawRectangle: true,
-      drawMarker: false,
-      drawCircleMarker: false,
-      drawCircle: false,
-      drawPolyline: false,
-      drawText: false,
-      editMode: true,
-      dragMode: false,
-      cutPolygon: false,
-      removalMode: false,
-      rotateMode: false,
-    });
 
     map.on('pm:create', (e: any) => {
       const layer = e.layer as L.Polygon;
@@ -85,6 +72,31 @@ export default function MapView() {
       mapRef.current = null;
     };
   }, []);
+
+  // Outils de dessin : réservés aux administrateurs
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (estAdmin) {
+      map.pm.addControls({
+        position: 'topleft',
+        drawPolygon: true,
+        drawRectangle: true,
+        drawMarker: false,
+        drawCircleMarker: false,
+        drawCircle: false,
+        drawPolyline: false,
+        drawText: false,
+        editMode: true,
+        dragMode: false,
+        cutPolygon: false,
+        removalMode: false,
+        rotateMode: false,
+      });
+    } else {
+      map.pm.removeControls();
+    }
+  }, [estAdmin]);
 
   // Zones des tournées. On ne reconstruit pas les couches pendant l'édition de
   // sommets, sinon les poignées de Geoman disparaissent à chaque recalcul.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { supabaseActif } from '../lib/supabase';
 import DecompteFenetre from './DecompteFenetre';
 import { formatEuros, totalDecompte, trouverDecompte, type Tournee } from '../types';
 
@@ -21,6 +22,7 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
   const nbCalendriers = points.reduce((n, a) => n + 1 + a.autresAdresses.length, 0);
   const selectionnee = selectionTourneeId === tournee.id;
   const s = useAppStore.getState;
+  const estAdmin = !supabaseActif || profil?.role === 'admin';
 
   // combien de calendriers prendre en début de tournée (arrondi au paquet)
   const base = tournee.calendriersAnneeDerniere ?? nbCalendriers;
@@ -45,6 +47,7 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
         <input
           className="tournee-nom"
           value={nom}
+          readOnly={!estAdmin}
           onChange={(e) => setNom(e.target.value)}
           onBlur={() => {
             if (nom.trim() && nom !== tournee.nom) void s().majTournee(tournee.id, { nom: nom.trim() });
@@ -82,30 +85,39 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
           {decompteIci.numeroRecu}
         </div>
       )}
-      <label className="tournee-champ">
-        Dispo conseillée
-        <input
-          value={dispo}
-          placeholder="ex. 2 équipes, 3 soirées"
-          onChange={(e) => setDispo(e.target.value)}
-          onBlur={() => {
-            if (dispo !== tournee.dispoConseillee) void s().majTournee(tournee.id, { dispoConseillee: dispo });
-          }}
-        />
-      </label>
-      <label className="tournee-champ">
-        Distribués l'an dernier
-        <input
-          type="number"
-          min={0}
-          value={tournee.calendriersAnneeDerniere ?? ''}
-          onChange={(e) =>
-            void s().majTournee(tournee.id, {
-              calendriersAnneeDerniere: e.target.value === '' ? null : Number(e.target.value),
-            })
-          }
-        />
-      </label>
+      {estAdmin ? (
+        <>
+          <label className="tournee-champ">
+            Dispo conseillée
+            <input
+              value={dispo}
+              placeholder="ex. 2 équipes, 3 soirées"
+              onChange={(e) => setDispo(e.target.value)}
+              onBlur={() => {
+                if (dispo !== tournee.dispoConseillee)
+                  void s().majTournee(tournee.id, { dispoConseillee: dispo });
+              }}
+            />
+          </label>
+          <label className="tournee-champ">
+            Distribués l'an dernier
+            <input
+              type="number"
+              min={0}
+              value={tournee.calendriersAnneeDerniere ?? ''}
+              onChange={(e) =>
+                void s().majTournee(tournee.id, {
+                  calendriersAnneeDerniere: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            />
+          </label>
+        </>
+      ) : (
+        tournee.dispoConseillee && (
+          <div className="tournee-stats">💡 {tournee.dispoConseillee}</div>
+        )
+      )}
       <div className="tournee-actions">
         <button
           onClick={(e) => {
@@ -134,17 +146,19 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
         >
           {decompteIci?.termine ? '💶' : '🏁'}
         </button>
-        <button
-          className="danger"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm(`Supprimer la tournée « ${tournee.nom} » et toutes ses adresses ?`)) {
-              void s().supprimerTournee(tournee.id);
-            }
-          }}
-        >
-          🗑️
-        </button>
+        {estAdmin && (
+          <button
+            className="danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Supprimer la tournée « ${tournee.nom} » et toutes ses adresses ?`)) {
+                void s().supprimerTournee(tournee.id);
+              }
+            }}
+          >
+            🗑️
+          </button>
+        )}
       </div>
     </div>
   );
@@ -152,6 +166,8 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
 
 export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
   const tournees = useAppStore((s) => s.tournees);
+  const profil = useAppStore((s) => s.profil);
+  const estAdmin = !supabaseActif || profil?.role === 'admin';
   const [decompteTourneeId, setDecompteTourneeId] = useState<string | null>(null);
   return (
     <aside className={'panneau' + (ouvert ? ' ouvert' : '')}>
@@ -165,11 +181,17 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
         {tournees.length === 0 ? (
           <div className="panneau-vide">
             <p>🗺️ Aucune tournée pour l'instant.</p>
-            <p>
-              Cherchez votre commune dans la barre du haut, puis dessinez la zone d'une tournée avec
-              l'outil <strong>polygone</strong> (en haut à gauche de la carte).
-            </p>
-            <p>Les adresses de la zone apparaîtront automatiquement ✨</p>
+            {estAdmin ? (
+              <>
+                <p>
+                  Cherchez votre commune dans la barre du haut, puis dessinez la zone d'une tournée
+                  avec l'outil <strong>polygone</strong> (en haut à gauche de la carte).
+                </p>
+                <p>Les adresses de la zone apparaîtront automatiquement ✨</p>
+              </>
+            ) : (
+              <p>Les tournées sont créées par un administrateur : elles apparaîtront ici.</p>
+            )}
           </div>
         ) : (
           tournees.map((t) => (

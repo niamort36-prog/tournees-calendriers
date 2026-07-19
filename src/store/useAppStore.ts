@@ -618,6 +618,10 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     creerTourneeDepuisPolygone: async (poly) => {
+      if (supabaseActif && get().profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut créer une tournée.' });
+        return;
+      }
       try {
         const pings = await adressesDansPolygone(poly, onEtat);
         const numero = get().tournees.length + 1;
@@ -662,6 +666,10 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     majPolygone: async (id, poly) => {
+      if (supabaseActif && get().profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut modifier le contour d’une tournée.' });
+        return;
+      }
       const tournee = get().tournees.find((t) => t.id === id);
       if (!tournee) return;
       try {
@@ -691,13 +699,19 @@ export const useAppStore = create<EtatApp>((set, get) => {
           chargement: CHARGEMENT_INACTIF,
         }));
         await syncTournee(tourneeMaj);
-        await syncRemplacerAdresses(id, conservees);
+        const conserveesIds = new Set(conservees.map((a) => a.id));
+        const suppressionsIds = actuelles.filter((a) => !conserveesIds.has(a.id)).map((a) => a.id);
+        await syncRemplacerAdresses(id, conservees, suppressionsIds);
       } catch (e) {
         set({ chargement: CHARGEMENT_INACTIF, erreur: e instanceof Error ? e.message : String(e) });
       }
     },
 
     supprimerTournee: async (id) => {
+      if (supabaseActif && get().profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut supprimer une tournée.' });
+        return;
+      }
       await db.transaction('rw', [db.tournees, db.adresses, db.decomptes], async () => {
         await db.tournees.delete(id);
         await db.adresses.where('tourneeId').equals(id).delete();

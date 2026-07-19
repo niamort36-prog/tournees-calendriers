@@ -22,6 +22,7 @@ export default function App() {
   const notification = useAppStore((s) => s.notification);
   const vueListe = useAppStore((s) => s.vueListe);
   const gpsActif = useAppStore((s) => s.gpsActif);
+  const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -32,6 +33,17 @@ export default function App() {
 
   useEffect(() => {
     void useAppStore.getState().init();
+  }, []);
+
+  useEffect(() => {
+    const enLigne = () => setHorsLigne(false);
+    const coupe = () => setHorsLigne(true);
+    window.addEventListener('online', enLigne);
+    window.addEventListener('offline', coupe);
+    return () => {
+      window.removeEventListener('online', enLigne);
+      window.removeEventListener('offline', coupe);
+    };
   }, []);
 
   useEffect(() => {
@@ -98,6 +110,11 @@ export default function App() {
           ☰ Tournées
         </button>
       </header>
+      {horsLigne && (
+        <div className="bandeau-hors-ligne">
+          📴 Hors ligne — vos saisies sont enregistrées et se synchroniseront au retour du réseau
+        </div>
+      )}
       {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
       {campagneOuverte && <CampagneFenetre onFermer={() => setCampagneOuverte(false)} />}
       {equipesOuvertes && <EquipesTournees onFermer={() => setEquipesOuvertes(false)} />}

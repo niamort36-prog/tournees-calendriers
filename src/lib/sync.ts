@@ -190,7 +190,22 @@ type Operation =
   | { table: 'decomptes'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'upsert'; donnees: Record<string, unknown> | Record<string, unknown>[] }
   | { table: 'adresses'; op: 'delete'; id: string }
-  | { table: 'adresses'; op: 'remplacer'; tourneeId: string; donnees: Record<string, unknown>[] };
+  | {
+      table: 'adresses';
+      op: 'remplacer';
+      tourneeId: string;
+      donnees: Record<string, unknown>[];
+      suppressionsIds?: string[];
+    };
+
+// Enregistre des pierres tombales (l'échec n'est pas bloquant : au pire, la
+// donnée pourrait réapparaître via un vieux cache, comme avant).
+async function poserTombes(tableNom: string, ids: string[]): Promise<void> {
+  if (!supabase || ids.length === 0) return;
+  await supabase
+    .from('suppressions')
+    .upsert(ids.map((id) => ({ id, table_nom: tableNom })));
+}
 
 async function executer(opr: Operation): Promise<void> {
   if (!supabase) return;
@@ -200,6 +215,7 @@ async function executer(opr: Operation): Promise<void> {
   } else if (opr.op === 'delete') {
     const { error } = await supabase.from(opr.table).delete().eq('id', opr.id);
     if (error) throw error;
+    await poserTombes(opr.table, [opr.id]);
   } else {
     const suppression = await supabase.from('adresses').delete().eq('tournee_id', opr.tourneeId);
     if (suppression.error) throw suppression.error;
@@ -207,6 +223,7 @@ async function executer(opr: Operation): Promise<void> {
       const insertion = await supabase.from('adresses').insert(opr.donnees);
       if (insertion.error) throw insertion.error;
     }
+    await poserTombes('adresses', opr.suppressionsIds ?? []);
   }
 }
 
@@ -251,13 +268,23 @@ export const syncAdresses = (liste: AdressePoint[]) =>
     ? pousser({ table: 'adresses', op: 'upsert', donnees: liste.map(adresseVersLigne) })
     : Promise.resolve();
 export const syncSupprimerAdresse = (id: string) => pousser({ table: 'adresses', op: 'delete', id });
-export const syncRemplacerAdresses = (tourneeId: string, liste: AdressePoint[]) =>
-  pousser({ table: 'adresses', op: 'remplacer', tourneeId, donnees: liste.map(adresseVersLigne) });
+export const syncRemplacerAdresses = (
+  tourneeId: string,
+  liste: AdressePoint[],
+  suppressionsIds: string[] = [],
+) =>
+  pousser({
+    table: 'adresses',
+    op: 'remplacer',
+    tourneeId,
+    donnees: liste.map(adresseVersLigne),
+    suppressionsIds,
+  });
 
 // ---------- lecture complète (avec pagination PostgREST) ----------
 
 async function chargerTable(
-  table: 'tournees' | 'adresses' | 'campagnes' | 'equipes' | 'decomptes',
+  table: 'tournees' | 'adresses' | 'campagnes' | 'equipes' | 'decomptes' | 'suppressions',
 ): Promise<Record<string, unknown>[]> {
   if (!supabase) return [];
   const lignes: Record<string, unknown>[] = [];
@@ -293,22 +320,27 @@ export async function tirerEtFusionner(
   equipesLocales: Equipe[],
   decomptesLocaux: Decompte[],
 ): Promise<ResultatFusion> {
-  const [lignesT, lignesA, lignesC, lignesE, lignesD] = await Promise.all([
+  const [lignesT, lignesA, lignesC, lignesE, lignesD, lignesS] = await Promise.all([
     chargerTable('tournees'),
     chargerTable('adresses'),
     chargerTable('campagnes'),
     chargerTable('equipes'),
     chargerTable('decomptes'),
+    chargerTable('suppressions'),
   ]);
   const distantesT = lignesT.map(ligneVersTournee);
   const distantesA = lignesA.map(ligneVersAdresse);
   const distantesC = lignesC.map(ligneVersCampagne);
   const distantesE = lignesE.map(ligneVersEquipe);
   const distantsD = lignesD.map(ligneVersDecompte);
+  // pierres tombales : une donnée supprimée ne doit pas être repoussée par un
+  // appareil qui en gardait une vieille copie
+  const tombes = new Set(lignesS.map((l) => l.id as string));
 
   const resultatT = new Map<string, Tournee>(distantesT.map((t) => [t.id, t]));
   const aPousserT: Tournee[] = [];
   for (const locale of tourneesLocales) {
+    if (tombes.has(locale.id)) continue;
     const distante = resultatT.get(locale.id);
     if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
       resultatT.set(locale.id, locale);
@@ -319,6 +351,7 @@ export async function tirerEtFusionner(
   const resultatA = new Map<string, AdressePoint>(distantesA.map((a) => [a.id, a]));
   const aPousserA: AdressePoint[] = [];
   for (const locale of adressesLocales) {
+    if (tombes.has(locale.id)) continue;
     const distante = resultatA.get(locale.id);
     if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
       resultatA.set(locale.id, locale);
@@ -329,6 +362,7 @@ export async function tirerEtFusionner(
   const resultatC = new Map<string, Campagne>(distantesC.map((c) => [c.id, c]));
   const aPousserC: Campagne[] = [];
   for (const locale of campagnesLocales) {
+    if (tombes.has(locale.id)) continue;
     const distante = resultatC.get(locale.id);
     if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
       resultatC.set(locale.id, locale);
@@ -339,6 +373,7 @@ export async function tirerEtFusionner(
   const resultatE = new Map<string, Equipe>(distantesE.map((e) => [e.id, e]));
   const aPousserE: Equipe[] = [];
   for (const locale of equipesLocales) {
+    if (tombes.has(locale.id)) continue;
     const distante = resultatE.get(locale.id);
     if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
       resultatE.set(locale.id, locale);
@@ -349,6 +384,7 @@ export async function tirerEtFusionner(
   const resultatD = new Map<string, Decompte>(distantsD.map((d) => [d.id, d]));
   const aPousserD: Decompte[] = [];
   for (const local of decomptesLocaux) {
+    if (tombes.has(local.id)) continue;
     const distant = resultatD.get(local.id);
     if (!distant || plusRecent(local.modifieLe, distant.modifieLe)) {
       resultatD.set(local.id, local);

@@ -68,3 +68,6 @@ class BaseLocale extends Dexie {
 }
 
 export const db = new BaseLocale();
+
+// accès console en développement (débogage / tests)
+if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).baseLocale = db;
