@@ -10,6 +10,31 @@ import { formatEuros, totalDecompte, trouverDecompte } from '../types';
 
 // verrou anti-doublon : une seule création de décompte à la fois par tournée
 const decomptesEnCreation = new Map<string, Promise<string>>();
+
+/**
+ * Tournées visibles pour l'utilisateur : null = toutes (admins, mode local) ;
+ * sinon les tournées de ses équipes + celles qu'il a choisi d'afficher.
+ */
+export function calculerTourneesVisibles(
+  profil: Profil | null,
+  equipes: Equipe[],
+  affichees: string[],
+): Set<string> | null {
+  if (!supabaseActif || !profil || profil.role === 'admin') return null;
+  const ids = new Set<string>(affichees);
+  for (const e of equipes) {
+    if (e.tourneeId && e.membres.includes(profil.id)) ids.add(e.tourneeId);
+  }
+  return ids;
+}
+
+function chargerTourneesAffichees(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem('tournees-affichees') ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
 import { supabase, supabaseActif } from '../lib/supabase';
 import {
@@ -85,6 +110,8 @@ interface EtatApp {
   decomptes: Decompte[];
   /** Tous les profils (pour composer les équipes et afficher les noms). */
   annuaire: Profil[];
+  /** Tournées supplémentaires que l'utilisateur a choisi d'afficher. */
+  tourneesAffichees: string[];
   notification: string | null;
   selectionTourneeId: string | null;
   modeAjout: boolean;
@@ -127,6 +154,7 @@ interface EtatApp {
   supprimerEquipe: (id: string) => Promise<void>;
   rafraichirAnnuaire: () => Promise<void>;
   fermerNotification: () => void;
+  basculerAffichageTournee: (id: string) => void;
 
   creerTourneeDepuisPolygone: (poly: LatLng[]) => Promise<void>;
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
@@ -352,6 +380,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     equipes: [],
     decomptes: [],
     annuaire: [],
+    tourneesAffichees: chargerTourneesAffichees(),
     notification: null,
     selectionTourneeId: null,
     modeAjout: false,
@@ -577,6 +606,19 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     fermerNotification: () => set({ notification: null }),
+
+    basculerAffichageTournee: (id) =>
+      set((s) => {
+        const liste = s.tourneesAffichees.includes(id)
+          ? s.tourneesAffichees.filter((x) => x !== id)
+          : [...s.tourneesAffichees, id];
+        try {
+          localStorage.setItem('tournees-affichees', JSON.stringify(liste));
+        } catch {
+          // stockage local indisponible : le choix ne survivra pas au rechargement
+        }
+        return { tourneesAffichees: liste };
+      }),
 
     ouvrirAdresse: (id) => set({ adresseOuverteId: id, vueListe: false }),
     fermerAdresse: () => set({ adresseOuverteId: null }),

@@ -1,9 +1,9 @@
 // Carte Leaflet + outils de dessin Geoman : zones de tournées et pings d'adresses.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
-import { useAppStore } from '../store/useAppStore';
+import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
 import { COULEUR_STATUT } from '../types';
 import type { LatLng } from '../lib/geo';
@@ -25,6 +25,13 @@ export default function MapView() {
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
   const estAdmin = useAppStore((s) => !supabaseActif || s.profil?.role === 'admin');
+  const profil = useAppStore((s) => s.profil);
+  const equipes = useAppStore((s) => s.equipes);
+  const tourneesAffichees = useAppStore((s) => s.tourneesAffichees);
+  const visibles = useMemo(
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
+    [profil, equipes, tourneesAffichees],
+  );
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return;
@@ -105,6 +112,7 @@ export default function MapView() {
     if (!groupe || editionActiveRef.current) return;
     groupe.clearLayers();
     for (const t of tournees) {
+      if (visibles !== null && !visibles.has(t.id)) continue;
       const poly = L.polygon(t.polygone, {
         color: t.couleur,
         weight: t.id === selectionTourneeId ? 4 : 2.5,
@@ -121,7 +129,7 @@ export default function MapView() {
         if (anneau.length >= 3) void useAppStore.getState().majPolygone(t.id, anneau);
       });
     }
-  }, [tournees, selectionTourneeId, versionEdition]);
+  }, [tournees, selectionTourneeId, versionEdition, visibles]);
 
   // Pings d'adresses (canvas : supporte plusieurs milliers de points)
   useEffect(() => {
@@ -130,6 +138,7 @@ export default function MapView() {
     if (!groupe || !map) return;
     groupe.clearLayers();
     for (const a of adresses) {
+      if (visibles !== null && !visibles.has(a.tourneeId)) continue;
       const nb = 1 + a.autresAdresses.length;
       const marqueur = L.circleMarker([a.lat, a.lng], {
         radius: nb > 1 ? 9 : 6,
@@ -147,7 +156,7 @@ export default function MapView() {
         s.ouvrirAdresse(a.id);
       });
     }
-  }, [adresses]);
+  }, [adresses, visibles]);
 
   // Point bleu : ma position GPS
   useEffect(() => {

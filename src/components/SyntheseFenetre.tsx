@@ -201,6 +201,52 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
           ))}
         </div>
 
+        <div className="synthese-bloc">
+          <h3>📚 Historique par tournée</h3>
+          {campagnes.length === 0 ? (
+            <p className="campagne-vide">Pas encore de campagne.</p>
+          ) : (
+            <div className="historique-defilement">
+              <table className="historique-table">
+                <thead>
+                  <tr>
+                    <th>Tournée</th>
+                    {[...campagnes]
+                      .sort((a, b) => a.creeLe.localeCompare(b.creeLe))
+                      .map((c) => (
+                        <th key={c.id}>
+                          {c.nom}
+                          {c.statut === 'active' ? ' (en cours)' : ''}
+                        </th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tournees.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <span className="pastille" style={{ background: t.couleur }} /> {t.nom}
+                      </td>
+                      {[...campagnes]
+                        .sort((a, b) => a.creeLe.localeCompare(b.creeLe))
+                        .map((c) => {
+                          const d = trouverDecompte(decomptes, t.id, c.id);
+                          return (
+                            <td key={c.id}>
+                              {d && d.termine
+                                ? `${d.calendriersDistribues ?? '—'} cal. · ${formatEuros(totalDecompte(d).total)}`
+                                : '—'}
+                            </td>
+                          );
+                        })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {estAdmin && (
           <button className="btn-export" onClick={exporter}>
             📥 Exporter tout en Excel

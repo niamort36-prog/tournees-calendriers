@@ -1,7 +1,8 @@
 // Vue liste des adresses, triée par proximité (position GPS, sinon centre de
 // la carte). Périmètre : tournée sélectionnée, sinon « ma tournée », sinon tout.
 
-import { useAppStore } from '../store/useAppStore';
+import { useMemo } from 'react';
+import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
 import { COULEUR_STATUT } from '../types';
 import { distanceMetres } from '../lib/geo';
 import type { AdressePoint } from '../types';
@@ -22,11 +23,19 @@ export default function ListeAdresses() {
   const centreCarte = useAppStore((s) => s.centreCarte);
   const s = useAppStore.getState;
 
+  const tourneesAffichees = useAppStore((st) => st.tourneesAffichees);
+  const visibles = useMemo(
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
+    [profil, equipes, tourneesAffichees],
+  );
+
   const maTourneeId = profil
     ? (equipes.find((e) => e.tourneeId && e.membres.includes(profil.id))?.tourneeId ?? null)
     : null;
   const tourneeId = selectionTourneeId ?? maTourneeId;
-  const liste = adresses.filter((a) => (tourneeId ? a.tourneeId === tourneeId : true));
+  const liste = adresses.filter((a) =>
+    tourneeId ? a.tourneeId === tourneeId : visibles === null || visibles.has(a.tourneeId),
+  );
 
   const reference = positionGPS ?? centreCarte;
   const lignes = liste

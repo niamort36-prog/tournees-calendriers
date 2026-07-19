@@ -1,12 +1,20 @@
 // Panneau latéral : liste des tournées avec leurs infos et actions.
 
-import { useEffect, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useEffect, useMemo, useState } from 'react';
+import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
 import DecompteFenetre from './DecompteFenetre';
 import { formatEuros, totalDecompte, trouverDecompte, type Tournee } from '../types';
 
-function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: () => void }) {
+function CarteTournee({
+  tournee,
+  onDecompte,
+  peutMasquer,
+}: {
+  tournee: Tournee;
+  onDecompte: () => void;
+  peutMasquer: boolean;
+}) {
   const adresses = useAppStore((s) => s.adresses);
   const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
@@ -114,9 +122,14 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
           </label>
         </>
       ) : (
-        tournee.dispoConseillee && (
-          <div className="tournee-stats">💡 {tournee.dispoConseillee}</div>
-        )
+        <>
+          {tournee.dispoConseillee && <div className="tournee-stats">💡 {tournee.dispoConseillee}</div>}
+          {tournee.calendriersAnneeDerniere != null && (
+            <div className="tournee-stats">
+              🗓️ L'an dernier : {tournee.calendriersAnneeDerniere} calendriers
+            </div>
+          )}
+        </>
       )}
       <div className="tournee-actions">
         <button
@@ -146,6 +159,17 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
         >
           {decompteIci?.termine ? '💶' : '🏁'}
         </button>
+        {peutMasquer && (
+          <button
+            title="Masquer cette tournée"
+            onClick={(e) => {
+              e.stopPropagation();
+              s().basculerAffichageTournee(tournee.id);
+            }}
+          >
+            🙈
+          </button>
+        )}
         {estAdmin && (
           <button
             className="danger"
@@ -167,8 +191,16 @@ function CarteTournee({ tournee, onDecompte }: { tournee: Tournee; onDecompte: (
 export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
   const tournees = useAppStore((s) => s.tournees);
   const profil = useAppStore((s) => s.profil);
+  const equipes = useAppStore((s) => s.equipes);
+  const tourneesAffichees = useAppStore((s) => s.tourneesAffichees);
   const estAdmin = !supabaseActif || profil?.role === 'admin';
   const [decompteTourneeId, setDecompteTourneeId] = useState<string | null>(null);
+  const visibles = useMemo(
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
+    [profil, equipes, tourneesAffichees],
+  );
+  const estMienne = (t: Tournee) =>
+    profil !== null && equipes.some((e) => e.tourneeId === t.id && e.membres.includes(profil.id));
   return (
     <aside className={'panneau' + (ouvert ? ' ouvert' : '')}>
       <div className="panneau-entete">
@@ -194,9 +226,28 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
             )}
           </div>
         ) : (
-          tournees.map((t) => (
-            <CarteTournee key={t.id} tournee={t} onDecompte={() => setDecompteTourneeId(t.id)} />
-          ))
+          tournees.map((t) => {
+            const cachee = visibles !== null && !visibles.has(t.id);
+            if (cachee) {
+              return (
+                <div key={t.id} className="tournee-carte tournee-cachee">
+                  <span className="pastille" style={{ background: t.couleur }} />
+                  <span className="tournee-cachee-nom">{t.nom}</span>
+                  <button onClick={() => useAppStore.getState().basculerAffichageTournee(t.id)}>
+                    👁️ Afficher
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <CarteTournee
+                key={t.id}
+                tournee={t}
+                onDecompte={() => setDecompteTourneeId(t.id)}
+                peutMasquer={visibles !== null && !estMienne(t)}
+              />
+            );
+          })
         )}
       </div>
       <div className="panneau-note">Données partagées : chaque modification est enregistrée et synchronisée.</div>
