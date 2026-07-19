@@ -35,7 +35,11 @@ export default function MapView() {
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return;
-    const map = L.map(divRef.current, { preferCanvas: true }).setView([46.6, 2.4], 6);
+    // tolerance : élargit la zone de clic des pings (indispensable au doigt)
+    const map = L.map(divRef.current, {
+      preferCanvas: true,
+      renderer: L.canvas({ tolerance: 12 }),
+    }).setView([46.6, 2.4], 6);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
@@ -61,6 +65,23 @@ export default function MapView() {
         void s.ajouterAdresse(s.selectionTourneeId, e.latlng.lat, e.latlng.lng);
       } else if (s.deplacementAdresseId) {
         void s.deplacerAdresse(s.deplacementAdresseId, e.latlng.lat, e.latlng.lng);
+      } else {
+        // aimant à doigt : si le tap a raté le ping de peu, on ouvre quand même
+        // l'adresse visible la plus proche du point touché
+        const visibles = calculerTourneesVisibles(s.profil, s.equipes, s.tourneesAffichees);
+        const pointClic = map.latLngToContainerPoint(e.latlng);
+        let meilleure: string | null = null;
+        let meilleureDistance = 30; // pixels
+        for (const a of s.adresses) {
+          if (visibles !== null && !visibles.has(a.tourneeId)) continue;
+          const p = map.latLngToContainerPoint([a.lat, a.lng]);
+          const d = Math.hypot(p.x - pointClic.x, p.y - pointClic.y);
+          if (d < meilleureDistance) {
+            meilleureDistance = d;
+            meilleure = a.id;
+          }
+        }
+        if (meilleure) s.ouvrirAdresse(meilleure);
       }
     });
 
@@ -141,9 +162,9 @@ export default function MapView() {
       if (visibles !== null && !visibles.has(a.tourneeId)) continue;
       const nb = 1 + a.autresAdresses.length;
       const marqueur = L.circleMarker([a.lat, a.lng], {
-        radius: nb > 1 ? 9 : 6,
+        radius: nb > 1 ? 11 : 8,
         color: '#ffffff',
-        weight: 1.5,
+        weight: 2,
         fillColor: COULEUR_STATUT[a.statut],
         fillOpacity: 0.95,
         bubblingMouseEvents: false,

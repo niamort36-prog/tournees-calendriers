@@ -79,6 +79,8 @@
 - [x] Synthèse : historique par tournée, une colonne par campagne
 - [x] Comptes Normaux : ne voient par défaut que les tournées de leurs équipes,
       boutons 👁️ Afficher / 🙈 Masquer pour les autres (choix mémorisé)
+- [x] Tactile : pings agrandis, zone de clic élargie (tolérance 12 px) et
+      « aimant à doigt » (un tap raté ouvre l'adresse la plus proche ≤ 30 px)
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
