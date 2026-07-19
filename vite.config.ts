@@ -39,6 +39,16 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            // photos aériennes IGN, même principe
+            urlPattern: /^https:\/\/data\.geopf\.fr\/wmts.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tuiles-ign',
+              expiration: { maxEntries: 4000, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

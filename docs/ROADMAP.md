@@ -81,6 +81,10 @@
       boutons 👁️ Afficher / 🙈 Masquer pour les autres (choix mémorisé)
 - [x] Tactile : pings agrandis, zone de clic élargie (tolérance 12 px) et
       « aimant à doigt » (un tap raté ouvre l'adresse la plus proche ≤ 30 px)
+- [x] Synthèse des comptes Normaux limitée à l'avancement (aucun montant :
+      recette, historique et export réservés aux admins)
+- [x] Fond de carte satellite (photos aériennes IGN, gratuit) : bouton 🛰️/🗺️,
+      choix mémorisé, tuiles mises en cache hors ligne
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres

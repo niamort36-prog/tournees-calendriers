@@ -22,6 +22,7 @@ export default function App() {
   const notification = useAppStore((s) => s.notification);
   const vueListe = useAppStore((s) => s.vueListe);
   const gpsActif = useAppStore((s) => s.gpsActif);
+  const fondSatellite = useAppStore((s) => s.fondSatellite);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
@@ -124,6 +125,12 @@ export default function App() {
         <main className="carte-conteneur">
           <MapView />
           <div className="boutons-flottants">
+            <button
+              title={fondSatellite ? 'Passer au plan' : 'Passer aux photos aériennes'}
+              onClick={() => useAppStore.getState().basculerFondCarte()}
+            >
+              {fondSatellite ? '🗺️' : '🛰️'}
+            </button>
             <button title="Liste des adresses par proximité" onClick={() => useAppStore.getState().basculerVueListe()}>
               📋
             </button>

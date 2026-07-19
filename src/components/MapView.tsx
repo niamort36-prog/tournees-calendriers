@@ -14,6 +14,8 @@ export default function MapView() {
   const polygonesRef = useRef<L.LayerGroup | null>(null);
   const marqueursRef = useRef<L.LayerGroup | null>(null);
   const positionRef = useRef<L.LayerGroup | null>(null);
+  const fondPlanRef = useRef<L.TileLayer | null>(null);
+  const fondSatelliteRef = useRef<L.TileLayer | null>(null);
   const editionActiveRef = useRef(false);
   const [versionEdition, setVersionEdition] = useState(0);
 
@@ -24,6 +26,7 @@ export default function MapView() {
   const deplacementAdresseId = useAppStore((s) => s.deplacementAdresseId);
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
+  const fondSatellite = useAppStore((s) => s.fondSatellite);
   const estAdmin = useAppStore((s) => !supabaseActif || s.profil?.role === 'admin');
   const profil = useAppStore((s) => s.profil);
   const equipes = useAppStore((s) => s.equipes);
@@ -40,10 +43,14 @@ export default function MapView() {
       preferCanvas: true,
       renderer: L.canvas({ tolerance: 12 }),
     }).setView([46.6, 2.4], 6);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    fondPlanRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
-    }).addTo(map);
+    });
+    fondSatelliteRef.current = L.tileLayer(
+      'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+      { attribution: '© IGN — photos aériennes', maxZoom: 19 },
+    );
 
     map.pm.setLang('fr');
 
@@ -100,6 +107,21 @@ export default function MapView() {
       mapRef.current = null;
     };
   }, []);
+
+  // Fond de carte : plan OSM ou photos aériennes IGN
+  useEffect(() => {
+    const map = mapRef.current;
+    const plan = fondPlanRef.current;
+    const satellite = fondSatelliteRef.current;
+    if (!map || !plan || !satellite) return;
+    if (fondSatellite) {
+      plan.remove();
+      satellite.addTo(map);
+    } else {
+      satellite.remove();
+      plan.addTo(map);
+    }
+  }, [fondSatellite]);
 
   // Outils de dessin : réservés aux administrateurs
   useEffect(() => {

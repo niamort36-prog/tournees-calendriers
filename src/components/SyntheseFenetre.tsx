@@ -144,10 +144,12 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
         </div>
 
         <div className="campagne-compteurs">
-          <div className="compteur">
-            <span className="compteur-valeur">{formatEuros(totalCollecte)}</span>
-            <span className="compteur-libelle">collectés</span>
-          </div>
+          {estAdmin && (
+            <div className="compteur">
+              <span className="compteur-valeur">{formatEuros(totalCollecte)}</span>
+              <span className="compteur-libelle">collectés</span>
+            </div>
+          )}
           <div className="compteur">
             <span className="compteur-valeur">{totalDistribues}</span>
             <span className="compteur-libelle">calendriers distribués</span>
@@ -156,21 +158,25 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
             <span className="compteur-valeur">{avancement} %</span>
             <span className="compteur-libelle">d'avancement</span>
           </div>
-          <div className="compteur">
-            <span className="compteur-valeur">{restantsStock ?? '—'}</span>
-            <span className="compteur-libelle">calendriers restants</span>
-          </div>
+          {estAdmin && (
+            <div className="compteur">
+              <span className="compteur-valeur">{restantsStock ?? '—'}</span>
+              <span className="compteur-libelle">calendriers restants</span>
+            </div>
+          )}
         </div>
 
-        <div className="synthese-camemberts">
+        <div className={estAdmin ? 'synthese-camemberts' : undefined}>
           <div className="synthese-bloc">
             <h3>🏠 Avancement des adresses</h3>
             <Camembert parts={partsStatuts} />
           </div>
-          <div className="synthese-bloc">
-            <h3>💶 Répartition de la recette</h3>
-            <Camembert parts={partsPaiements} format={formatEuros} />
-          </div>
+          {estAdmin && (
+            <div className="synthese-bloc">
+              <h3>💶 Répartition de la recette</h3>
+              <Camembert parts={partsPaiements} format={formatEuros} />
+            </div>
+          )}
         </div>
 
         <div className="synthese-bloc">
@@ -182,7 +188,8 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
                 <span className="pastille" style={{ background: b.tournee.couleur }} />
                 <strong>{b.tournee.nom}</strong>
                 <span className="barre-tournee-detail">
-                  {b.vus}/{b.points} vus · {b.distribues} distribués · {formatEuros(b.collecte)}
+                  {b.vus}/{b.points} vus · {b.distribues} distribués
+                  {estAdmin ? ` · ${formatEuros(b.collecte)}` : ''}
                 </span>
               </div>
               <div className="barre-fond">
@@ -191,16 +198,19 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
                   style={{ width: `${b.points > 0 ? (b.vus / b.points) * 100 : 0}%` }}
                 />
               </div>
-              <div className="barre-fond">
-                <div
-                  className="barre-remplissage collecte"
-                  style={{ width: `${(b.collecte / maxCollecte) * 100}%` }}
-                />
-              </div>
+              {estAdmin && (
+                <div className="barre-fond">
+                  <div
+                    className="barre-remplissage collecte"
+                    style={{ width: `${(b.collecte / maxCollecte) * 100}%` }}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
 
+        {estAdmin && (
         <div className="synthese-bloc">
           <h3>📚 Historique par tournée</h3>
           {campagnes.length === 0 ? (
@@ -246,6 +256,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
             </div>
           )}
         </div>
+        )}
 
         {estAdmin && (
           <button className="btn-export" onClick={exporter}>

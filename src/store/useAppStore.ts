@@ -112,6 +112,8 @@ interface EtatApp {
   annuaire: Profil[];
   /** Tournées supplémentaires que l'utilisateur a choisi d'afficher. */
   tourneesAffichees: string[];
+  /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
+  fondSatellite: boolean;
   notification: string | null;
   selectionTourneeId: string | null;
   modeAjout: boolean;
@@ -155,6 +157,7 @@ interface EtatApp {
   rafraichirAnnuaire: () => Promise<void>;
   fermerNotification: () => void;
   basculerAffichageTournee: (id: string) => void;
+  basculerFondCarte: () => void;
 
   creerTourneeDepuisPolygone: (poly: LatLng[]) => Promise<void>;
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
@@ -381,6 +384,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     decomptes: [],
     annuaire: [],
     tourneesAffichees: chargerTourneesAffichees(),
+    fondSatellite: localStorage.getItem('fond-satellite') === '1',
     notification: null,
     selectionTourneeId: null,
     modeAjout: false,
@@ -618,6 +622,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
           // stockage local indisponible : le choix ne survivra pas au rechargement
         }
         return { tourneesAffichees: liste };
+      }),
+
+    basculerFondCarte: () =>
+      set((s) => {
+        const valeur = !s.fondSatellite;
+        try {
+          localStorage.setItem('fond-satellite', valeur ? '1' : '0');
+        } catch {
+          // stockage local indisponible : le choix ne survivra pas au rechargement
+        }
+        return { fondSatellite: valeur };
       }),
 
     ouvrirAdresse: (id) => set({ adresseOuverteId: id, vueListe: false }),
