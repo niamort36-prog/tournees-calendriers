@@ -72,6 +72,14 @@
       (interface + règles en base)
 - [ ] Sonnerie des rappels et notifications push appli fermée
 
+## Ajustements validés (19/07/2026)
+- [x] « Distribués l'an dernier » modifiable uniquement par les admins
+      (interface + trigger en base) et reporté automatiquement à l'archivage
+      depuis le nombre validé au décompte de fin de tournée
+- [x] Synthèse : historique par tournée, une colonne par campagne
+- [x] Comptes Normaux : ne voient par défaut que les tournées de leurs équipes,
+      boutons 👁️ Afficher / 🙈 Masquer pour les autres (choix mémorisé)
+
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
   tombales (table suppressions).
