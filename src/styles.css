@@ -1703,6 +1703,330 @@ body {
   }
 }
 
+/* ---------- Reçu imprimable ---------- */
+
+.recu-voile {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 42, 0.6);
+  z-index: 2100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.recu-conteneur {
+  width: 100%;
+  max-width: 640px;
+}
+
+.recu-outils {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.recu-outils button {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.recu-outils .btn-imprimer {
+  background: var(--rouge);
+  color: #fff;
+  font-weight: 600;
+}
+
+.recu-imprimable {
+  background: #fff;
+  border-radius: 10px;
+  padding: 28px 32px;
+  color: #111;
+  font-size: 13.5px;
+}
+
+.recu-entete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 3px solid #1d3557;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.recu-logo {
+  font-size: 38px;
+}
+
+.recu-titre {
+  flex: 1;
+}
+
+.recu-titre h1 {
+  margin: 0;
+  font-size: 19px;
+  color: #1d3557;
+}
+
+.recu-titre p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.recu-numero {
+  text-align: center;
+  border: 2px solid #1d3557;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #1d3557;
+}
+
+.recu-numero strong {
+  display: block;
+  font-size: 16px;
+}
+
+.recu-infos {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.recu-infos th,
+.recu-infos td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 9px;
+  text-align: left;
+}
+
+.recu-infos th {
+  background: #f1f5f9;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.recu-bloc {
+  margin-bottom: 14px;
+}
+
+.recu-bloc h2 {
+  font-size: 13px;
+  margin: 0 0 6px;
+  color: #1d3557;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.recu-bloc ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.recu-bloc li {
+  margin-bottom: 2px;
+}
+
+.recu-decompte {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recu-decompte th,
+.recu-decompte td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 9px;
+  text-align: left;
+}
+
+.recu-decompte th {
+  background: #f1f5f9;
+  font-size: 11.5px;
+}
+
+.recu-decompte td:nth-child(2),
+.recu-decompte td:nth-child(3),
+.recu-decompte td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.recu-sous-total td {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.recu-total td {
+  background: #1d3557;
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.recu-signatures {
+  display: flex;
+  gap: 30px;
+  margin-top: 22px;
+}
+
+.recu-signatures > div {
+  flex: 1;
+}
+
+.recu-signatures p {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.recu-signature-zone {
+  height: 64px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .recu-imprimable,
+  .recu-imprimable * {
+    visibility: visible;
+  }
+  .recu-voile {
+    position: static;
+    background: none;
+    padding: 0;
+    overflow: visible;
+  }
+  .recu-imprimable {
+    position: fixed;
+    inset: 0;
+    border-radius: 0;
+    padding: 10mm 12mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ---------- Synthèse ---------- */
+
+.synthese-camemberts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 620px) {
+  .synthese-camemberts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.synthese-bloc {
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.synthese-bloc h3 {
+  font-size: 13.5px;
+  margin: 0 0 10px;
+  color: var(--marine);
+}
+
+.camembert {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.camembert svg {
+  width: 110px;
+  height: 110px;
+  flex-shrink: 0;
+}
+
+.camembert-legende {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.camembert-legende .pastille {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.barre-tournee {
+  margin-bottom: 12px;
+}
+
+.barre-tournee-entete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.barre-tournee-detail {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--texte-doux);
+}
+
+.barre-fond {
+  height: 8px;
+  background: var(--fond);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.barre-remplissage {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.barre-remplissage.avancement {
+  background: #2e7d32;
+}
+
+.barre-remplissage.collecte {
+  background: #457b9d;
+}
+
+.btn-export {
+  width: 100%;
+  background: var(--marine);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-export:hover {
+  filter: brightness(1.12);
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {

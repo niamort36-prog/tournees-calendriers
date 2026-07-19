@@ -8,6 +8,7 @@ import CampagneFenetre from './components/Campagne';
 import EquipesTournees from './components/EquipesTournees';
 import FicheAdresse from './components/FicheAdresse';
 import ListeAdresses from './components/ListeAdresses';
+import SyntheseFenetre from './components/SyntheseFenetre';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 
@@ -16,6 +17,7 @@ export default function App() {
   const [equipeOuverte, setEquipeOuverte] = useState(false);
   const [campagneOuverte, setCampagneOuverte] = useState(false);
   const [equipesOuvertes, setEquipesOuvertes] = useState(false);
+  const [syntheseOuverte, setSyntheseOuverte] = useState(false);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const notification = useAppStore((s) => s.notification);
   const vueListe = useAppStore((s) => s.vueListe);
@@ -71,6 +73,9 @@ export default function App() {
         <button className="btn-equipe" onClick={() => setEquipesOuvertes(true)}>
           🚒 Équipes
         </button>
+        <button className="btn-equipe" onClick={() => setSyntheseOuverte(true)}>
+          📊 Synthèse
+        </button>
         {profil?.role === 'admin' && (
           <button className="btn-equipe" onClick={() => setEquipeOuverte(true)}>
             👥 Membres
@@ -96,6 +101,7 @@ export default function App() {
       {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
       {campagneOuverte && <CampagneFenetre onFermer={() => setCampagneOuverte(false)} />}
       {equipesOuvertes && <EquipesTournees onFermer={() => setEquipesOuvertes(false)} />}
+      {syntheseOuverte && <SyntheseFenetre onFermer={() => setSyntheseOuverte(false)} />}
       <div className="contenu">
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">

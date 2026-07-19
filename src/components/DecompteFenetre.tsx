@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import RecuImprimable from './RecuImprimable';
 import { COUPURES, LIBELLE_MOMENT, formatEuros, type Seance } from '../types';
 
 const entier = (v: string) => {
@@ -24,6 +25,7 @@ export default function DecompteFenetre({
   onFermer: () => void;
 }) {
   const [decompteId, setDecompteId] = useState<string | null>(null);
+  const [recuVisible, setRecuVisible] = useState(false);
   useEffect(() => {
     void useAppStore.getState().obtenirOuCreerDecompte(tourneeId).then(setDecompteId);
   }, [tourneeId]);
@@ -127,6 +129,9 @@ export default function DecompteFenetre({
             ✅ Tournée terminée le{' '}
             {decompte.termineLe ? new Date(decompte.termineLe).toLocaleDateString('fr-FR') : '—'} —{' '}
             <strong>Reçu n°{decompte.numeroRecu}</strong>
+            <button className="btn-rouvrir" onClick={() => setRecuVisible(true)}>
+              🖨️ Reçu
+            </button>
             <button className="btn-rouvrir" onClick={() => void s().rouvrirDecompte(decompte.id)}>
               Rouvrir
             </button>
@@ -374,6 +379,9 @@ export default function DecompteFenetre({
           <button className="btn-valider-fin" onClick={valider}>
             ✅ Valider la fin de tournée
           </button>
+        )}
+        {recuVisible && (
+          <RecuImprimable decompteId={decompte.id} onFermer={() => setRecuVisible(false)} />
         )}
       </div>
     </div>
