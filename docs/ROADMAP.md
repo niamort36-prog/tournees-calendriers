@@ -65,12 +65,16 @@
 - [ ] Fenêtre de notifications PC (récap des fins de tournée, adresses à valider)
 
 ## Phase 7 — Hors-ligne complet (PWA)
-- [ ] Service worker, file de synchronisation, dernière modif gagne + traçabilité
+- [x] Application installable (manifeste, icônes, service worker) ; appli et
+      tuiles de carte déjà vues disponibles hors ligne ; bandeau « 📴 Hors ligne »
+- [x] Pierres tombales : les suppressions ne ressuscitent plus via les caches
+- [x] Tournées : création/modification/suppression réservées aux admins
+      (interface + règles en base)
+- [ ] Sonnerie des rappels et notifications push appli fermée
 
 ## Limites connues (v1)
-- Sans « pierres tombales », une suppression peut être annulée par la fusion si
-  un appareil resté hors ligne garde l'ancienne copie en cache (il la repousse
-  au serveur à sa reconnexion). À traiter en phase hors-ligne.
+- ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
+  tombales (table suppressions).
 - Une zone à cheval sur deux départements ne charge que le département du centre
   de la zone.
 - Les tuiles OSM publiques suffisent pour un usage amicale ; alternative IGN
