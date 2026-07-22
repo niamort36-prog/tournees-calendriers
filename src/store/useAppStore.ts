@@ -7,6 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
 import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '../types';
 import { formatEuros, totalDecompte, trouverDecompte } from '../types';
+import { notifier, permissionAccordee } from '../lib/notifications';
 
 // verrou anti-doublon : une seule création de décompte à la fois par tournée
 const decomptesEnCreation = new Map<string, Promise<string>>();
@@ -308,8 +309,48 @@ export const useAppStore = create<EtatApp>((set, get) => {
         decomptes: [...decomptes.values()],
         ...(notification ? { notification } : {}),
       });
+      if (notification) void notifier('🚒 Tournées Calendriers', notification);
     }
   };
+
+  // ----- rappels « à repasser » : notification à l'heure dite -----
+  const verifierRappels = () => {
+    const s = get();
+    if (!permissionAccordee() || !s.pret) return;
+    const visibles = calculerTourneesVisibles(s.profil, s.equipes, s.tourneesAffichees);
+    const maintenant = Date.now();
+    let dejaNotifies: Record<string, string> = {};
+    try {
+      dejaNotifies = JSON.parse(localStorage.getItem('rappels-notifies') ?? '{}');
+    } catch {
+      dejaNotifies = {};
+    }
+    let modifie = false;
+    for (const a of s.adresses) {
+      if (!a.rappelLe || a.statut !== 'absent') continue;
+      if (visibles !== null && !visibles.has(a.tourneeId)) continue;
+      const echeance = Date.parse(a.rappelLe);
+      if (!Number.isFinite(echeance) || echeance > maintenant) continue;
+      if (maintenant - echeance > 24 * 3600 * 1000) continue; // trop ancien
+      if (dejaNotifies[a.id] === a.rappelLe) continue;
+      void notifier(`⏰ À repasser : ${a.libelle}`, `${a.commune}${a.note ? ' — ' + a.note : ''}`);
+      dejaNotifies[a.id] = a.rappelLe;
+      modifie = true;
+    }
+    if (modifie) {
+      try {
+        localStorage.setItem('rappels-notifies', JSON.stringify(dejaNotifies));
+      } catch {
+        // stockage local indisponible : le rappel pourra se répéter, sans gravité
+      }
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.setInterval(verifierRappels, 60000);
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).verifierRappels = verifierRappels;
+    }
+  }
 
   const surChangementDistant = (c: Changement) => {
     tampon.push(c);

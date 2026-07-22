@@ -11,6 +11,7 @@ import ListeAdresses from './components/ListeAdresses';
 import SyntheseFenetre from './components/SyntheseFenetre';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
+import { demanderPermission, permissionADemander } from './lib/notifications';
 
 export default function App() {
   const [panneauOuvert, setPanneauOuvert] = useState(true);
@@ -24,6 +25,9 @@ export default function App() {
   const gpsActif = useAppStore((s) => s.gpsActif);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
+  const [proposerNotifs, setProposerNotifs] = useState(
+    () => permissionADemander() && localStorage.getItem('notifs-proposees') !== '1',
+  );
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
@@ -114,6 +118,30 @@ export default function App() {
       {horsLigne && (
         <div className="bandeau-hors-ligne">
           📴 Hors ligne — vos saisies sont enregistrées et se synchroniseront au retour du réseau
+        </div>
+      )}
+      {proposerNotifs && (
+        <div className="bandeau-notifs">
+          🔔 Activer les notifications ? (rappels « à repasser », affectations d'équipe)
+          <button
+            onClick={() => {
+              void demanderPermission().finally(() => {
+                localStorage.setItem('notifs-proposees', '1');
+                setProposerNotifs(false);
+              });
+            }}
+          >
+            Activer
+          </button>
+          <button
+            className="bandeau-notifs-fermer"
+            onClick={() => {
+              localStorage.setItem('notifs-proposees', '1');
+              setProposerNotifs(false);
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
       {equipeOuverte && <Equipe onFermer={() => setEquipeOuverte(false)} />}
