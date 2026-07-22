@@ -89,6 +89,10 @@
       repasser » à l'heure dite, affectations d'équipe, fins de tournée
       (admins) ; clic = retour dans l'appli — le push appli fermée demandera
       un serveur d'envoi (à faire)
+- [x] Clôture / décompte réservés aux membres de l'équipe de la tournée et
+      aux admins (bouton masqué, garde-fou, RLS membre_de_tournee)
+- [x] Immeubles : adresses typées 🏠/🏢, appartements par étage validables
+      individuellement, statut d'ensemble et calendriers laissés automatiques
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
