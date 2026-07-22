@@ -85,6 +85,10 @@
       recette, historique et export réservés aux admins)
 - [x] Fond de carte satellite (photos aériennes IGN, gratuit) : bouton 🛰️/🗺️,
       choix mémorisé, tuiles mises en cache hors ligne
+- [x] Notifications système (appli ouverte/arrière-plan) : rappels « à
+      repasser » à l'heure dite, affectations d'équipe, fins de tournée
+      (admins) ; clic = retour dans l'appli — le push appli fermée demandera
+      un serveur d'envoi (à faire)
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
