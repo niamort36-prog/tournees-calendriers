@@ -1310,6 +1310,93 @@ body {
   color: #fff;
 }
 
+.fiche-type {
+  display: flex;
+  background: var(--fond);
+  border-radius: 9px;
+  padding: 4px;
+  margin-bottom: 10px;
+}
+
+.fiche-type button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--texte-doux);
+}
+
+.fiche-type button.actif {
+  background: #fff;
+  color: var(--texte);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.appartements {
+  margin-bottom: 10px;
+}
+
+.appartements-resume {
+  font-size: 12.5px;
+  color: var(--texte-doux);
+  margin-bottom: 8px;
+}
+
+.appartement-ligne {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.appartement-ligne input {
+  width: 30%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--bordure);
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.appartement-statuts {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.pastille-statut {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pastille-statut.actif {
+  color: #fff;
+}
+
+.appartement-retirer {
+  border: none;
+  background: none;
+  color: var(--texte-doux);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px;
+}
+
+.appartement-retirer:hover {
+  color: var(--rouge);
+}
+
 .fiche-champs {
   display: grid;
   grid-template-columns: 1fr 1fr;

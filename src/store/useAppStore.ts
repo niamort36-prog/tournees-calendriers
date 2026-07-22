@@ -80,6 +80,8 @@ function nouvelleAdresse(p: PingGroupe, tourneeId: string): AdressePoint {
     lat: p.lat,
     lng: p.lng,
     autresAdresses: p.autres,
+    typeBatiment: 'maison',
+    appartements: [],
     statut: 'a_faire',
     statutPrecedent: null,
     somme: null,
@@ -546,6 +548,19 @@ export const useAppStore = create<EtatApp>((set, get) => {
     },
 
     obtenirOuCreerDecompte: async (tourneeId) => {
+      const profil = get().profil;
+      if (supabaseActif && profil && profil.role !== 'admin') {
+        const membre = get().equipes.some(
+          (e) => e.tourneeId === tourneeId && e.membres.includes(profil.id),
+        );
+        if (!membre) {
+          set({
+            erreur:
+              "Seuls les membres de l'équipe de cette tournée (ou un administrateur) peuvent faire le décompte.",
+          });
+          return '';
+        }
+      }
       const campagneId = get().campagnes.find((c) => c.statut === 'active')?.id ?? null;
       const existant = trouverDecompte(get().decomptes, tourneeId, campagneId);
       if (existant) return existant.id;
@@ -839,6 +854,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
         lat,
         lng,
         autresAdresses: [],
+        typeBatiment: 'maison',
+        appartements: [],
         statut: 'a_faire',
         statutPrecedent: null,
         somme: null,

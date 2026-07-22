@@ -64,6 +64,27 @@ export interface Tournee {
   modifieLe: string;
 }
 
+/** Un appartement d'un immeuble, validable individuellement. */
+export interface Appartement {
+  id: string;
+  etage: string; // texte libre : « RDC », « 1er », « 2 »…
+  numero: string; // « Apt 12 », « Porte gauche »…
+  statut: StatutAdresse;
+}
+
+/**
+ * Statut d'ensemble d'un immeuble d'après ses appartements :
+ * rouge s'il reste un absent, gris s'il reste du travail,
+ * vert si au moins un calendrier est passé, bleu si tout est refus.
+ */
+export function statutAgrege(appartements: Appartement[]): StatutAdresse {
+  if (appartements.length === 0) return 'a_faire';
+  if (appartements.some((a) => a.statut === 'absent')) return 'absent';
+  if (appartements.some((a) => a.statut === 'a_faire')) return 'a_faire';
+  if (appartements.some((a) => a.statut === 'distribue')) return 'distribue';
+  return 'refus';
+}
+
 export interface AdressePoint {
   id: string;
   tourneeId: string;
@@ -78,6 +99,10 @@ export interface AdressePoint {
   lng: number;
   /** Autres adresses regroupées sur le même point (immeuble, même bâtiment). */
   autresAdresses: string[];
+  /** Maison individuelle ou immeuble (avec appartements). */
+  typeBatiment: 'maison' | 'immeuble';
+  /** Appartements de l'immeuble (statut global calculé automatiquement). */
+  appartements: Appartement[];
   statut: StatutAdresse;
   /** Statut lors de la campagne précédente (rempli par l'archivage). */
   statutPrecedent: StatutAdresse | null;

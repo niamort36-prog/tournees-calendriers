@@ -27,7 +27,14 @@ function CarteTournee({
   useEffect(() => setDispo(tournee.dispoConseillee), [tournee.dispoConseillee]);
 
   const points = adresses.filter((a) => a.tourneeId === tournee.id);
-  const nbCalendriers = points.reduce((n, a) => n + 1 + a.autresAdresses.length, 0);
+  const nbCalendriers = points.reduce(
+    (n, a) =>
+      n +
+      (a.typeBatiment === 'immeuble' && a.appartements.length > 0
+        ? a.appartements.length
+        : 1 + a.autresAdresses.length),
+    0,
+  );
   const selectionnee = selectionTourneeId === tournee.id;
   const s = useAppStore.getState;
   const estAdmin = !supabaseActif || profil?.role === 'admin';
@@ -150,15 +157,17 @@ function CarteTournee({
         >
           ➕ Adresse
         </button>
-        <button
-          title="Fin de tournée / décompte"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDecompte();
-          }}
-        >
-          {decompteIci?.termine ? '💶' : '🏁'}
-        </button>
+        {(estAdmin || maTournee) && (
+          <button
+            title="Fin de tournée / décompte"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDecompte();
+            }}
+          >
+            {decompteIci?.termine ? '💶' : '🏁'}
+          </button>
+        )}
         {peutMasquer && (
           <button
             title="Masquer cette tournée"

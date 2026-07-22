@@ -4,7 +4,20 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { COULEUR_STATUT, LIBELLE_STATUT, type StatutAdresse } from '../types';
+import {
+  COULEUR_STATUT,
+  LIBELLE_STATUT,
+  statutAgrege,
+  type Appartement,
+  type StatutAdresse,
+} from '../types';
+
+const PASTILLES_STATUT: { valeur: StatutAdresse; symbole: string; titre: string }[] = [
+  { valeur: 'a_faire', symbole: '○', titre: 'À faire' },
+  { valeur: 'distribue', symbole: '✓', titre: 'Distribué' },
+  { valeur: 'absent', symbole: '↺', titre: 'Absent, à repasser' },
+  { valeur: 'refus', symbole: '✕', titre: 'Refus' },
+];
 
 const ORDRE_STATUTS: { valeur: StatutAdresse; libelle: string }[] = [
   { valeur: 'a_faire', libelle: 'À faire' },
@@ -49,6 +62,25 @@ export default function FicheAdresse() {
   if (!adresse) return null;
   const s = useAppStore.getState;
   const nbGroupe = 1 + adresse.autresAdresses.length;
+  const estImmeuble = adresse.typeBatiment === 'immeuble';
+
+  const majAppartements = (liste: Appartement[]) => {
+    const distribues = liste.filter((a) => a.statut === 'distribue').length;
+    void s().majAdresse(adresse.id, {
+      appartements: liste,
+      statut: statutAgrege(liste),
+      calendriersLaisses: distribues > 0 ? distribues : null,
+    });
+  };
+
+  const changerType = (type: 'maison' | 'immeuble') => {
+    if (type === adresse.typeBatiment) return;
+    const patch: Partial<typeof adresse> = { typeBatiment: type };
+    if (type === 'immeuble' && adresse.appartements.length > 0) {
+      patch.statut = statutAgrege(adresse.appartements);
+    }
+    void s().majAdresse(adresse.id, patch);
+  };
 
   const validerSomme = () => {
     const brut = somme.trim().replace(',', '.');
@@ -120,25 +152,128 @@ export default function FicheAdresse() {
           <div className="fiche-precedent">🕘 L'an dernier : {LIBELLE_STATUT[adresse.statutPrecedent]}</div>
         )}
 
-        <div className="fiche-statuts">
-          {ORDRE_STATUTS.map(({ valeur, libelle }) => {
-            const actif = adresse.statut === valeur;
-            return (
-              <button
-                key={valeur}
-                className={'statut-bouton' + (actif ? ' actif' : '')}
-                style={
-                  actif
-                    ? { background: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
-                    : { color: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
-                }
-                onClick={() => void s().majAdresse(adresse.id, { statut: valeur })}
-              >
-                {libelle}
-              </button>
-            );
-          })}
+        <div className="fiche-type">
+          <button
+            className={!estImmeuble ? 'actif' : ''}
+            onClick={() => changerType('maison')}
+          >
+            🏠 Maison
+          </button>
+          <button
+            className={estImmeuble ? 'actif' : ''}
+            onClick={() => changerType('immeuble')}
+          >
+            🏢 Immeuble
+          </button>
         </div>
+
+        {estImmeuble ? (
+          <div className="appartements">
+            {adresse.appartements.length > 0 && (
+              <div className="appartements-resume">
+                {adresse.appartements.filter((a) => a.statut !== 'a_faire').length}/
+                {adresse.appartements.length} appartements traités — statut d'ensemble :{' '}
+                <strong style={{ color: COULEUR_STATUT[adresse.statut] }}>
+                  {LIBELLE_STATUT[adresse.statut]}
+                </strong>
+              </div>
+            )}
+            {adresse.appartements.map((app) => (
+              <div key={app.id} className="appartement-ligne">
+                <input
+                  placeholder="Étage"
+                  defaultValue={app.etage}
+                  onBlur={(e) => {
+                    if (e.target.value !== app.etage) {
+                      majAppartements(
+                        adresse.appartements.map((x) =>
+                          x.id === app.id ? { ...x, etage: e.target.value.trim() } : x,
+                        ),
+                      );
+                    }
+                  }}
+                />
+                <input
+                  placeholder="N° / porte"
+                  defaultValue={app.numero}
+                  onBlur={(e) => {
+                    if (e.target.value !== app.numero) {
+                      majAppartements(
+                        adresse.appartements.map((x) =>
+                          x.id === app.id ? { ...x, numero: e.target.value.trim() } : x,
+                        ),
+                      );
+                    }
+                  }}
+                />
+                <div className="appartement-statuts">
+                  {PASTILLES_STATUT.map(({ valeur, symbole, titre }) => {
+                    const actif = app.statut === valeur;
+                    return (
+                      <button
+                        key={valeur}
+                        title={titre}
+                        className={'pastille-statut' + (actif ? ' actif' : '')}
+                        style={
+                          actif
+                            ? { background: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
+                            : { color: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
+                        }
+                        onClick={() =>
+                          majAppartements(
+                            adresse.appartements.map((x) =>
+                              x.id === app.id ? { ...x, statut: valeur } : x,
+                            ),
+                          )
+                        }
+                      >
+                        {symbole}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  className="appartement-retirer"
+                  title="Retirer cet appartement"
+                  onClick={() => majAppartements(adresse.appartements.filter((x) => x.id !== app.id))}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn-ajout-ligne"
+              onClick={() =>
+                majAppartements([
+                  ...adresse.appartements,
+                  { id: crypto.randomUUID(), etage: '', numero: '', statut: 'a_faire' },
+                ])
+              }
+            >
+              ➕ Ajouter un appartement
+            </button>
+          </div>
+        ) : (
+          <div className="fiche-statuts">
+            {ORDRE_STATUTS.map(({ valeur, libelle }) => {
+              const actif = adresse.statut === valeur;
+              return (
+                <button
+                  key={valeur}
+                  className={'statut-bouton' + (actif ? ' actif' : '')}
+                  style={
+                    actif
+                      ? { background: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
+                      : { color: COULEUR_STATUT[valeur], borderColor: COULEUR_STATUT[valeur] }
+                  }
+                  onClick={() => void s().majAdresse(adresse.id, { statut: valeur })}
+                >
+                  {libelle}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {adresse.statut === 'distribue' && (
           <div className="fiche-champs">

@@ -92,7 +92,8 @@ export default function ListeAdresses() {
                 <span className="liste-commune">{adresse.commune}</span>
               </span>
               <span className="liste-indicateurs">
-                {1 + adresse.autresAdresses.length > 1 && '🏢'}
+                {(1 + adresse.autresAdresses.length > 1 || adresse.typeBatiment === 'immeuble') &&
+                  '🏢'}
                 {adresse.rappelLe && '⏰'}
                 {adresse.somme != null && '💶'}
                 {adresse.note && '📝'}

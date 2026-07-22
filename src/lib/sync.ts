@@ -8,6 +8,7 @@ import { supabase } from './supabase';
 import { db, type EnAttente } from '../store/db';
 import type {
   AdressePoint,
+  Appartement,
   Campagne,
   Decompte,
   Equipe,
@@ -145,6 +146,8 @@ function adresseVersLigne(a: AdressePoint) {
     lat: a.lat,
     lng: a.lng,
     autres_adresses: a.autresAdresses,
+    type_batiment: a.typeBatiment,
+    appartements: a.appartements,
     statut: a.statut,
     statut_precedent: a.statutPrecedent ?? null,
     somme: a.somme,
@@ -167,6 +170,8 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
     lat: l.lat as number,
     lng: l.lng as number,
     autresAdresses: (l.autres_adresses as string[]) ?? [],
+    typeBatiment: (l.type_batiment as 'maison' | 'immeuble') ?? 'maison',
+    appartements: (l.appartements as Appartement[]) ?? [],
     statut: (l.statut as StatutAdresse) ?? 'a_faire',
     statutPrecedent: (l.statut_precedent as StatutAdresse | null) ?? null,
     somme: (l.somme as number | null) ?? null,
