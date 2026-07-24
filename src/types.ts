@@ -187,6 +187,13 @@ export function formatEuros(n: number): string {
   return n.toFixed(2).replace('.', ',') + ' €';
 }
 
+/** Tri alphabétique des tournées (numérique : « Tournée 2 » avant « Tournée 10 »). */
+export function trierTournees(liste: Tournee[]): Tournee[] {
+  return [...liste].sort((a, b) =>
+    a.nom.localeCompare(b.nom, 'fr', { numeric: true, sensitivity: 'base' }),
+  );
+}
+
 /**
  * Trouve le décompte d'une tournée pour une campagne. S'il existe des doublons
  * (créations simultanées), privilégie celui qui est terminé, puis le plus récent.

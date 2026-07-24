@@ -4,7 +4,14 @@
 import { useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
 import { construireFeuilles, exporterExcel, type DonneesExport } from '../lib/exportExcel';
-import { COULEUR_STATUT, LIBELLE_STATUT, formatEuros, totalDecompte, trouverDecompte } from '../types';
+import {
+  COULEUR_STATUT,
+  LIBELLE_STATUT,
+  formatEuros,
+  totalDecompte,
+  trierTournees,
+  trouverDecompte,
+} from '../types';
 
 interface Part {
   libelle: string;
@@ -109,7 +116,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
     { libelle: 'Carte bancaire', valeur: Math.round(sommesPaiements.cb * 100) / 100, couleur: '#e76f51' },
   ];
 
-  const barres = tournees.map((t) => {
+  const barres = trierTournees(tournees).map((t) => {
     const siennes = adresses.filter((a) => a.tourneeId === t.id);
     const distribues = siennes
       .filter((a) => a.statut === 'distribue')
@@ -232,7 +239,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
                   </tr>
                 </thead>
                 <tbody>
-                  {tournees.map((t) => (
+                  {trierTournees(tournees).map((t) => (
                     <tr key={t.id}>
                       <td>
                         <span className="pastille" style={{ background: t.couleur }} /> {t.nom}

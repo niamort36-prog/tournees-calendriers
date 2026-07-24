@@ -3,7 +3,7 @@
 
 import * as XLSX from 'xlsx';
 import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '../types';
-import { COUPURES, LIBELLE_STATUT, totalDecompte, trouverDecompte } from '../types';
+import { COUPURES, LIBELLE_STATUT, totalDecompte, trierTournees, trouverDecompte } from '../types';
 
 export interface DonneesExport {
   tournees: Tournee[];
@@ -20,7 +20,7 @@ export function construireFeuilles(d: DonneesExport): Record<string, Ligne[]> {
   const campagneActive = d.campagnes.find((c) => c.statut === 'active') ?? null;
   const nomDe = (id: string) => d.annuaire.find((p) => p.id === id)?.nom ?? '?';
 
-  const feuilleTournees: Ligne[] = d.tournees.map((t) => {
+  const feuilleTournees: Ligne[] = trierTournees(d.tournees).map((t) => {
     const adresses = d.adresses.filter((a) => a.tourneeId === t.id);
     const distribues = adresses
       .filter((a) => a.statut === 'distribue')

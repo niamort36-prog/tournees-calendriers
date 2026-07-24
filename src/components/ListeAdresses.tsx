@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
-import { COULEUR_STATUT } from '../types';
+import { COULEUR_STATUT, trierTournees } from '../types';
 import { distanceMetres } from '../lib/geo';
 import type { AdressePoint } from '../types';
 
@@ -66,7 +66,7 @@ export default function ListeAdresses() {
             onChange={(e) => s().selectionnerTournee(e.target.value || null)}
           >
             <option value="">Toutes les tournées</option>
-            {tournees.map((t) => (
+            {trierTournees(tournees).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.nom}
               </option>

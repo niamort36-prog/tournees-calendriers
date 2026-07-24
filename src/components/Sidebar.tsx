@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
 import DecompteFenetre from './DecompteFenetre';
-import { formatEuros, totalDecompte, trouverDecompte, type Tournee } from '../types';
+import { formatEuros, totalDecompte, trierTournees, trouverDecompte, type Tournee } from '../types';
 
 function CarteTournee({
   tournee,
@@ -235,7 +235,7 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
             )}
           </div>
         ) : (
-          tournees.map((t) => {
+          trierTournees(tournees).map((t) => {
             const cachee = visibles !== null && !visibles.has(t.id);
             if (cachee) {
               return (

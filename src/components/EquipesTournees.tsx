@@ -4,7 +4,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
-import type { Equipe } from '../types';
+import { trierTournees, type Equipe } from '../types';
 
 function CarteEquipe({ equipe, estAdmin }: { equipe: Equipe; estAdmin: boolean }) {
   const tournees = useAppStore((s) => s.tournees);
@@ -40,7 +40,7 @@ function CarteEquipe({ equipe, estAdmin }: { equipe: Equipe; estAdmin: boolean }
           onChange={(e) => void s().majEquipe(equipe.id, { tourneeId: e.target.value || null })}
         >
           <option value="">— pas de tournée —</option>
-          {tournees.map((t) => (
+          {trierTournees(tournees).map((t) => (
             <option key={t.id} value={t.id}>
               {t.nom}
             </option>
