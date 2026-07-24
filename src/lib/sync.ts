@@ -434,10 +434,18 @@ export type Changement =
   | { table: 'decomptes'; type: 'upsert'; decompte: Decompte }
   | { table: 'decomptes'; type: 'delete'; id: string };
 
-/** S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt. */
-export function abonnerTempsReel(onChangement: (c: Changement) => void): () => void {
+/**
+ * S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt.
+ * `onPerte` est appelé si le flux tombe (veille, changement de réseau…) —
+ * jamais lors d'un arrêt volontaire.
+ */
+export function abonnerTempsReel(
+  onChangement: (c: Changement) => void,
+  onPerte?: () => void,
+): () => void {
   if (!supabase) return () => undefined;
   const client = supabase;
+  let arretVolontaire = false;
   const canal = client
     .channel('sync-donnees')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournees' }, (p) => {
@@ -480,8 +488,12 @@ export function abonnerTempsReel(onChangement: (c: Changement) => void): () => v
         onChangement({ table: 'decomptes', type: 'upsert', decompte: ligneVersDecompte(p.new as Record<string, unknown>) });
       }
     })
-    .subscribe();
+    .subscribe((etat) => {
+      if (arretVolontaire) return;
+      if (etat === 'CHANNEL_ERROR' || etat === 'TIMED_OUT' || etat === 'CLOSED') onPerte?.();
+    });
   return () => {
+    arretVolontaire = true;
     void client.removeChannel(canal);
   };
 }

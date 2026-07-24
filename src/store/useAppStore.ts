@@ -118,6 +118,8 @@ interface EtatApp {
   /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
   fondSatellite: boolean;
   notification: string | null;
+  /** Message affiché sur l'écran de connexion (ex. compte supprimé). */
+  avisConnexion: string | null;
   selectionTourneeId: string | null;
   modeAjout: boolean;
   deplacementAdresseId: string | null;
@@ -347,12 +349,6 @@ export const useAppStore = create<EtatApp>((set, get) => {
       }
     }
   };
-  if (typeof window !== 'undefined') {
-    window.setInterval(verifierRappels, 60000);
-    if (import.meta.env.DEV) {
-      (window as unknown as Record<string, unknown>).verifierRappels = verifierRappels;
-    }
-  }
 
   const surChangementDistant = (c: Changement) => {
     tampon.push(c);
@@ -394,17 +390,113 @@ export const useAppStore = create<EtatApp>((set, get) => {
     });
   };
 
+  // ----- resynchronisation encadrée (anti-rafales) -----
+  let derniereSynchro = 0;
+  let resyncEnCours = false;
+  const resynchroniserSiPossible = async (force = false) => {
+    if (!supabase || !get().session || resyncEnCours) return;
+    if (!force && Date.now() - derniereSynchro < 30000) return;
+    resyncEnCours = true;
+    try {
+      await resynchroniser();
+      derniereSynchro = Date.now();
+    } catch {
+      // hors ligne ou erreur passagère : on retentera
+    } finally {
+      resyncEnCours = false;
+    }
+  };
+
+  // ----- compte supprimé : purge locale et déconnexion -----
+  const purgerEtDeconnecter = async (message: string) => {
+    desabonner?.();
+    desabonner = null;
+    try {
+      await Promise.all([
+        db.tournees.clear(),
+        db.adresses.clear(),
+        db.campagnes.clear(),
+        db.equipes.clear(),
+        db.decomptes.clear(),
+        db.enAttente.clear(),
+      ]);
+    } catch {
+      // au pire, les données locales partiront à la prochaine tentative
+    }
+    set({
+      tournees: [],
+      adresses: [],
+      campagnes: [],
+      equipes: [],
+      decomptes: [],
+      annuaire: [],
+      profil: null,
+      avisConnexion: message,
+    });
+    await supabase?.auth.signOut();
+  };
+
+  // Vérifie que le compte existe toujours (et rafraîchit le rôle au passage).
+  const verifierCompte = async () => {
+    const session = get().session;
+    if (!supabase || !session) return;
+    try {
+      const { data, error } = await supabase
+        .from('profils')
+        .select('id, nom, role, centre')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (error) return; // réseau : on réessaiera
+      if (!data) {
+        await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
+        return;
+      }
+      const profil = get().profil;
+      if (
+        profil &&
+        (profil.role !== data.role || profil.nom !== data.nom || profil.centre !== (data.centre ?? ''))
+      ) {
+        set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
+      }
+    } catch {
+      // réseau : on réessaiera
+    }
+  };
+
+  // ----- reconnexion du temps réel s'il tombe (veille, réseau…) -----
+  let reabonnementPrevu = false;
+  const surPerteTempsReel = () => {
+    if (reabonnementPrevu) return;
+    reabonnementPrevu = true;
+    window.setTimeout(() => {
+      reabonnementPrevu = false;
+      if (!get().session) return;
+      desabonner?.();
+      desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel);
+      void resynchroniserSiPossible(true);
+    }, 10000);
+  };
+
   // ----- après connexion : profil, rattrapage, fusion, temps réel -----
   const apresConnexion = async () => {
     const session = get().session;
     if (!supabase || !session) return;
     try {
-      const { data } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
+      const { data, error } = await supabase
+        .from('profils')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (!error && !data) {
+        await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
+        return;
+      }
       if (data) set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
       const annuaire = await supabase.from('profils').select('id, nom, role, centre').order('nom');
       if (annuaire.data) set({ annuaire: annuaire.data as Profil[] });
       onEtat('Synchronisation des tournées…', null);
       await resynchroniser();
+      derniereSynchro = Date.now();
       set({ chargement: CHARGEMENT_INACTIF });
     } catch {
       set({
@@ -413,8 +505,29 @@ export const useAppStore = create<EtatApp>((set, get) => {
       });
     }
     desabonner?.();
-    desabonner = abonnerTempsReel(surChangementDistant);
+    desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel);
   };
+
+  if (typeof window !== 'undefined') {
+    window.setInterval(() => {
+      verifierRappels();
+      void verifierCompte();
+    }, 60000);
+    // filets de rattrapage si le temps réel a raté des changements
+    window.setInterval(() => {
+      if (!document.hidden) void resynchroniserSiPossible();
+    }, 180000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) void resynchroniserSiPossible();
+    });
+    window.addEventListener('online', () => void resynchroniserSiPossible(true));
+    if (import.meta.env.DEV) {
+      const expose = window as unknown as Record<string, unknown>;
+      expose.verifierRappels = verifierRappels;
+      expose.verifierCompte = verifierCompte;
+      expose.resynchroniserSiPossible = resynchroniserSiPossible;
+    }
+  }
 
   return {
     pret: false,
@@ -429,6 +542,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     tourneesAffichees: chargerTourneesAffichees(),
     fondSatellite: localStorage.getItem('fond-satellite') === '1',
     notification: null,
+    avisConnexion: null,
     selectionTourneeId: null,
     modeAjout: false,
     deplacementAdresseId: null,
@@ -467,12 +581,12 @@ export const useAppStore = create<EtatApp>((set, get) => {
           set({ profil: null });
         }
       });
-      window.addEventListener('online', () => void viderFileAttente());
     },
 
     connexion: async (email, mdp) => {
       if (!supabase) return "La base partagée n'est pas configurée.";
       const { error } = await supabase.auth.signInWithPassword({ email, password: mdp });
+      if (!error) set({ avisConnexion: null });
       return error ? traduireErreurAuth(error.message) : null;
     },
 

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 export default function Login() {
+  const avisConnexion = useAppStore((s) => s.avisConnexion);
   const [mode, setMode] = useState<'connexion' | 'inscription'>('connexion');
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
@@ -37,6 +38,8 @@ export default function Login() {
         <div className="connexion-logo">🚒</div>
         <h1>Tournées Calendriers</h1>
         <p className="connexion-sous-titre">Amicale des Sapeurs-Pompiers</p>
+
+        {avisConnexion && <div className="connexion-erreur">⚠️ {avisConnexion}</div>}
 
         <div className="connexion-onglets">
           <button
