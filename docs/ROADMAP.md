@@ -93,6 +93,9 @@
       aux admins (bouton masqué, garde-fou, RLS membre_de_tournee)
 - [x] Immeubles : adresses typées 🏠/🏢, appartements par étage validables
       individuellement, statut d'ensemble et calendriers laissés automatiques
+- [x] Fiabilité : compte supprimé → purge locale + déconnexion en ≤ 1 min
+      (rôle rafraîchi aussi) ; resynchronisation au premier plan / retour
+      réseau / toutes les 3 min et reconnexion auto du temps réel
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
