@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// (déclaration minimale : évite d'ajouter les types Node pour cette seule ligne)
+declare const process: { env: Record<string, string | undefined> };
+
 // base './' : nécessaire pour un futur hébergement sur GitHub Pages (sous-chemin)
 export default defineConfig({
   plugins: [
@@ -56,8 +59,9 @@ export default defineConfig({
   ],
   base: './',
   server: {
-    port: 5173,
-    strictPort: true,
+    // 5173 par défaut ; PORT permet de choisir, sinon le port libre suivant
+    port: Number(process.env.PORT) || 5173,
+    strictPort: false,
     proxy: {
       // Le serveur de fichiers d'adresses BAN n'envoie pas d'en-têtes CORS :
       // en développement on passe par ce proxy ; en production une URL de

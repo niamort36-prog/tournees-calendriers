@@ -5,6 +5,7 @@ import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
 import { supabaseActif } from '../lib/supabase';
+import MenuNavigation from './MenuNavigation';
 import { COULEUR_STATUT } from '../types';
 import type { LatLng } from '../lib/geo';
 
@@ -17,7 +18,10 @@ export default function MapView() {
   const fondPlanRef = useRef<L.TileLayer | null>(null);
   const fondSatelliteRef = useRef<L.TileLayer | null>(null);
   const editionActiveRef = useRef(false);
+  // vrai juste après un appui long : évite d'ouvrir aussi une fiche d'adresse
+  const appuiLongRef = useRef(false);
   const [versionEdition, setVersionEdition] = useState(0);
+  const [pointNavigation, setPointNavigation] = useState<{ lat: number; lng: number } | null>(null);
 
   const tournees = useAppStore((s) => s.tournees);
   const adresses = useAppStore((s) => s.adresses);
@@ -67,6 +71,10 @@ export default function MapView() {
     });
 
     map.on('click', (e: L.LeafletMouseEvent) => {
+      if (appuiLongRef.current) {
+        appuiLongRef.current = false;
+        return;
+      }
       const s = useAppStore.getState();
       if (s.modeAjout && s.selectionTourneeId) {
         void s.ajouterAdresse(s.selectionTourneeId, e.latlng.lat, e.latlng.lng);
@@ -105,6 +113,76 @@ export default function MapView() {
     return () => {
       map.remove();
       mapRef.current = null;
+    };
+  }, []);
+
+  // Appui long (téléphone) ou clic droit (PC) : proposition d'itinéraire
+  useEffect(() => {
+    const map = mapRef.current;
+    const conteneur = divRef.current;
+    if (!map || !conteneur) return;
+
+    let minuterie: number | null = null;
+    let depart: { x: number; y: number } | null = null;
+
+    const annuler = () => {
+      if (minuterie !== null) {
+        window.clearTimeout(minuterie);
+        minuterie = null;
+      }
+      depart = null;
+    };
+
+    const proposerItineraire = (clientX: number, clientY: number) => {
+      const s = useAppStore.getState();
+      if (s.modeAjout || s.deplacementAdresseId) return;
+      const rect = conteneur.getBoundingClientRect();
+      const point = map.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
+      appuiLongRef.current = true;
+      setPointNavigation({ lat: point.lat, lng: point.lng });
+      navigator.vibrate?.(30);
+    };
+
+    const surDebut = (e: TouchEvent) => {
+      appuiLongRef.current = false;
+      if (e.touches.length !== 1) {
+        annuler();
+        return;
+      }
+      const { clientX, clientY } = e.touches[0];
+      depart = { x: clientX, y: clientY };
+      minuterie = window.setTimeout(() => {
+        minuterie = null;
+        proposerItineraire(clientX, clientY);
+      }, 600);
+    };
+
+    const surMouvement = (e: TouchEvent) => {
+      if (!depart || minuterie === null) return;
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - depart.x, t.clientY - depart.y) > 12) annuler();
+    };
+
+    const surClicDroit = (e: L.LeafletMouseEvent) => {
+      proposerItineraire(
+        e.originalEvent.clientX,
+        e.originalEvent.clientY,
+      );
+    };
+
+    conteneur.addEventListener('touchstart', surDebut, { passive: true });
+    conteneur.addEventListener('touchmove', surMouvement, { passive: true });
+    conteneur.addEventListener('touchend', annuler);
+    conteneur.addEventListener('touchcancel', annuler);
+    map.on('contextmenu', surClicDroit);
+
+    return () => {
+      annuler();
+      conteneur.removeEventListener('touchstart', surDebut);
+      conteneur.removeEventListener('touchmove', surMouvement);
+      conteneur.removeEventListener('touchend', annuler);
+      conteneur.removeEventListener('touchcancel', annuler);
+      map.off('contextmenu', surClicDroit);
     };
   }, []);
 
@@ -163,6 +241,10 @@ export default function MapView() {
       }).addTo(groupe);
       poly.bindTooltip(t.nom, { sticky: true });
       poly.on('click', () => {
+        if (appuiLongRef.current) {
+          appuiLongRef.current = false;
+          return;
+        }
         const s = useAppStore.getState();
         if (s.modeAjout || s.deplacementAdresseId) return; // le clic sert alors à placer un point
         s.selectionnerTournee(t.id);
@@ -194,6 +276,10 @@ export default function MapView() {
       } as L.CircleMarkerOptions).addTo(groupe);
       marqueur.bindTooltip(nb > 1 ? `${a.libelle} — ${nb} adresses` : a.libelle);
       marqueur.on('click', () => {
+        if (appuiLongRef.current) {
+          appuiLongRef.current = false;
+          return;
+        }
         const s = useAppStore.getState();
         if (s.modeAjout || s.deplacementAdresseId) return;
         s.ouvrirAdresse(a.id);
@@ -235,5 +321,16 @@ export default function MapView() {
     divRef.current?.classList.toggle('curseur-vise', modeAjout || !!deplacementAdresseId);
   }, [modeAjout, deplacementAdresseId]);
 
-  return <div ref={divRef} className="carte" />;
+  return (
+    <>
+      <div ref={divRef} className="carte" />
+      {pointNavigation && (
+        <MenuNavigation
+          lat={pointNavigation.lat}
+          lng={pointNavigation.lng}
+          onFermer={() => setPointNavigation(null)}
+        />
+      )}
+    </>
+  );
 }

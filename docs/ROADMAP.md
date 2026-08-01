@@ -96,6 +96,10 @@
 - [x] Fiabilité : compte supprimé → purge locale + déconnexion en ≤ 1 min
       (rôle rafraîchi aussi) ; resynchronisation au premier plan / retour
       réseau / toutes les 3 min et reconnexion auto du temps réel
+- [x] Tri alphabétique des tournées partout (numérique : 2 avant 10)
+- [x] Appui long sur la carte (ou clic droit sur PC) → menu « 🧭 S'y rendre » :
+      Plans sur iPhone, Google Maps, Waze, chooser Android (geo:), adresse
+      retrouvée par géocodage inverse, copie des coordonnées
 
 ## Limites connues (v1)
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres

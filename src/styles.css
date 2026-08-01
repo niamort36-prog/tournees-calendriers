@@ -149,6 +149,10 @@ body {
   inset: 0;
 }
 
+.carte {
+  -webkit-touch-callout: none; /* pas de menu iOS à l'appui long */
+}
+
 .carte.curseur-vise {
   cursor: crosshair;
 }
@@ -1462,6 +1466,88 @@ body {
 .fiche-actions button.danger {
   margin-left: auto;
   color: var(--rouge);
+}
+
+/* ---------- Menu « S'y rendre » ---------- */
+
+.nav-voile {
+  position: absolute;
+  inset: 0;
+  z-index: 1160;
+  background: rgba(15, 25, 42, 0.3);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.nav-panneau {
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  width: 100%;
+  max-width: 460px;
+  padding: 8px 16px 18px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+  animation: monte 0.18s ease-out;
+}
+
+.nav-entete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-titre {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.nav-destination {
+  font-size: 13.5px;
+  color: var(--texte);
+  margin: 2px 0 12px;
+}
+
+.nav-coord {
+  display: block;
+  font-size: 11.5px;
+  color: var(--texte-doux);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.nav-liens {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-liens a {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  background: var(--marine);
+  color: #fff;
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nav-liens a:active {
+  filter: brightness(1.15);
+}
+
+.nav-copier {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--bordure);
+  background: #fff;
+  border-radius: 9px;
+  padding: 9px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--texte-doux);
 }
 
 /* ---------- Liste par proximité ---------- */
