@@ -97,6 +97,11 @@
       (rôle rafraîchi aussi) ; resynchronisation au premier plan / retour
       réseau / toutes les 3 min et reconnexion auto du temps réel
 - [x] Tri alphabétique des tournées partout (numérique : 2 avant 10)
+- [x] Immeubles : nombre de calendriers pris par appartement (1 par défaut),
+      total affiché et repris dans le décompte
+- [x] Bascule « vue administrateur / vue membre » pour simplifier l'écran
+      (affichage seulement, mémorisé sur l'appareil)
+- [x] Tutoriel PDF illustré (docs/) — à régénérer à chaque évolution
 - [x] Appui long sur la carte (ou clic droit sur PC) → menu « 🧭 S'y rendre » :
       Plans sur iPhone, Google Maps, Waze, chooser Android (geo:), adresse
       retrouvée par géocodage inverse, copie des coordonnées

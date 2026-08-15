@@ -13,6 +13,15 @@ import { notifier, permissionAccordee } from '../lib/notifications';
 const decomptesEnCreation = new Map<string, Promise<string>>();
 
 /**
+ * Droits d'administration *affichés* : un administrateur peut basculer en
+ * « vue membre » pour simplifier l'écran (surtout sur téléphone). Les règles
+ * de sécurité réelles restent celles du serveur.
+ */
+export function estAdminEffectif(profil: Profil | null, vueMembre: boolean): boolean {
+  return (!supabaseActif || profil?.role === 'admin') && !vueMembre;
+}
+
+/**
  * Tournées visibles pour l'utilisateur : null = toutes (admins, mode local) ;
  * sinon les tournées de ses équipes + celles qu'il a choisi d'afficher.
  */
@@ -20,8 +29,10 @@ export function calculerTourneesVisibles(
   profil: Profil | null,
   equipes: Equipe[],
   affichees: string[],
+  vueMembre = false,
 ): Set<string> | null {
-  if (!supabaseActif || !profil || profil.role === 'admin') return null;
+  if (estAdminEffectif(profil, vueMembre)) return null;
+  if (!profil) return null;
   const ids = new Set<string>(affichees);
   for (const e of equipes) {
     if (e.tourneeId && e.membres.includes(profil.id)) ids.add(e.tourneeId);
@@ -117,6 +128,8 @@ interface EtatApp {
   tourneesAffichees: string[];
   /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
   fondSatellite: boolean;
+  /** Un administrateur affiche l'application comme un simple membre. */
+  vueMembre: boolean;
   notification: string | null;
   /** Message affiché sur l'écran de connexion (ex. compte supprimé). */
   avisConnexion: string | null;
@@ -163,6 +176,7 @@ interface EtatApp {
   fermerNotification: () => void;
   basculerAffichageTournee: (id: string) => void;
   basculerFondCarte: () => void;
+  basculerVueMembre: () => void;
 
   creerTourneeDepuisPolygone: (poly: LatLng[]) => Promise<void>;
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
@@ -541,6 +555,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     annuaire: [],
     tourneesAffichees: chargerTourneesAffichees(),
     fondSatellite: localStorage.getItem('fond-satellite') === '1',
+    vueMembre: localStorage.getItem('vue-membre') === '1',
     notification: null,
     avisConnexion: null,
     selectionTourneeId: null,
@@ -803,6 +818,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
           // stockage local indisponible : le choix ne survivra pas au rechargement
         }
         return { fondSatellite: valeur };
+      }),
+
+    basculerVueMembre: () =>
+      set((s) => {
+        const valeur = !s.vueMembre;
+        try {
+          localStorage.setItem('vue-membre', valeur ? '1' : '0');
+        } catch {
+          // stockage local indisponible : le choix ne survivra pas au rechargement
+        }
+        return { vueMembre: valeur, notification: null };
       }),
 
     ouvrirAdresse: (id) => set({ adresseOuverteId: id, vueListe: false }),

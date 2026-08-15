@@ -24,6 +24,7 @@ export default function App() {
   const vueListe = useAppStore((s) => s.vueListe);
   const gpsActif = useAppStore((s) => s.gpsActif);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
+  const vueMembre = useAppStore((s) => s.vueMembre);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
   const [proposerNotifs, setProposerNotifs] = useState(
     () => permissionADemander() && localStorage.getItem('notifs-proposees') !== '1',
@@ -31,6 +32,7 @@ export default function App() {
   const pret = useAppStore((s) => s.pret);
   const session = useAppStore((s) => s.session);
   const profil = useAppStore((s) => s.profil);
+  const estAdminReel = profil?.role === 'admin';
   const chargement = useAppStore((s) => s.chargement);
   const erreur = useAppStore((s) => s.erreur);
   const modeAjout = useAppStore((s) => s.modeAjout);
@@ -93,7 +95,7 @@ export default function App() {
         <button className="btn-equipe" onClick={() => setSyntheseOuverte(true)}>
           📊 Synthèse
         </button>
-        {profil?.role === 'admin' && (
+        {estAdminReel && !vueMembre && (
           <button className="btn-equipe" onClick={() => setEquipeOuverte(true)}>
             👥 Membres
           </button>
@@ -101,7 +103,19 @@ export default function App() {
         {profil && (
           <div className="utilisateur">
             👤 {profil.nom}
-            {profil.role === 'admin' && <span className="badge-admin">Admin</span>}
+            {estAdminReel && (
+              <button
+                className={'badge-vue' + (vueMembre ? ' en-membre' : '')}
+                title={
+                  vueMembre
+                    ? 'Vous voyez l’application comme un sapeur-pompier. Cliquez pour revenir en vue administrateur.'
+                    : 'Vue administrateur. Cliquez pour afficher l’application comme un sapeur-pompier.'
+                }
+                onClick={() => useAppStore.getState().basculerVueMembre()}
+              >
+                {vueMembre ? '👁️ Vue membre' : '🛠️ Admin'}
+              </button>
+            )}
             <button
               className="btn-sortir"
               title="Se déconnecter"

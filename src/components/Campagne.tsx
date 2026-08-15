@@ -2,8 +2,7 @@
 // compteurs de distribution et archivage de fin de campagne.
 
 import { useState, type FormEvent } from 'react';
-import { useAppStore } from '../store/useAppStore';
-import { supabaseActif } from '../lib/supabase';
+import { estAdminEffectif, useAppStore } from '../store/useAppStore';
 
 export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) {
   const profil = useAppStore((s) => s.profil);
@@ -11,7 +10,8 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
   const adresses = useAppStore((s) => s.adresses);
   const [nom, setNom] = useState(String(new Date().getFullYear() + 1));
 
-  const estAdmin = !supabaseActif || profil?.role === 'admin';
+  const vueMembre = useAppStore((s) => s.vueMembre);
+  const estAdmin = estAdminEffectif(profil, vueMembre);
   const active = campagnes.find((c) => c.statut === 'active');
   const archivees = campagnes
     .filter((c) => c.statut === 'archivee')

@@ -24,9 +24,10 @@ export default function ListeAdresses() {
   const s = useAppStore.getState;
 
   const tourneesAffichees = useAppStore((st) => st.tourneesAffichees);
+  const vueMembre = useAppStore((st) => st.vueMembre);
   const visibles = useMemo(
-    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
-    [profil, equipes, tourneesAffichees],
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
+    [profil, equipes, tourneesAffichees, vueMembre],
   );
 
   const maTourneeId = profil

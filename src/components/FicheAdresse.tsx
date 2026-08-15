@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import {
   COULEUR_STATUT,
   LIBELLE_STATUT,
+  calendriersImmeuble,
   statutAgrege,
   type Appartement,
   type StatutAdresse,
@@ -65,11 +66,11 @@ export default function FicheAdresse() {
   const estImmeuble = adresse.typeBatiment === 'immeuble';
 
   const majAppartements = (liste: Appartement[]) => {
-    const distribues = liste.filter((a) => a.statut === 'distribue').length;
+    const total = calendriersImmeuble(liste);
     void s().majAdresse(adresse.id, {
       appartements: liste,
       statut: statutAgrege(liste),
-      calendriersLaisses: distribues > 0 ? distribues : null,
+      calendriersLaisses: total > 0 ? total : null,
     });
   };
 
@@ -172,14 +173,20 @@ export default function FicheAdresse() {
             {adresse.appartements.length > 0 && (
               <div className="appartements-resume">
                 {adresse.appartements.filter((a) => a.statut !== 'a_faire').length}/
-                {adresse.appartements.length} appartements traités — statut d'ensemble :{' '}
+                {adresse.appartements.length} appartements traités
+                {calendriersImmeuble(adresse.appartements) > 0 &&
+                  ` — ${calendriersImmeuble(adresse.appartements)} calendrier${
+                    calendriersImmeuble(adresse.appartements) > 1 ? 's' : ''
+                  }`}{' '}
+                — statut d'ensemble :{' '}
                 <strong style={{ color: COULEUR_STATUT[adresse.statut] }}>
                   {LIBELLE_STATUT[adresse.statut]}
                 </strong>
               </div>
             )}
             {adresse.appartements.map((app) => (
-              <div key={app.id} className="appartement-ligne">
+              <div key={app.id} className="appartement-bloc">
+              <div className="appartement-ligne">
                 <input
                   placeholder="Étage"
                   defaultValue={app.etage}
@@ -239,6 +246,28 @@ export default function FicheAdresse() {
                 >
                   ✕
                 </button>
+              </div>
+              {app.statut === 'distribue' && (
+                <label className="appartement-calendriers">
+                  Calendriers pris
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="1"
+                    value={app.calendriers ?? ''}
+                    onChange={(e) => {
+                      const brut = e.target.value.trim();
+                      const valeur = brut === '' ? null : Math.max(0, Math.trunc(Number(brut)));
+                      if (valeur !== null && Number.isNaN(valeur)) return;
+                      majAppartements(
+                        adresse.appartements.map((x) =>
+                          x.id === app.id ? { ...x, calendriers: valeur } : x,
+                        ),
+                      );
+                    }}
+                  />
+                </label>
+              )}
               </div>
             ))}
             <button

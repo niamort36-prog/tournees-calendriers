@@ -70,6 +70,15 @@ export interface Appartement {
   etage: string; // texte libre : « RDC », « 1er », « 2 »…
   numero: string; // « Apt 12 », « Porte gauche »…
   statut: StatutAdresse;
+  /** Calendriers pris par cet appartement (1 par défaut quand il est distribué). */
+  calendriers?: number | null;
+}
+
+/** Total des calendriers laissés dans un immeuble (1 par défaut si non précisé). */
+export function calendriersImmeuble(appartements: Appartement[]): number {
+  return appartements
+    .filter((a) => a.statut === 'distribue')
+    .reduce((n, a) => n + (a.calendriers ?? 1), 0);
 }
 
 /**

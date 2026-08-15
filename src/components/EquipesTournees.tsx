@@ -2,8 +2,7 @@
 // attribution aux tournées. Lecture pour tous, modification par les admins.
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { useAppStore } from '../store/useAppStore';
-import { supabaseActif } from '../lib/supabase';
+import { estAdminEffectif, useAppStore } from '../store/useAppStore';
 import { trierTournees, type Equipe } from '../types';
 
 function CarteEquipe({ equipe, estAdmin }: { equipe: Equipe; estAdmin: boolean }) {
@@ -106,7 +105,8 @@ export default function EquipesTournees({ onFermer }: { onFermer: () => void }) 
   const profil = useAppStore((s) => s.profil);
   const equipes = useAppStore((s) => s.equipes);
   const [nom, setNom] = useState('');
-  const estAdmin = !supabaseActif || profil?.role === 'admin';
+  const vueMembre = useAppStore((s) => s.vueMembre);
+  const estAdmin = estAdminEffectif(profil, vueMembre);
 
   useEffect(() => {
     void useAppStore.getState().rafraichirAnnuaire();

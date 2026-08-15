@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
-import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
-import { supabaseActif } from '../lib/supabase';
+import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import MenuNavigation from './MenuNavigation';
 import { COULEUR_STATUT } from '../types';
 import type { LatLng } from '../lib/geo';
@@ -31,13 +30,14 @@ export default function MapView() {
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
-  const estAdmin = useAppStore((s) => !supabaseActif || s.profil?.role === 'admin');
   const profil = useAppStore((s) => s.profil);
   const equipes = useAppStore((s) => s.equipes);
   const tourneesAffichees = useAppStore((s) => s.tourneesAffichees);
+  const vueMembre = useAppStore((s) => s.vueMembre);
+  const estAdmin = estAdminEffectif(profil, vueMembre);
   const visibles = useMemo(
-    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
-    [profil, equipes, tourneesAffichees],
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
+    [profil, equipes, tourneesAffichees, vueMembre],
   );
 
   useEffect(() => {
@@ -83,7 +83,12 @@ export default function MapView() {
       } else {
         // aimant à doigt : si le tap a raté le ping de peu, on ouvre quand même
         // l'adresse visible la plus proche du point touché
-        const visibles = calculerTourneesVisibles(s.profil, s.equipes, s.tourneesAffichees);
+        const visibles = calculerTourneesVisibles(
+          s.profil,
+          s.equipes,
+          s.tourneesAffichees,
+          s.vueMembre,
+        );
         const pointClic = map.latLngToContainerPoint(e.latlng);
         let meilleure: string | null = null;
         let meilleureDistance = 30; // pixels

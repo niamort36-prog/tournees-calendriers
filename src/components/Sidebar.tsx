@@ -1,8 +1,7 @@
 // Panneau latéral : liste des tournées avec leurs infos et actions.
 
 import { useEffect, useMemo, useState } from 'react';
-import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
-import { supabaseActif } from '../lib/supabase';
+import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import DecompteFenetre from './DecompteFenetre';
 import { formatEuros, totalDecompte, trierTournees, trouverDecompte, type Tournee } from '../types';
 
@@ -37,7 +36,8 @@ function CarteTournee({
   );
   const selectionnee = selectionTourneeId === tournee.id;
   const s = useAppStore.getState;
-  const estAdmin = !supabaseActif || profil?.role === 'admin';
+  const vueMembre = useAppStore((st) => st.vueMembre);
+  const estAdmin = estAdminEffectif(profil, vueMembre);
 
   // combien de calendriers prendre en début de tournée (arrondi au paquet)
   const base = tournee.calendriersAnneeDerniere ?? nbCalendriers;
@@ -202,11 +202,12 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
   const profil = useAppStore((s) => s.profil);
   const equipes = useAppStore((s) => s.equipes);
   const tourneesAffichees = useAppStore((s) => s.tourneesAffichees);
-  const estAdmin = !supabaseActif || profil?.role === 'admin';
+  const vueMembre = useAppStore((s) => s.vueMembre);
+  const estAdmin = estAdminEffectif(profil, vueMembre);
   const [decompteTourneeId, setDecompteTourneeId] = useState<string | null>(null);
   const visibles = useMemo(
-    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees),
-    [profil, equipes, tourneesAffichees],
+    () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
+    [profil, equipes, tourneesAffichees, vueMembre],
   );
   const estMienne = (t: Tournee) =>
     profil !== null && equipes.some((e) => e.tourneeId === t.id && e.membres.includes(profil.id));
