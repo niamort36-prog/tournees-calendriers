@@ -5,7 +5,16 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { db } from './db';
-import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '../types';
+import type {
+  AdressePoint,
+  Campagne,
+  Decompte,
+  EntreeJournal,
+  Equipe,
+  Profil,
+  Tournee,
+  TypeJournal,
+} from '../types';
 import { formatEuros, totalDecompte, trouverDecompte } from '../types';
 import { notifier, permissionAccordee } from '../lib/notifications';
 
@@ -53,8 +62,10 @@ import {
   abonnerTempsReel,
   syncAdresse,
   syncAdresses,
+  chargerJournal,
   syncCampagne,
   syncDecompte,
+  syncJournal,
   syncEquipe,
   syncSupprimerEquipe,
   syncRemplacerAdresses,
@@ -95,6 +106,7 @@ function nouvelleAdresse(p: PingGroupe, tourneeId: string): AdressePoint {
     appartements: [],
     statut: 'a_faire',
     statutPrecedent: null,
+    noteLe: null,
     somme: null,
     calendriersLaisses: null,
     rappelLe: null,
@@ -124,6 +136,8 @@ interface EtatApp {
   decomptes: Decompte[];
   /** Tous les profils (pour composer les équipes et afficher les noms). */
   annuaire: Profil[];
+  /** Journal des interventions sur les adresses (lecture admin). */
+  journal: EntreeJournal[];
   /** Tournées supplémentaires que l'utilisateur a choisi d'afficher. */
   tourneesAffichees: string[];
   /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
@@ -173,6 +187,7 @@ interface EtatApp {
   majEquipe: (id: string, patch: Partial<Equipe>) => Promise<void>;
   supprimerEquipe: (id: string) => Promise<void>;
   rafraichirAnnuaire: () => Promise<void>;
+  rafraichirJournal: () => Promise<void>;
   fermerNotification: () => void;
   basculerAffichageTournee: (id: string) => void;
   basculerFondCarte: () => void;
@@ -543,6 +558,32 @@ export const useAppStore = create<EtatApp>((set, get) => {
     }
   }
 
+  /** Consigne une intervention sur une adresse dans le journal. */
+  const consigner = (
+    type: TypeJournal,
+    adresse: AdressePoint,
+    detail = '',
+  ) => {
+    const profil = get().profil;
+    const tournee = get().tournees.find((t) => t.id === adresse.tourneeId);
+    const entree: EntreeJournal = {
+      id: crypto.randomUUID(),
+      type,
+      adresseId: adresse.id,
+      libelle: `${adresse.libelle}${adresse.commune ? ', ' + adresse.commune : ''}`,
+      detail,
+      tourneeId: adresse.tourneeId,
+      tourneeNom: tournee?.nom ?? '',
+      lat: adresse.lat,
+      lng: adresse.lng,
+      auteurId: profil?.id ?? null,
+      auteurNom: profil?.nom ?? '',
+      quand: new Date().toISOString(),
+    };
+    void syncJournal(entree);
+    set((s) => ({ journal: [entree, ...s.journal] }));
+  };
+
   return {
     pret: false,
     session: null,
@@ -553,6 +594,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     equipes: [],
     decomptes: [],
     annuaire: [],
+    journal: [],
     tourneesAffichees: chargerTourneesAffichees(),
     fondSatellite: localStorage.getItem('fond-satellite') === '1',
     vueMembre: localStorage.getItem('vue-membre') === '1',
@@ -789,6 +831,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
       await syncSupprimerEquipe(id);
     },
 
+    rafraichirJournal: async () => {
+      if (!supabase || !get().session) return;
+      set({ journal: await chargerJournal() });
+    },
+
     rafraichirAnnuaire: async () => {
       if (!supabase || !get().session) return;
       const { data } = await supabase.from('profils').select('id, nom, role, centre').order('nom');
@@ -865,9 +912,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
     majAdresse: async (id, patch) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse) return;
-      const maj = { ...adresse, ...patch, modifieLe: new Date().toISOString() };
+      const noteChangee = patch.note !== undefined && (patch.note ?? null) !== (adresse.note ?? null);
+      const maintenant = new Date().toISOString();
+      const maj = {
+        ...adresse,
+        ...patch,
+        ...(noteChangee ? { noteLe: patch.note ? maintenant : null } : {}),
+        modifieLe: maintenant,
+      };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      if (noteChangee && maj.note) consigner('commentaire', maj, maj.note);
       await syncAdresse(maj);
     },
 
@@ -999,6 +1054,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         appartements: [],
         statut: 'a_faire',
         statutPrecedent: null,
+        noteLe: null,
         somme: null,
         calendriersLaisses: null,
         rappelLe: null,
@@ -1020,6 +1076,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         set((s) => ({ tournees: s.tournees.map((t) => (t.id === tourneeId ? fige : t)) }));
       }
       set((s) => ({ adresses: [...s.adresses, adresse], chargement: CHARGEMENT_INACTIF }));
+      consigner('creation', adresse);
       await syncAdresse(adresse);
       if (tourneeMaj) await syncTournee(tourneeMaj);
     },
@@ -1030,6 +1087,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const maj = { ...adresse, libelle: libelle.trim(), modifieLe: new Date().toISOString() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      consigner('renommage', maj, `« ${adresse.libelle} » → « ${maj.libelle} »`);
       await syncAdresse(maj);
     },
 
@@ -1039,6 +1097,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const maj = { ...adresse, lat, lng, modifieLe: new Date().toISOString() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)), deplacementAdresseId: null }));
+      consigner(
+        'deplacement',
+        maj,
+        `depuis ${adresse.lat.toFixed(5)}, ${adresse.lng.toFixed(5)}`,
+      );
       await syncAdresse(maj);
     },
 
@@ -1060,6 +1123,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         set((s) => ({ tournees: s.tournees.map((t) => (t.id === fige.id ? fige : t)) }));
       }
       set((s) => ({ adresses: s.adresses.filter((a) => a.id !== id) }));
+      consigner('suppression', adresse, adresse.note ? `commentaire : ${adresse.note}` : '');
       await syncSupprimerAdresse(id);
       if (tourneeMaj) await syncTournee(tourneeMaj);
     },

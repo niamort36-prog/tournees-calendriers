@@ -138,12 +138,52 @@ export interface AdressePoint {
   statut: StatutAdresse;
   /** Statut lors de la campagne précédente (rempli par l'archivage). */
   statutPrecedent: StatutAdresse | null;
+  /** Date de saisie du commentaire (null si aucun commentaire). */
+  noteLe: string | null;
   /** Champs remplis en tournée (phases suivantes). */
   somme: number | null;
   calendriersLaisses: number | null;
   rappelLe: string | null;
   note: string | null;
   modifieLe: string;
+}
+
+/** Type d'intervention consignée dans le journal des modifications. */
+export type TypeJournal =
+  | 'creation'
+  | 'suppression'
+  | 'renommage'
+  | 'deplacement'
+  | 'commentaire';
+
+export const LIBELLE_JOURNAL: Record<TypeJournal, string> = {
+  creation: 'Adresse ajoutée',
+  suppression: 'Adresse supprimée',
+  renommage: 'Adresse renommée',
+  deplacement: 'Adresse déplacée',
+  commentaire: 'Commentaire',
+};
+
+/** Une ligne du journal : qui a fait quoi, où et quand. */
+export interface EntreeJournal {
+  id: string;
+  type: TypeJournal;
+  adresseId: string | null;
+  libelle: string;
+  detail: string;
+  tourneeId: string | null;
+  tourneeNom: string;
+  lat: number | null;
+  lng: number | null;
+  auteurId: string | null;
+  auteurNom: string;
+  quand: string;
+}
+
+/** Coordonnées lisibles pour l'affichage et l'impression. */
+export function formatCoordonnees(lat: number | null, lng: number | null): string {
+  if (lat == null || lng == null) return '—';
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 /** Une demi-journée de tournée effectuée, avec la voiture utilisée. */

@@ -102,6 +102,11 @@
 - [x] Bascule « vue administrateur / vue membre » pour simplifier l'écran
       (affichage seulement, mémorisé sur l'appareil)
 - [x] Tutoriel PDF illustré (docs/) — à régénérer à chaque évolution
+      (générateur et captures versionnés dans docs/tutoriel/)
+- [x] Calendriers donnés en lots (JSP, mairie…) : campagne, synthèse, export
+- [x] Récapitulatif admin : commentaires horodatés + journal des interventions
+      sur les adresses (ajout, suppression, renommage, déplacement) avec
+      tournée, coordonnées et auteur ; version imprimable
 - [x] Appui long sur la carte (ou clic droit sur PC) → menu « 🧭 S'y rendre » :
       Plans sur iPhone, Google Maps, Waze, chooser Android (geo:), adresse
       retrouvée par géocodage inverse, copie des coordonnées

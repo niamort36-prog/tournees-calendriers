@@ -437,7 +437,7 @@ encadre('Confidentialité',
 p('2.8 — Terminer sa tournée', 'h1')
 p('Quand la tournée est finie, les membres de l’équipe font le décompte de la '
   'recette avec le bouton <b>drapeau</b> sur la fiche de la tournée. Cette étape est '
-  'décrite en détail en <b>partie 3.9</b> : elle est identique sur téléphone et sur '
+  'décrite en détail en <b>partie 3.10</b> : elle est identique sur téléphone et sur '
   'ordinateur.')
 
 p('2.9 — Corriger ou ajouter une adresse', 'h1')
@@ -594,7 +594,28 @@ p('En bas, le tableau <b>Historique par tournée</b> se remplit d’année en an
   'Excel</b> produit un classeur avec cinq feuilles (tournées, adresses, décomptes, '
   'lots, campagne) — idéal pour la comptabilité de l’amicale.')
 
-p('3.9 — Le décompte de fin de tournée', 'h1')
+p('3.9 — Le récapitulatif des commentaires et des interventions', 'h1')
+p('En bas de la Synthèse, deux tableaux réservés aux administrateurs permettent de '
+  'contrôler d’un coup d’œil ce qui s’est passé sur le terrain.')
+p('<b>Les commentaires</b> : toutes les adresses sur lesquelles un sapeur-pompier a '
+  'écrit une note (« chien méchant », « ne veut plus de calendrier »…), avec la '
+  'tournée concernée et la <b>date de saisie</b>. Les adresses sans commentaire '
+  'n’apparaissent pas.')
+p('<b>Les interventions</b> : le journal des modifications d’adresses — ajout, '
+  'suppression, renommage, déplacement et commentaire — avec pour chacune la '
+  '<b>tournée</b>, la <b>date et l’heure</b>, les <b>coordonnées GPS</b> du point '
+  'et le <b>nom de la personne</b> qui l’a faite.')
+p('Le bouton <b>Imprimer le récapitulatif</b> ouvre les deux tableaux dans un '
+  'document prêt à imprimer (ou à enregistrer en PDF) :')
+image('admin-recap-imprimable', 14, 'Le récapitulatif imprimable : commentaires et '
+      'interventions')
+encadre('À quoi ça sert',
+        'Pour vérifier les corrections faites par les équipes (une maison ajoutée au '
+        'mauvais endroit, une adresse supprimée par erreur…) et pour préparer la '
+        'campagne suivante à partir des remarques du terrain. Les coordonnées GPS '
+        'permettent de retrouver exactement le point concerné sur la carte.')
+
+p('3.10 — Le décompte de fin de tournée', 'h1')
 p('Quand une équipe a terminé, elle ouvre le décompte avec le bouton <b>drapeau</b> '
   'de la tournée. Réservé aux membres de l’équipe concernée et aux administrateurs.')
 etapes([
@@ -613,7 +634,7 @@ encadre('Rien n’est définitif',
         'même. Les administrateurs reçoivent une notification à chaque tournée '
         'terminée, avec le montant.')
 
-p('3.10 — Imprimer le reçu', 'h1')
+p('3.11 — Imprimer le reçu', 'h1')
 p('Une fois la tournée validée, le bouton <b>Reçu</b> affiche un document prêt à '
   'imprimer, avec le détail de chaque coupure et deux emplacements de signature.')
 image('admin-recu', 12, 'Le reçu, prêt à imprimer ou à enregistrer en PDF')
@@ -621,7 +642,7 @@ p('Le bouton <b>Imprimer / enregistrer en PDF</b> ouvre la fenêtre d’impressi
   'votre navigateur : choisissez votre imprimante, ou « Enregistrer au format PDF » '
   'pour le conserver dans les comptes de l’amicale.')
 
-p('3.11 — Clôturer la campagne', 'h1')
+p('3.12 — Clôturer la campagne', 'h1')
 p('Une fois toutes les tournées terminées, ouvrez <b>Campagne</b> et cliquez sur '
   '<b>Archiver la campagne</b>. L’application effectue alors automatiquement :')
 puces([
@@ -678,6 +699,8 @@ tableau(['Le geste', 'Comment faire'], [
      'du rappel'],
     ['Compter un immeuble', 'Bouton « Immeuble », un appartement par ligne, puis '
      '« Calendriers pris »'],
+    ['Laisser un mot pour l’équipe', 'Case « Note » dans la fiche de l’adresse '
+     '(l’administrateur la retrouve dans la Synthèse)'],
     ['Voir les adresses proches', 'Bouton Liste (bloc-notes) en bas à droite'],
     ['Se faire guider en voiture', 'Appui long d’une seconde sur la carte'],
     ['Voir ma position', 'Bouton Position (punaise) en bas à droite'],

@@ -12,6 +12,7 @@ import type {
   Campagne,
   Decompte,
   Equipe,
+  EntreeJournal,
   LigneCheques,
   LotCalendriers,
   Seance,
@@ -149,6 +150,7 @@ function adresseVersLigne(a: AdressePoint) {
     lat: a.lat,
     lng: a.lng,
     autres_adresses: a.autresAdresses,
+    note_le: a.noteLe,
     type_batiment: a.typeBatiment,
     appartements: a.appartements,
     statut: a.statut,
@@ -173,6 +175,7 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
     lat: l.lat as number,
     lng: l.lng as number,
     autresAdresses: (l.autres_adresses as string[]) ?? [],
+    noteLe: (l.note_le as string | null) ?? null,
     typeBatiment: (l.type_batiment as 'maison' | 'immeuble') ?? 'maison',
     appartements: (l.appartements as Appartement[]) ?? [],
     statut: (l.statut as StatutAdresse) ?? 'a_faire',
@@ -194,6 +197,7 @@ type Operation =
   | { table: 'campagnes'; op: 'delete'; id: string }
   | { table: 'equipes'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'equipes'; op: 'delete'; id: string }
+  | { table: 'journal'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'decomptes'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'decomptes'; op: 'delete'; id: string }
   | { table: 'adresses'; op: 'upsert'; donnees: Record<string, unknown> | Record<string, unknown>[] }
@@ -267,6 +271,56 @@ export const syncCampagne = (c: Campagne) =>
 export const syncEquipe = (e: Equipe) =>
   pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
 export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });
+function journalVersLigne(e: EntreeJournal) {
+  return {
+    id: e.id,
+    type: e.type,
+    adresse_id: e.adresseId,
+    libelle: e.libelle,
+    detail: e.detail,
+    tournee_id: e.tourneeId,
+    tournee_nom: e.tourneeNom,
+    lat: e.lat,
+    lng: e.lng,
+    auteur_id: e.auteurId,
+    auteur_nom: e.auteurNom,
+    quand: e.quand,
+  };
+}
+
+function ligneVersJournal(l: Record<string, unknown>): EntreeJournal {
+  return {
+    id: l.id as string,
+    type: l.type as EntreeJournal['type'],
+    adresseId: (l.adresse_id as string | null) ?? null,
+    libelle: (l.libelle as string) ?? '',
+    detail: (l.detail as string) ?? '',
+    tourneeId: (l.tournee_id as string | null) ?? null,
+    tourneeNom: (l.tournee_nom as string) ?? '',
+    lat: (l.lat as number | null) ?? null,
+    lng: (l.lng as number | null) ?? null,
+    auteurId: (l.auteur_id as string | null) ?? null,
+    auteurNom: (l.auteur_nom as string) ?? '',
+    quand: l.quand as string,
+  };
+}
+
+/** Consigne une intervention (rejouée plus tard si hors ligne). */
+export const syncJournal = (e: EntreeJournal) =>
+  pousser({ table: 'journal', op: 'upsert', donnees: journalVersLigne(e) });
+
+/** Lit le journal (réservé aux administrateurs par les règles du serveur). */
+export async function chargerJournal(limite = 300): Promise<EntreeJournal[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('journal')
+    .select('*')
+    .order('quand', { ascending: false })
+    .limit(limite);
+  if (error) return [];
+  return (data ?? []).map(ligneVersJournal);
+}
+
 export const syncDecompte = (d: Decompte) =>
   pousser({ table: 'decomptes', op: 'upsert', donnees: decompteVersLigne(d) });
 export const syncAdresse = (a: AdressePoint) =>

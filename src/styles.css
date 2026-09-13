@@ -2193,6 +2193,15 @@ body {
   .recu-imprimable * {
     visibility: visible;
   }
+
+  .recap-table {
+    font-size: 9.5px;
+  }
+
+  .recap-table th,
+  .recap-table td {
+    padding: 3px 5px;
+  }
   .recu-voile {
     position: static;
     background: none;
@@ -2208,6 +2217,64 @@ body {
   .no-print {
     display: none !important;
   }
+}
+
+/* ---------- Récapitulatif admin (commentaires et interventions) ---------- */
+
+.recap-defilement {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.recap-commentaire {
+  white-space: normal;
+  min-width: 160px;
+}
+
+.recap-detail {
+  font-size: 11px;
+  color: var(--texte-doux);
+  white-space: normal;
+}
+
+.recap-date {
+  white-space: nowrap;
+}
+
+.recap-vide {
+  font-size: 12.5px;
+  color: var(--texte-doux);
+}
+
+/* le récapitulatif réutilise le tableau du reçu, mais tout aligné à gauche */
+.recap-table th,
+.recap-table td,
+.recap-table td:nth-child(2),
+.recap-table td:nth-child(3),
+.recap-table td:last-child {
+  text-align: left;
+  vertical-align: top;
+}
+
+.recap-table td {
+  font-size: 11px;
+}
+
+.btn-recap {
+  width: 100%;
+  margin-bottom: 10px;
+  background: #fff;
+  color: var(--marine);
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-recap:hover {
+  background: var(--fond);
 }
 
 /* ---------- Synthèse ---------- */

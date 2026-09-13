@@ -1,11 +1,15 @@
 // Fenêtre « Synthèse » : grands compteurs, camemberts (statuts des adresses,
 // répartition des paiements), barres par tournée, export Excel.
 
+import { useEffect, useState } from 'react';
 import { estAdminEffectif, useAppStore } from '../store/useAppStore';
+import RecapModifications from './RecapModifications';
 import { construireFeuilles, exporterExcel, type DonneesExport } from '../lib/exportExcel';
 import {
   COULEUR_STATUT,
+  LIBELLE_JOURNAL,
   LIBELLE_STATUT,
+  formatCoordonnees,
   formatEuros,
   totalDecompte,
   totalCalendriersLots,
@@ -77,6 +81,24 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
   const profil = useAppStore((s) => s.profil);
   const vueMembre = useAppStore((s) => s.vueMembre);
   const estAdmin = estAdminEffectif(profil, vueMembre);
+  const journal = useAppStore((s) => s.journal);
+  const [recapOuvert, setRecapOuvert] = useState(false);
+
+  useEffect(() => {
+    if (estAdmin) void useAppStore.getState().rafraichirJournal();
+  }, [estAdmin]);
+
+  const dateCourte = (iso: string | null) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? '—'
+      : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  };
+  const nomTournee = (id: string | null) => tournees.find((t) => t.id === id)?.nom ?? '—';
+  const commentaires = adresses
+    .filter((a) => a.note && a.note.trim())
+    .sort((a, b) => (b.noteLe ?? b.modifieLe).localeCompare(a.noteLe ?? a.modifieLe));
 
   const campagneActive = campagnes.find((c) => c.statut === 'active') ?? null;
   const decomptesCampagne = decomptes.filter((d) => d.campagneId === (campagneActive?.id ?? null));
@@ -320,11 +342,92 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
         </div>
         )}
 
+        {estAdmin && commentaires.length > 0 && (
+          <div className="synthese-bloc">
+            <h3>📝 Commentaires laissés sur les adresses ({commentaires.length})</h3>
+            <div className="recap-defilement">
+              <table className="historique-table">
+                <thead>
+                  <tr>
+                    <th>Tournée</th>
+                    <th>Adresse</th>
+                    <th>Commentaire</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commentaires.map((a) => (
+                    <tr key={a.id}>
+                      <td>{nomTournee(a.tourneeId)}</td>
+                      <td>
+                        {a.libelle}
+                        {a.commune ? `, ${a.commune}` : ''}
+                      </td>
+                      <td className="recap-commentaire">{a.note}</td>
+                      <td>{dateCourte(a.noteLe ?? a.modifieLe)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {estAdmin && (
+          <div className="synthese-bloc">
+            <h3>🛠️ Interventions sur les adresses ({journal.length})</h3>
+            {journal.length === 0 ? (
+              <p className="campagne-vide">
+                Aucune intervention enregistrée pour le moment. Les ajouts, suppressions,
+                renommages et déplacements d’adresses apparaîtront ici.
+              </p>
+            ) : (
+              <div className="recap-defilement">
+                <table className="historique-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Intervention</th>
+                      <th>Adresse</th>
+                      <th>Tournée</th>
+                      <th>Coordonnées</th>
+                      <th>Par</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {journal.map((e) => (
+                      <tr key={e.id}>
+                        <td>{dateCourte(e.quand)}</td>
+                        <td>
+                          {LIBELLE_JOURNAL[e.type]}
+                          {e.detail && <div className="recap-detail">{e.detail}</div>}
+                        </td>
+                        <td>{e.libelle}</td>
+                        <td>{e.tourneeNom || nomTournee(e.tourneeId)}</td>
+                        <td>{formatCoordonnees(e.lat, e.lng)}</td>
+                        <td>{e.auteurNom || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {estAdmin && (
+          <button className="btn-recap" onClick={() => setRecapOuvert(true)}>
+            🖨️ Imprimer le récapitulatif (commentaires et interventions)
+          </button>
+        )}
+
         {estAdmin && (
           <button className="btn-export" onClick={exporter}>
             📥 Exporter tout en Excel
           </button>
         )}
+
+        {recapOuvert && <RecapModifications onFermer={() => setRecapOuvert(false)} />}
       </div>
     </div>
   );
