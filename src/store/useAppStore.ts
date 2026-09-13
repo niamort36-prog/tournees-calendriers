@@ -636,6 +636,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         calendriersCommandes: null,
         taillePaquet: null,
         statut: 'active',
+        lots: [],
         creeLe: maintenant,
         archiveeLe: null,
         modifieLe: maintenant,

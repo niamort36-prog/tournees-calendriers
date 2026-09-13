@@ -24,6 +24,27 @@ export interface Profil {
   centre: string;
 }
 
+/** Un lot de calendriers remis en dehors des tournées (JSP, mairie…). */
+export interface LotCalendriers {
+  id: string;
+  /** À qui / pourquoi : « JSP », « Mairie », « Commerçants »… */
+  libelle: string;
+  nombre: number | null;
+  /** Somme reçue en échange (facultatif). */
+  montant: number | null;
+  date: string; // AAAA-MM-JJ
+}
+
+/** Total des calendriers remis en lots. */
+export function totalCalendriersLots(lots: LotCalendriers[]): number {
+  return lots.reduce((n, l) => n + (l.nombre ?? 0), 0);
+}
+
+/** Total des sommes reçues pour les lots. */
+export function totalMontantLots(lots: LotCalendriers[]): number {
+  return Math.round(lots.reduce((n, l) => n + (l.montant ?? 0), 0) * 100) / 100;
+}
+
 export interface Campagne {
   id: string;
   nom: string;
@@ -32,6 +53,8 @@ export interface Campagne {
   /** Taille des paquets livrés (ex. 25) → calcul du nombre à prendre par tournée. */
   taillePaquet: number | null;
   statut: 'active' | 'archivee';
+  /** Lots de calendriers remis en dehors des tournées. */
+  lots: LotCalendriers[];
   creeLe: string;
   archiveeLe: string | null;
   modifieLe: string;

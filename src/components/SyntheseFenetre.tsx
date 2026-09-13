@@ -8,6 +8,8 @@ import {
   LIBELLE_STATUT,
   formatEuros,
   totalDecompte,
+  totalCalendriersLots,
+  totalMontantLots,
   trierTournees,
   trouverDecompte,
 } from '../types';
@@ -79,8 +81,13 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
   const campagneActive = campagnes.find((c) => c.statut === 'active') ?? null;
   const decomptesCampagne = decomptes.filter((d) => d.campagneId === (campagneActive?.id ?? null));
 
+  const lots = campagneActive?.lots ?? [];
+  const calendriersLots = totalCalendriersLots(lots);
+  const montantLots = totalMontantLots(lots);
   const totalCollecte =
-    Math.round(decomptesCampagne.reduce((somme, d) => somme + totalDecompte(d).total, 0) * 100) / 100;
+    Math.round(
+      (decomptesCampagne.reduce((somme, d) => somme + totalDecompte(d).total, 0) + montantLots) * 100,
+    ) / 100;
   const totalDistribues = adresses
     .filter((a) => a.statut === 'distribue')
     .reduce((n, a) => n + (a.calendriersLaisses ?? 1), 0);
@@ -89,7 +96,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
   const avancement = nbPoints > 0 ? Math.round((nbVus / nbPoints) * 100) : 0;
   const restantsStock =
     campagneActive?.calendriersCommandes != null
-      ? campagneActive.calendriersCommandes - totalDistribues
+      ? campagneActive.calendriersCommandes - totalDistribues - calendriersLots
       : null;
 
   const partsStatuts: Part[] = (['a_faire', 'distribue', 'absent', 'refus'] as const).map(
@@ -114,6 +121,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
     { libelle: 'Espèces', valeur: Math.round(sommesPaiements.especes * 100) / 100, couleur: '#2a9d8f' },
     { libelle: 'Chèques', valeur: Math.round(sommesPaiements.cheques * 100) / 100, couleur: '#457b9d' },
     { libelle: 'Carte bancaire', valeur: Math.round(sommesPaiements.cb * 100) / 100, couleur: '#e76f51' },
+    { libelle: 'Lots', valeur: montantLots, couleur: '#8338ec' },
   ];
 
   const barres = trierTournees(tournees).map((t) => {
@@ -165,6 +173,12 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
             <span className="compteur-valeur">{avancement} %</span>
             <span className="compteur-libelle">d'avancement</span>
           </div>
+          {calendriersLots > 0 && (
+            <div className="compteur">
+              <span className="compteur-valeur">{calendriersLots}</span>
+              <span className="compteur-libelle">donnés en lots</span>
+            </div>
+          )}
           {estAdmin && (
             <div className="compteur">
               <span className="compteur-valeur">{restantsStock ?? '—'}</span>
@@ -185,6 +199,47 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
             </div>
           )}
         </div>
+
+        {lots.length > 0 && (
+          <div className="synthese-bloc">
+            <h3>📦 Calendriers donnés en lots</h3>
+            <table className="historique-table">
+              <thead>
+                <tr>
+                  <th>Bénéficiaire</th>
+                  <th>Date</th>
+                  <th>Calendriers</th>
+                  {estAdmin && <th>Montant</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {lots.map((lot) => (
+                  <tr key={lot.id}>
+                    <td>{lot.libelle || '—'}</td>
+                    <td>
+                      {lot.date ? new Date(lot.date + 'T12:00:00').toLocaleDateString('fr-FR') : '—'}
+                    </td>
+                    <td>{lot.nombre ?? '—'}</td>
+                    {estAdmin && <td>{lot.montant != null ? formatEuros(lot.montant) : '—'}</td>}
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={2}>
+                    <strong>Total</strong>
+                  </td>
+                  <td>
+                    <strong>{calendriersLots}</strong>
+                  </td>
+                  {estAdmin && (
+                    <td>
+                      <strong>{formatEuros(montantLots)}</strong>
+                    </td>
+                  )}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="synthese-bloc">
           <h3>📍 Par tournée</h3>

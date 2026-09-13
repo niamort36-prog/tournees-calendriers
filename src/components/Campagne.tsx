@@ -3,6 +3,12 @@
 
 import { useState, type FormEvent } from 'react';
 import { estAdminEffectif, useAppStore } from '../store/useAppStore';
+import {
+  formatEuros,
+  totalCalendriersLots,
+  totalMontantLots,
+  type LotCalendriers,
+} from '../types';
 
 export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) {
   const profil = useAppStore((s) => s.profil);
@@ -20,8 +26,16 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
   const distribues = adresses
     .filter((a) => a.statut === 'distribue')
     .reduce((n, a) => n + (a.calendriersLaisses ?? 1), 0);
+  const lots = active?.lots ?? [];
+  const calendriersLots = totalCalendriersLots(lots);
   const restants =
-    active?.calendriersCommandes != null ? active.calendriersCommandes - distribues : null;
+    active?.calendriersCommandes != null
+      ? active.calendriersCommandes - distribues - calendriersLots
+      : null;
+
+  const majLots = (liste: LotCalendriers[]) => {
+    if (active) void s().majCampagne(active.id, { lots: liste });
+  };
 
   const s = useAppStore.getState;
 
@@ -99,9 +113,121 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
                 <span className="compteur-libelle">distribués</span>
               </div>
               <div className="compteur">
+                <span className="compteur-valeur">{calendriersLots}</span>
+                <span className="compteur-libelle">donnés en lots</span>
+              </div>
+              <div className="compteur">
                 <span className="compteur-valeur">{restants ?? '—'}</span>
                 <span className="compteur-libelle">restants</span>
               </div>
+            </div>
+
+            <div className="campagne-lots">
+              <h3>
+                📦 Calendriers donnés en lots
+                {lots.length > 0 && (
+                  <span className="lots-total">
+                    {calendriersLots} calendrier{calendriersLots > 1 ? 's' : ''}
+                    {estAdmin && totalMontantLots(lots) > 0
+                      ? ` · ${formatEuros(totalMontantLots(lots))}`
+                      : ''}
+                  </span>
+                )}
+              </h3>
+              <p className="equipe-note">
+                Pour les calendriers remis en dehors des tournées : JSP, mairie,
+                commerçants, sapeurs-pompiers… Le montant est facultatif.
+              </p>
+              {lots.length === 0 && !estAdmin && (
+                <p className="campagne-vide">Aucun lot enregistré.</p>
+              )}
+              {lots.map((lot) => (
+                <div key={lot.id} className="lot-ligne">
+                  <input
+                    className="lot-libelle"
+                    placeholder="À qui ? (ex. JSP)"
+                    defaultValue={lot.libelle}
+                    disabled={!estAdmin}
+                    onBlur={(e) => {
+                      if (e.target.value !== lot.libelle) {
+                        majLots(
+                          lots.map((x) =>
+                            x.id === lot.id ? { ...x, libelle: e.target.value.trim() } : x,
+                          ),
+                        );
+                      }
+                    }}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    className="lot-nombre"
+                    placeholder="Nb"
+                    defaultValue={lot.nombre ?? ''}
+                    disabled={!estAdmin}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim() === '' ? null : Math.max(0, Math.trunc(Number(e.target.value)));
+                      if (v !== lot.nombre) {
+                        majLots(lots.map((x) => (x.id === lot.id ? { ...x, nombre: v } : x)));
+                      }
+                    }}
+                  />
+                  {estAdmin && (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="lot-montant"
+                      placeholder="Montant €"
+                      defaultValue={lot.montant ?? ''}
+                      onBlur={(e) => {
+                        const brut = e.target.value.trim().replace(',', '.');
+                        const v = brut === '' ? null : Number(brut);
+                        if (v !== null && Number.isNaN(v)) return;
+                        if (v !== lot.montant) {
+                          majLots(lots.map((x) => (x.id === lot.id ? { ...x, montant: v } : x)));
+                        }
+                      }}
+                    />
+                  )}
+                  <input
+                    type="date"
+                    className="lot-date"
+                    defaultValue={lot.date}
+                    disabled={!estAdmin}
+                    onChange={(e) =>
+                      majLots(lots.map((x) => (x.id === lot.id ? { ...x, date: e.target.value } : x)))
+                    }
+                  />
+                  {estAdmin && (
+                    <button
+                      className="danger"
+                      title="Retirer ce lot"
+                      onClick={() => majLots(lots.filter((x) => x.id !== lot.id))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              {estAdmin && (
+                <button
+                  className="btn-ajout-ligne"
+                  onClick={() =>
+                    majLots([
+                      ...lots,
+                      {
+                        id: crypto.randomUUID(),
+                        libelle: '',
+                        nombre: null,
+                        montant: null,
+                        date: new Date().toISOString().slice(0, 10),
+                      },
+                    ])
+                  }
+                >
+                  ➕ Ajouter un lot
+                </button>
+              )}
             </div>
 
             {estAdmin && (

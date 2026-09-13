@@ -3,7 +3,15 @@
 
 import * as XLSX from 'xlsx';
 import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '../types';
-import { COUPURES, LIBELLE_STATUT, totalDecompte, trierTournees, trouverDecompte } from '../types';
+import {
+  COUPURES,
+  LIBELLE_STATUT,
+  totalCalendriersLots,
+  totalDecompte,
+  totalMontantLots,
+  trierTournees,
+  trouverDecompte,
+} from '../types';
 
 export interface DonneesExport {
   tournees: Tournee[];
@@ -77,6 +85,15 @@ export function construireFeuilles(d: DonneesExport): Record<string, Ligne[]> {
     return ligne;
   });
 
+  const lots = campagneActive?.lots ?? [];
+  const feuilleLots: Ligne[] = lots.map((l) => ({
+    Campagne: campagneActive?.nom ?? '',
+    'Bénéficiaire': l.libelle,
+    Date: l.date ? new Date(l.date + 'T12:00:00').toLocaleDateString('fr-FR') : '',
+    Calendriers: l.nombre,
+    'Montant (€)': l.montant,
+  }));
+
   const totalCollecte = d.decomptes
     .filter((dec) => dec.campagneId === (campagneActive?.id ?? null))
     .reduce((somme, dec) => somme + totalDecompte(dec).total, 0);
@@ -90,11 +107,13 @@ export function construireFeuilles(d: DonneesExport): Record<string, Ligne[]> {
           'Calendriers commandés': campagneActive.calendriersCommandes,
           'Taille des paquets': campagneActive.taillePaquet,
           'Calendriers distribués': totalDistribues,
+          'Donnés en lots': totalCalendriersLots(lots),
           Restants:
             campagneActive.calendriersCommandes != null
-              ? campagneActive.calendriersCommandes - totalDistribues
+              ? campagneActive.calendriersCommandes - totalDistribues - totalCalendriersLots(lots)
               : null,
-          'Total collecté (€)': Math.round(totalCollecte * 100) / 100,
+          'Total collecté (€)':
+            Math.round((totalCollecte + totalMontantLots(lots)) * 100) / 100,
         },
       ]
     : [];
@@ -103,6 +122,7 @@ export function construireFeuilles(d: DonneesExport): Record<string, Ligne[]> {
     Tournées: feuilleTournees,
     Adresses: feuilleAdresses,
     Décomptes: feuilleDecomptes,
+    Lots: feuilleLots,
     Campagne: feuilleCampagne,
   };
 }

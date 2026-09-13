@@ -868,6 +868,79 @@ body {
   border: none;
 }
 
+/* ---------- Lots de calendriers ---------- */
+
+.campagne-lots {
+  border-top: 1px solid var(--bordure);
+  padding-top: 12px;
+  margin-bottom: 14px;
+}
+
+.campagne-lots h3 {
+  font-size: 13.5px;
+  margin: 0 0 4px;
+  color: var(--marine);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lots-total {
+  background: #f3e8ff;
+  border: 1px solid #d8b4fe;
+  color: #6b21a8;
+  border-radius: 7px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lot-ligne {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.lot-ligne input {
+  padding: 7px 9px;
+  border: 1px solid var(--bordure);
+  border-radius: 7px;
+  font-size: 13px;
+  background: #fff;
+  min-width: 0;
+}
+
+.lot-libelle {
+  flex: 1;
+  min-width: 110px;
+}
+
+.lot-nombre {
+  width: 70px;
+  text-align: center;
+}
+
+.lot-montant {
+  width: 95px;
+  text-align: center;
+}
+
+.lot-date {
+  width: 140px;
+}
+
+.lot-ligne button.danger {
+  border: 1px solid var(--bordure);
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 9px;
+  cursor: pointer;
+  color: var(--rouge);
+}
+
 /* ---------- Campagne ---------- */
 
 .tournee-a-prendre {
