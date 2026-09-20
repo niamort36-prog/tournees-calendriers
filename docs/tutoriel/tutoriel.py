@@ -511,10 +511,13 @@ image('admin-membres', 15.5, 'La fenêtre Membres (les noms affichés sont des e
 p('Dans la liste, vous pouvez à tout moment modifier un nom, un centre ou un rôle, '
   'changer un mot de passe oublié (bouton <b>clé</b>) ou supprimer un compte '
   '(bouton <b>corbeille</b>).')
-encadre('Sécurité',
-        'Vous ne pouvez pas modifier le mot de passe d’un autre administrateur ni le '
-        'supprimer : il faut d’abord lui retirer le rôle Admin. Un compte supprimé '
-        'est déconnecté automatiquement en moins d’une minute, où qu’il soit.')
+encadre('Bon à savoir',
+        'Le bouton <b>clé</b> fonctionne pour tous les comptes, y compris les autres '
+        'administrateurs (l’application demande alors confirmation) : pensez à '
+        'communiquer le nouveau mot de passe à l’intéressé, l’ancien ne fonctionne '
+        'plus. En revanche, pour <b>supprimer</b> un administrateur, il faut d’abord '
+        'lui retirer le rôle Admin. Un compte supprimé est déconnecté automatiquement '
+        'en moins d’une minute, où qu’il soit.')
 
 p('3.4 — Ouvrir la campagne de l’année', 'h1')
 p('Bouton <b>Campagne</b> (icône calendrier). Créez la campagne — par exemple '
@@ -677,8 +680,8 @@ tableau(['Situation', 'Que faire'], [
      'L’administrateur supprime son compte dans Membres. Son téléphone est déconnecté '
      'et vidé des données en moins d’une minute.'],
     ['<b>Mot de passe oublié</b>',
-     'L’administrateur en attribue un nouveau dans Membres (bouton clé) et le '
-     'communique à l’intéressé.'],
+     'L’administrateur en attribue un nouveau dans Membres (bouton clé, sur '
+     'n’importe quel compte) et le communique à l’intéressé.'],
     ['<b>« Synchronisation impossible » s’affiche en rouge</b>',
      'Vos saisies sont conservées sur l’appareil, rien n’est perdu. Si le message '
      'persiste sur tous les appareils, l’administrateur doit redémarrer le projet '

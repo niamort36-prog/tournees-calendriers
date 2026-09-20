@@ -1,10 +1,10 @@
-// Fonction serveur « admin-utilisateurs » — réservée aux administrateurs.
-// Crée les comptes des sapeurs-pompiers, change les mots de passe des comptes
-// Normal, supprime des comptes. S'exécute chez Supabase avec la clé service
-// (jamais exposée au navigateur).
+// Fonction serveur d'administration des comptes — réservée aux administrateurs.
+// Crée les comptes des sapeurs-pompiers, réattribue les mots de passe (de
+// n'importe quel compte) et supprime les comptes Normal. S'exécute chez
+// Supabase avec la clé service (jamais exposée au navigateur).
 //
-// Déploiement : Dashboard Supabase → Edge Functions → Deploy a new function
-// (via l'éditeur) → nom : admin-utilisateurs → coller ce fichier → Deploy.
+// Déploiement : Dashboard Supabase → Edge Functions → ouvrir « bright-action »
+// → Edit / Code → coller ce fichier → Deploy.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -78,10 +78,8 @@ Deno.serve(async (req) => {
       if (!profilCible) return reponse({ erreur: 'Compte introuvable.' });
 
       if (corps.action === 'mdp') {
-        // le mot de passe d'un autre admin ne peut pas être changé (sauf le sien)
-        if (profilCible.role === 'admin' && cibleId !== appelant.id) {
-          return reponse({ erreur: "Impossible de changer le mot de passe d'un autre administrateur." });
-        }
+        // Tout administrateur peut réattribuer un mot de passe, y compris celui
+        // d'un autre administrateur (l'application demande confirmation).
         if (String(corps.mdp ?? '').length < 6) {
           return reponse({ erreur: 'Le mot de passe doit faire au moins 6 caractères.' });
         }

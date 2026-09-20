@@ -82,8 +82,17 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
     }
   };
 
-  const changerMdp = async () => {
-    const err = await appelerFonction({ action: 'mdp', userId: mdpPour, mdp: nouveauMdp });
+  const changerMdp = async (cible: Membre) => {
+    if (cible.role === 'admin' && cible.id !== profil?.id) {
+      const ok = window.confirm(
+        `${cible.nom} est administrateur. Lui attribuer un nouveau mot de passe ?` +
+          `
+
+Pensez à le lui communiquer : son ancien mot de passe ne fonctionnera plus.`,
+      );
+      if (!ok) return;
+    }
+    const err = await appelerFonction({ action: 'mdp', userId: cible.id, mdp: nouveauMdp });
     if (err) {
       messages(err, null);
     } else {
@@ -202,11 +211,16 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
                   <option value="normal">Normal</option>
                   <option value="admin">Admin</option>
                 </select>
-                {(m.role === 'normal' || moi) && (
-                  <button title="Changer le mot de passe" onClick={() => { setMdpPour(mdpPour === m.id ? null : m.id); setNouveauMdp(''); }}>
-                    🔑
-                  </button>
-                )}
+                <button
+                  title={`Changer le mot de passe de ${m.nom}`}
+                  onClick={() => {
+                    setMdpPour(mdpPour === m.id ? null : m.id);
+                    setNouveauMdp('');
+                    messages(null, null);
+                  }}
+                >
+                  🔑
+                </button>
                 {m.role === 'normal' && !moi && (
                   <button className="danger" title="Supprimer le compte" onClick={() => void supprimerMembre(m)}>
                     🗑️
@@ -216,14 +230,25 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
                   <div className="membre-mdp">
                     <input
                       type="text"
-                      placeholder="Nouveau mot de passe (6 min.)"
+                      autoFocus
+                      placeholder={`Nouveau mot de passe de ${m.nom}`}
                       value={nouveauMdp}
                       onChange={(e) => setNouveauMdp(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && nouveauMdp.length >= 6) void changerMdp(m);
+                      }}
                       minLength={6}
                     />
-                    <button disabled={enCours || nouveauMdp.length < 6} onClick={() => void changerMdp()}>
-                      Valider
+                    <button disabled={enCours || nouveauMdp.length < 6} onClick={() => void changerMdp(m)}>
+                      {enCours ? '…' : 'Valider'}
                     </button>
+                    <span className="mdp-aide">
+                      {nouveauMdp.length === 0
+                        ? '6 caractères minimum'
+                        : nouveauMdp.length < 6
+                          ? `encore ${6 - nouveauMdp.length} caractère${6 - nouveauMdp.length > 1 ? 's' : ''}`
+                          : 'prêt : cliquez sur Valider'}
+                    </span>
                   </div>
                 )}
               </div>

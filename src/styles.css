@@ -868,6 +868,16 @@ body {
   border: none;
 }
 
+.membre-mdp button:disabled {
+  opacity: 0.5;
+}
+
+.mdp-aide {
+  font-size: 11.5px;
+  color: var(--texte-doux);
+  white-space: nowrap;
+}
+
 /* ---------- Lots de calendriers ---------- */
 
 .campagne-lots {
