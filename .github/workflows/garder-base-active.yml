@@ -1,0 +1,26 @@
+# Empêche la mise en veille automatique du projet Supabase gratuit.
+# Supabase met en pause un projet sans activité pendant 7 jours : cette tâche
+# interroge la base tous les 3 jours pour qu'elle reste éveillée.
+# (La clé utilisée est la clé « anon », publique par conception.)
+
+name: Garder la base active
+
+on:
+  schedule:
+    - cron: '0 7 */3 * *' # tous les 3 jours à 7 h UTC
+  workflow_dispatch: # déclenchement manuel possible
+
+jobs:
+  reveiller:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Interroger la base
+        run: |
+          URL="https://enopjnyqycrtydgtuiys.supabase.co/rest/v1/campagnes?select=id&limit=1"
+          CLE="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVub3BqbnlxeWNydHlkZ3R1aXlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTgwMTMsImV4cCI6MjA5OTg5NDAxM30.l6SfgPAp8YVb5678Si0lK6U8RW7Z_vrxoMEXj33z-Jo"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+            -H "apikey: $CLE" -H "Authorization: Bearer $CLE" "$URL")
+          echo "Réponse de la base : HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::La base n'a pas répondu normalement (HTTP $CODE)."
+          fi
