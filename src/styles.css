@@ -1415,6 +1415,34 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Version resserrée : le détail d'un appartement, dans la liste de l'immeuble. */
+.fiche-paiement.compact {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--bordure);
+}
+
+.fiche-paiement.compact .paiement-bascule {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.fiche-paiement.compact .paiement-coupures {
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.fiche-paiement.compact .paiement-cheques,
+.fiche-paiement.compact .paiement-cb,
+.fiche-paiement.compact .paiement-total {
+  margin-top: 8px;
+}
+
+.fiche-paiement.compact .paiement-total {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
 /* Sur un écran étroit, une coupure par ligne : cibles plus grandes au doigt. */
 @media (max-width: 460px) {
   .paiement-coupures {

@@ -123,9 +123,18 @@ export interface Appartement {
   statut: StatutAdresse;
   /** Calendriers pris par cet appartement (1 par défaut quand il est distribué). */
   calendriers?: number | null;
+  /** Détail de la somme reçue à cet appartement (pièces, billets, chèques, carte). */
+  paiement?: PaiementAdresse | null;
 }
 
 /** Total des calendriers laissés dans un immeuble (1 par défaut si non précisé). */
+/** Somme détaillée reçue dans un immeuble (cumul des appartements). */
+export function sommeImmeuble(appartements: Appartement[]): number {
+  let total = 0;
+  for (const a of appartements) total += totalPaiement(a.paiement ?? null);
+  return Math.round(total * 100) / 100;
+}
+
 export function calendriersImmeuble(appartements: Appartement[]): number {
   return appartements
     .filter((a) => a.statut === 'distribue')

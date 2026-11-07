@@ -84,15 +84,23 @@ export default function DecompteFenetre({
     const chequesCumul: number[] = [];
     let cbCumul = 0;
     let nbMaisons = 0;
-    for (const a of adressesTournee) {
-      if (paiementVide(a.paiement)) continue;
-      nbMaisons += 1;
-      const p = a.paiement as PaiementAdresse;
+    const ajouter = (p: PaiementAdresse) => {
       for (const [cle, n] of Object.entries(p.especes)) {
         if (n) especesCumul[cle] = (especesCumul[cle] ?? 0) + n;
       }
       for (const m of p.cheques) if (m) chequesCumul.push(m);
       cbCumul += p.cb ?? 0;
+    };
+    for (const a of adressesTournee) {
+      // une maison : son propre détail ; un immeuble : celui de ses appartements
+      const details: PaiementAdresse[] = [];
+      if (!paiementVide(a.paiement)) details.push(a.paiement as PaiementAdresse);
+      for (const app of a.appartements) {
+        if (!paiementVide(app.paiement ?? null)) details.push(app.paiement as PaiementAdresse);
+      }
+      if (details.length === 0) continue;
+      nbMaisons += 1;
+      for (const d of details) ajouter(d);
     }
     // les chèques de même montant sont regroupés en lignes « nombre × montant »
     const parMontant = new Map<number, number>();
@@ -353,8 +361,8 @@ export default function DecompteFenetre({
         {cumulMaisons.nbMaisons > 0 && !fige && (
           <div className="decompte-prefill">
             <div>
-              💶 <b>{cumulMaisons.nbMaisons} maison(s)</b> ont un détail de paiement saisi, pour un
-              total de <b>{formatEuros(cumulMaisons.total)}</b>.
+              💶 <b>{cumulMaisons.nbMaisons} adresse(s)</b> ont un détail de paiement saisi
+              (appartements compris), pour un total de <b>{formatEuros(cumulMaisons.total)}</b>.
               {decompteVierge
                 ? ' Vous pouvez partir de ces chiffres plutôt que de tout ressaisir.'
                 : ' Le décompte ci-dessous a déjà été rempli : il reste prioritaire.'}

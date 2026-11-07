@@ -463,7 +463,22 @@ etapes([
     'Pour chaque appartement, appuyez sur la pastille de couleur correspondante.',
     'Dès qu’un appartement passe au vert, une case <b>Calendriers pris</b> apparaît : '
     'indiquez-y le nombre s’ils en ont pris plusieurs (sinon, 1 est compté).',
+    'Juste en dessous, <b>Détail du paiement</b> permet de noter ce que cet '
+    'appartement a donné : pièces, billets, chèques, carte — exactement comme pour '
+    'une maison (voir 2.3 bis).',
 ])
+image('membre-appartement-paiement', 6.5,
+      'Chaque appartement a son propre détail : ici 20 € au premier, 15 € de chèque au '
+      'second, et 35 € en haut pour tout l’immeuble')
+p('Un seul détail reste ouvert à la fois, pour ne pas allonger la fiche : en ouvrir '
+  'un referme le précédent. Quand il est replié, son <b>total s’affiche à droite</b>, '
+  'ce qui permet de tout relire d’un coup d’œil.')
+encadre('L’immeuble s’additionne tout seul',
+        'La ligne de résumé, en haut de la liste des appartements, affiche le '
+        '<b>total encaissé dans l’immeuble</b> à côté du nombre de calendriers. La '
+        'case <b>Somme</b> de l’adresse se remplit automatiquement avec ce total et '
+        'n’est plus modifiable à la main : ce sont les appartements qui commandent. '
+        'Et tout remonte dans le décompte de fin de tournée.')
 image('membre-fiche-immeuble', 7.5,
       'Un immeuble : chaque appartement a son statut et son nombre de calendriers')
 encadre('L’application calcule toute seule',
