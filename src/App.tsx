@@ -79,6 +79,35 @@ export default function App() {
     return <Login />;
   }
 
+  // Compte créé mais pas encore validé par un administrateur : aucune donnée
+  // de l'amicale n'est affichée.
+  if (supabaseActif && profil && !profil.approuve) {
+    return (
+      <div className="ecran-connexion">
+        <div className="carte-connexion">
+          <div className="connexion-logo">⏳</div>
+          <h1>Compte en attente</h1>
+          <p className="connexion-sous-titre">Amicale des Sapeurs-Pompiers</p>
+          <p className="connexion-note">
+            Bonjour {profil.nom}. Votre compte a bien été créé, mais il doit être validé par un
+            responsable de l'amicale avant de donner accès aux tournées.
+          </p>
+          <p className="connexion-note">
+            Prévenez-le : la validation se fait en un clic dans « 👥 Membres ». Cette page se
+            débloquera toute seule, sans rien réinstaller.
+          </p>
+          <button
+            type="button"
+            className="connexion-valider"
+            onClick={() => void useAppStore.getState().deconnexion()}
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="entete">

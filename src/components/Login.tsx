@@ -1,35 +1,27 @@
-// Écran de connexion / création de compte (affiché quand Supabase est actif).
+// Écran de connexion (affiché quand Supabase est actif).
+//
+// Il n'y a volontairement PAS de création de compte ici : n'importe qui
+// pouvait sinon s'inscrire et voir aussitôt toutes les tournées et toutes
+// les adresses de l'amicale. Les comptes sont créés par un administrateur
+// dans la fenêtre « 👥 Membres ».
 
 import { useState, type FormEvent } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 export default function Login() {
   const avisConnexion = useAppStore((s) => s.avisConnexion);
-  const [mode, setMode] = useState<'connexion' | 'inscription'>('connexion');
-  const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
   const [mdp, setMdp] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
   const soumettre = async (e: FormEvent) => {
     e.preventDefault();
     setErreur(null);
-    setInfo(null);
     setEnCours(true);
-    const s = useAppStore.getState();
-    const message =
-      mode === 'connexion'
-        ? await s.connexion(email.trim(), mdp)
-        : await s.inscription(email.trim(), mdp, nom.trim() || email.split('@')[0]);
+    const message = await useAppStore.getState().connexion(email.trim(), mdp);
     setEnCours(false);
-    if (message) {
-      setErreur(message);
-    } else if (mode === 'inscription' && !useAppStore.getState().session) {
-      setInfo('Compte créé ! Vérifiez votre boîte mail si une confirmation est demandée, puis connectez-vous.');
-      setMode('connexion');
-    }
+    if (message) setErreur(message);
   };
 
   return (
@@ -41,29 +33,6 @@ export default function Login() {
 
         {avisConnexion && <div className="connexion-erreur">⚠️ {avisConnexion}</div>}
 
-        <div className="connexion-onglets">
-          <button
-            type="button"
-            className={mode === 'connexion' ? 'actif' : ''}
-            onClick={() => { setMode('connexion'); setErreur(null); }}
-          >
-            Se connecter
-          </button>
-          <button
-            type="button"
-            className={mode === 'inscription' ? 'actif' : ''}
-            onClick={() => { setMode('inscription'); setErreur(null); }}
-          >
-            Créer un compte
-          </button>
-        </div>
-
-        {mode === 'inscription' && (
-          <label>
-            Nom / prénom
-            <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="ex. Martin Dupont" />
-          </label>
-        )}
         <label>
           E-mail
           <input
@@ -80,24 +49,22 @@ export default function Login() {
           <input
             type="password"
             required
-            minLength={6}
             value={mdp}
             onChange={(e) => setMdp(e.target.value)}
-            placeholder="6 caractères minimum"
-            autoComplete={mode === 'connexion' ? 'current-password' : 'new-password'}
+            placeholder="votre mot de passe"
+            autoComplete="current-password"
           />
         </label>
 
         {erreur && <div className="connexion-erreur">⚠️ {erreur}</div>}
-        {info && <div className="connexion-info">✅ {info}</div>}
 
         <button type="submit" className="connexion-valider" disabled={enCours}>
-          {enCours ? '…' : mode === 'connexion' ? 'Se connecter' : 'Créer le compte'}
+          {enCours ? '…' : 'Se connecter'}
         </button>
 
-        {mode === 'inscription' && (
-          <p className="connexion-note">Le premier compte créé devient automatiquement administrateur.</p>
-        )}
+        <p className="connexion-note">
+          Pas encore de compte ? Demandez à un responsable de l'amicale de vous en créer un.
+        </p>
       </form>
     </div>
   );

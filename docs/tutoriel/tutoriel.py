@@ -543,6 +543,26 @@ image('admin-membres', 15.5, 'La fenêtre Membres (les noms affichés sont des e
 p('Dans la liste, vous pouvez à tout moment modifier un nom, un centre ou un rôle, '
   'changer un mot de passe oublié (bouton <b>clé</b>) ou supprimer un compte '
   '(bouton <b>corbeille</b>).')
+
+p('3.3 bis — Les comptes à valider', 'h1')
+p('<b>Personne ne peut plus s’inscrire tout seul.</b> L’écran de connexion ne propose '
+  'que « Se connecter » : les comptes sont créés ici, par un administrateur.')
+p('Si malgré tout un compte apparaît sans que vous l’ayez créé, il arrive <b>en '
+  'attente</b> : son propriétaire voit un message « Compte en attente » et <b>aucune '
+  'tournée, aucune adresse, aucun montant</b>. Un bandeau orange vous prévient en haut '
+  'de la fenêtre Membres et la ligne concernée est surlignée.')
+tableau(['Bouton', 'Ce qu’il fait'], [
+    ['<b>✅ Valider</b>', 'Donne accès à l’application. À réserver aux personnes que '
+     'vous connaissez.'],
+    ['<b>⛔ Retirer</b>', 'Coupe l’accès d’un membre sans supprimer son compte : '
+     'pratique pour quelqu’un qui s’absente une saison.'],
+    ['<b>🗑️ Supprimer</b>', 'Efface définitivement le compte. C’est ce qu’il faut '
+     'faire pour un inconnu.'],
+], [4.4 * cm, 12 * cm])
+encadre('Vous ne pouvez pas vous bloquer vous-même',
+        'Les boutons ⛔ et 🗑️ n’apparaissent jamais sur votre propre ligne. Et dès '
+        'qu’un compte est validé, l’application se débloque toute seule chez '
+        'l’intéressé, sans rien réinstaller.')
 encadre('Bon à savoir',
         'Le bouton <b>clé</b> fonctionne pour tous les comptes, y compris les autres '
         'administrateurs (l’application demande alors confirmation) : pensez à '

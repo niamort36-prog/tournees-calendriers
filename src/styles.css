@@ -2377,6 +2377,29 @@ body {
 
 /* Répartition « à faire / distribués / à repasser » sous chaque tournée.
    Visible par tout le monde, y compris les comptes Normal. */
+/* Comptes en attente de validation (fenêtre Membres) */
+.equipe-attente {
+  background: #fff4e5;
+  border: 1px solid #f0b37e;
+  color: #7a3e00;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.membre-ligne.en-attente {
+  background: #fff8ef;
+  border-left: 3px solid #f0b37e;
+}
+
+.equipe-liste button.valider {
+  background: #2e7d32;
+  border-color: #2e7d32;
+  color: #fff;
+}
+
 .barre-tournee-statuts {
   display: flex;
   flex-wrap: wrap;

@@ -46,6 +46,10 @@ export interface Profil {
   nom: string;
   role: 'admin' | 'normal';
   centre: string;
+  /** Compte validé par un administrateur (voir docs/supabase-comptes-a-valider.sql).
+   *  Tant que la base n'a pas reçu cette mise à jour, la colonne est absente et
+   *  tous les comptes sont considérés comme validés. */
+  approuve: boolean;
 }
 
 /** Un lot de calendriers remis en dehors des tournées (JSP, mairie…). */

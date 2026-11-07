@@ -13,11 +13,16 @@ interface Membre {
   email: string;
   role: 'admin' | 'normal';
   centre: string;
+  /** Faux tant qu'un administrateur n'a pas validé le compte. */
+  approuve: boolean;
 }
 
 export default function Equipe({ onFermer }: { onFermer: () => void }) {
   const profil = useAppStore((s) => s.profil);
   const [membres, setMembres] = useState<Membre[]>([]);
+  // Faux tant que la base n'a pas reçu la mise à jour n°14 : on n'affiche
+  // alors pas les boutons de validation, qui échoueraient.
+  const [validationDispo, setValidationDispo] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -33,12 +38,22 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
 
   const charger = async () => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from('profils')
-      .select('id, nom, email, role, centre')
-      .order('nom');
+    const { data, error } = await supabase.from('profils').select('*').order('nom');
     if (error) setErreur('Lecture des membres impossible : ' + error.message);
-    else setMembres((data ?? []) as Membre[]);
+    else {
+      const lignes = (data ?? []) as Record<string, unknown>[];
+      setValidationDispo(lignes.length > 0 && 'approuve' in lignes[0]);
+      setMembres(
+        lignes.map((d) => ({
+          id: d.id as string,
+          nom: d.nom as string,
+          email: (d.email as string) ?? '',
+          role: d.role as 'admin' | 'normal',
+          centre: (d.centre as string) ?? '',
+          approuve: d.approuve !== false,
+        })),
+      );
+    }
   };
 
   useEffect(() => {
@@ -73,6 +88,16 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
     if (err) {
       messages(err, null);
     } else {
+      // Un compte créé ici l'est par un administrateur : il est validé d'office
+      // (le déclencheur côté base met « en attente » les inscriptions spontanées).
+      if (supabase) {
+        const { data } = await supabase
+          .from('profils')
+          .select('id')
+          .eq('email', email.trim())
+          .maybeSingle();
+        if (data?.id) await supabase.from('profils').update({ approuve: true }).eq('id', data.id);
+      }
       messages(null, `Compte créé pour ${nom.trim() || email.trim()} ✔`);
       setNom('');
       setEmail('');
@@ -177,11 +202,19 @@ Pensez à le lui communiquer : son ancien mot de passe ne fonctionnera plus.`,
         {erreur && <div className="connexion-erreur">⚠️ {erreur}</div>}
         {info && <div className="connexion-info">✅ {info}</div>}
 
+        {membres.some((m) => !m.approuve) && (
+          <div className="equipe-attente">
+            ⚠️ {membres.filter((m) => !m.approuve).length} compte(s) en attente de validation. Tant
+            qu'ils ne sont pas validés, ils ne voient aucune tournée ni aucune adresse. Validez
+            uniquement les personnes que vous connaissez — supprimez les autres (🗑️).
+          </div>
+        )}
+
         <div className="equipe-liste">
           {membres.map((m) => {
             const moi = m.id === profil?.id;
             return (
-              <div key={m.id} className="membre-ligne">
+              <div key={m.id} className={'membre-ligne' + (m.approuve ? '' : ' en-attente')}>
                 <div className="membre-infos">
                   <input
                     className="membre-nom"
@@ -211,6 +244,28 @@ Pensez à le lui communiquer : son ancien mot de passe ne fonctionnera plus.`,
                   <option value="normal">Normal</option>
                   <option value="admin">Admin</option>
                 </select>
+                {validationDispo && !moi && (
+                  <button
+                    className={m.approuve ? '' : 'valider'}
+                    title={
+                      m.approuve
+                        ? `Retirer l'accès à ${m.nom} (le compte est conservé mais ne voit plus rien)`
+                        : `Valider le compte de ${m.nom} : il aura accès aux tournées`
+                    }
+                    onClick={() => {
+                      if (
+                        m.approuve &&
+                        !window.confirm(
+                          `Retirer l'accès de « ${m.nom} » ? Son compte restera, mais il ne verra plus aucune tournée.`,
+                        )
+                      )
+                        return;
+                      void majMembre(m.id, { approuve: !m.approuve });
+                    }}
+                  >
+                    {m.approuve ? '⛔' : '✅'}
+                  </button>
+                )}
                 <button
                   title={`Changer le mot de passe de ${m.nom}`}
                   onClick={() => {
@@ -221,7 +276,7 @@ Pensez à le lui communiquer : son ancien mot de passe ne fonctionnera plus.`,
                 >
                   🔑
                 </button>
-                {m.role === 'normal' && !moi && (
+                {(m.role === 'normal' || !m.approuve) && !moi && (
                   <button className="danger" title="Supprimer le compte" onClick={() => void supprimerMembre(m)}>
                     🗑️
                   </button>

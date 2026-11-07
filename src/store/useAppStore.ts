@@ -473,6 +473,16 @@ export const useAppStore = create<EtatApp>((set, get) => {
     await supabase?.auth.signOut();
   };
 
+  // Une base qui n'a pas encore reçu la mise à jour n°14 n'a pas la colonne
+  // « approuve » : dans ce cas on considère le compte comme validé.
+  const versProfil = (d: Record<string, unknown>): Profil => ({
+    id: d.id as string,
+    nom: d.nom as string,
+    role: d.role as 'admin' | 'normal',
+    centre: (d.centre as string) ?? '',
+    approuve: d.approuve !== false,
+  });
+
   // Vérifie que le compte existe toujours (et rafraîchit le rôle au passage).
   const verifierCompte = async () => {
     const session = get().session;
@@ -480,7 +490,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     try {
       const { data, error } = await supabase
         .from('profils')
-        .select('id, nom, role, centre')
+        .select('*')
         .eq('id', session.user.id)
         .maybeSingle();
       if (error) return; // réseau : on réessaiera
@@ -488,12 +498,19 @@ export const useAppStore = create<EtatApp>((set, get) => {
         await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
         return;
       }
+      const frais = versProfil(data);
       const profil = get().profil;
+      const etaitEnAttente = profil ? !profil.approuve : false;
       if (
         profil &&
-        (profil.role !== data.role || profil.nom !== data.nom || profil.centre !== (data.centre ?? ''))
+        (profil.role !== frais.role ||
+          profil.nom !== frais.nom ||
+          profil.centre !== frais.centre ||
+          profil.approuve !== frais.approuve)
       ) {
-        set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
+        set({ profil: frais });
+        // le compte vient d'être validé : on charge enfin les données
+        if (etaitEnAttente && frais.approuve) void apresConnexion();
       }
     } catch {
       // réseau : on réessaiera
@@ -528,9 +545,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
         await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
         return;
       }
-      if (data) set({ profil: { id: data.id, nom: data.nom, role: data.role, centre: data.centre ?? '' } });
-      const annuaire = await supabase.from('profils').select('id, nom, role, centre').order('nom');
-      if (annuaire.data) set({ annuaire: annuaire.data as Profil[] });
+      if (data) set({ profil: versProfil(data) });
+      // Compte en attente de validation : aucune donnée de l'amicale n'est
+      // chargée (le serveur les refuse de toute façon depuis la mise à jour n°14).
+      if (data && !versProfil(data).approuve) {
+        set({ chargement: CHARGEMENT_INACTIF });
+        return;
+      }
+      const annuaire = await supabase.from('profils').select('*').order('nom');
+      if (annuaire.data) {
+        set({ annuaire: (annuaire.data as Record<string, unknown>[]).map(versProfil) });
+      }
       onEtat('Synchronisation des tournées…', null);
       await resynchroniser();
       derniereSynchro = Date.now();
@@ -861,8 +886,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
     rafraichirAnnuaire: async () => {
       if (!supabase || !get().session) return;
-      const { data } = await supabase.from('profils').select('id, nom, role, centre').order('nom');
-      if (data) set({ annuaire: data as Profil[] });
+      const { data } = await supabase.from('profils').select('*').order('nom');
+      if (data) set({ annuaire: (data as Record<string, unknown>[]).map(versProfil) });
     },
 
     fermerNotification: () => set({ notification: null }),
