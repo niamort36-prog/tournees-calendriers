@@ -117,6 +117,9 @@ begin
       somme = null,
       calendriers_laisses = null,
       rappel_le = null,
+      -- note et note_le ne sont VOLONTAIREMENT pas effacés : un commentaire
+      -- (« chien méchant », « passer après 18 h ») reste vrai d'une année sur
+      -- l'autre. Ne pas les ajouter ici lors d'une future mise à jour.
       modifie_le = now()
   where id is not null;
 

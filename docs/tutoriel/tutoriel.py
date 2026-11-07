@@ -343,7 +343,8 @@ encadre('Inhabité et maison secondaire : à saisir une seule fois',
 encadre('L’astuce qui fait gagner du temps',
         'Les refus aussi sont mémorisés d’une année sur l’autre. L’année prochaine, en '
         'ouvrant une maison, vous verrez écrit « L’an dernier : Refus » — vous saurez '
-        'tout de suite à quoi vous attendre.')
+        'tout de suite à quoi vous attendre. Il en va de même pour les '
+        '<b>commentaires</b>, qui ne sont jamais effacés (voir 2.3).')
 
 # ============================== PARTIE 2 ==============================
 titre_partie(2, 'Guide du sapeur-pompier')
@@ -429,6 +430,13 @@ p('Si vous choisissez <b>Absent, à repasser</b>, vous pouvez programmer un '
   '<b>rappel</b> avec une date et une heure : le téléphone vous préviendra le moment '
   'venu. La case <b>Note</b> sert à tout le reste : « sonnette cassée », « chien '
   'méchant », « repasser après 18 h »…')
+encadre('Les commentaires sont gardés d’une année sur l’autre',
+        'Une note n’est jamais effacée par le passage à la campagne suivante : '
+        '« chien méchant » reste vrai l’an prochain. La <b>date d’écriture</b> '
+        's’affiche à côté du mot « Note », et la mention <b>« campagne précédente »</b> '
+        'apparaît quand le commentaire date d’avant la campagne en cours — vous savez '
+        'ainsi tout de suite s’il est récent ou hérité de l’année dernière. Pour le '
+        'mettre à jour, il suffit de le réécrire ; pour l’effacer, de vider la case.')
 
 p('2.3 bis — Détailler ce qu’on a reçu (facultatif)', 'h1')
 p('Sous la somme, la ligne <b>Détail du paiement</b> permet de noter <b>comment</b> '

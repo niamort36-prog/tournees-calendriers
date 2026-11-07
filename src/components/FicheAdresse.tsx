@@ -54,6 +54,7 @@ function localVersIso(local: string): string | null {
 
 export default function FicheAdresse() {
   const adresse = useAppStore((s) => s.adresses.find((a) => a.id === s.adresseOuverteId));
+  const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const [somme, setSomme] = useState('');
   const [calendriers, setCalendriers] = useState('');
   const [note, setNote] = useState('');
@@ -406,6 +407,17 @@ export default function FicheAdresse() {
 
         <label className="fiche-note">
           📝 Note
+          {adresse.noteLe && (
+            <span className="note-date">
+              {(() => {
+                const d = new Date(adresse.noteLe);
+                const texte = Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR');
+                const dAvant =
+                  campagneActive != null && Date.parse(adresse.noteLe) < Date.parse(campagneActive.creeLe);
+                return dAvant ? `🕘 écrite le ${texte}, campagne précédente` : `écrite le ${texte}`;
+              })()}
+            </span>
+          )}
           <textarea
             rows={2}
             placeholder="ex. sonnette cassée, passer après 18 h, motif du refus…"
