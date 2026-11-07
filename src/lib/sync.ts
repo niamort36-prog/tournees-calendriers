@@ -314,18 +314,77 @@ async function rafraichirOperation(opr: Operation): Promise<Operation | null> {
 }
 
 /** Rejoue les écritures faites hors connexion (s'arrête au premier échec). */
-export async function viderFileAttente(): Promise<void> {
-  if (!supabase) return;
+/**
+ * Vrai si le serveur a refusé l'écriture pour de bon (contrainte, clé
+ * étrangère, droits…). Réessayer ne changerait rien : garder une telle
+ * opération bloquerait toute la file derrière elle, indéfiniment.
+ * Une coupure réseau, elle, n'a pas de code : on réessaiera.
+ */
+function refusDefinitif(e: unknown): boolean {
+  const err = e as { code?: unknown; status?: unknown };
+  const code = typeof err?.code === 'string' ? err.code : '';
+  if (/^(22|23|42)/.test(code)) return true; // contrainte, clé étrangère, droits
+  const statut = typeof err?.status === 'number' ? err.status : 0;
+  return statut >= 400 && statut < 500 && statut !== 401 && statut !== 408 && statut !== 429;
+}
+
+/**
+ * Clé de la ligne touchée par une opération. Deux opérations de même clé
+ * visent la même ligne : comme le contenu est relu dans la base locale juste
+ * avant l'envoi, seule la DERNIÈRE a un intérêt — les précédentes enverraient
+ * exactement la même chose. C'est ce qui fait fondre les files de plusieurs
+ * centaines d'entrées accumulées hors réseau.
+ */
+function cleOperation(opr: Operation): string | null {
+  if (opr.op === 'remplacer') return 'remplacer|' + opr.tourneeId;
+  if (opr.op === 'delete') return opr.table + '|' + opr.id;
+  if (Array.isArray(opr.donnees)) return null; // paquet : on ne touche pas
+  const id = (opr.donnees as { id?: unknown }).id;
+  return typeof id === 'string' ? opr.table + '|' + id : null;
+}
+
+/**
+ * Envoie les écritures en attente, dans l'ordre. Renvoie le nombre
+ * d'écritures définitivement refusées par le serveur et abandonnées.
+ */
+export async function viderFileAttente(): Promise<number> {
+  if (!supabase) return 0;
   const entrees = await db.enAttente.orderBy('cle').toArray();
-  for (const entree of entrees) {
+
+  // Les doublons sont supprimés sans être envoyés : on parcourt à l'envers et
+  // on ne garde que la dernière opération de chaque ligne.
+  const vues = new Set<string>();
+  const aEnvoyer: typeof entrees = [];
+  const inutiles: number[] = [];
+  for (let i = entrees.length - 1; i >= 0; i -= 1) {
+    const entree = entrees[i];
+    const cle = cleOperation(entree.operation as Operation);
+    if (cle !== null && vues.has(cle)) {
+      inutiles.push(entree.cle as number);
+      continue;
+    }
+    if (cle !== null) vues.add(cle);
+    aEnvoyer.push(entree);
+  }
+  aEnvoyer.reverse();
+  if (inutiles.length > 0) await db.enAttente.bulkDelete(inutiles);
+
+  let abandonnees = 0;
+  for (const entree of aEnvoyer) {
     try {
       const opr = await rafraichirOperation(entree.operation as Operation);
       if (opr) await executer(opr);
-      await db.enAttente.delete(entree.cle as number);
-    } catch {
-      return;
+    } catch (e) {
+      // Réseau coupé ou panne passagère : on garde l'ordre et on réessaiera.
+      if (!refusDefinitif(e)) return abandonnees;
+      // Refus définitif : on abandonne cette écriture. La donnée reste dans la
+      // base locale et repartira à la prochaine fusion si elle est la plus
+      // récente — mais elle ne bloque plus le travail de toute l'équipe.
+      abandonnees += 1;
     }
+    await db.enAttente.delete(entree.cle as number);
   }
+  return abandonnees;
 }
 
 // accès console en développement (tests de la file d'attente)

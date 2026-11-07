@@ -393,7 +393,14 @@ export const useAppStore = create<EtatApp>((set, get) => {
   // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
   const resynchroniser = async () => {
     await synchroniserHorloge();
-    await viderFileAttente();
+    const abandonnees = await viderFileAttente();
+    if (abandonnees > 0) {
+      set({
+        notification:
+          `⚠️ ${abandonnees} modification(s) en attente ont été refusées par le serveur et abandonnées ` +
+          `(adresse ou tournée supprimée entre-temps, le plus souvent). Le reste est bien parti.`,
+      });
+    }
     const fusion = await tirerEtFusionner(
       get().tournees,
       get().adresses,
