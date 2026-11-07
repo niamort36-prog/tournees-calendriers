@@ -10,10 +10,17 @@ import {
   calendriersImmeuble,
   statutAgrege,
   STATUTS_PERMANENTS,
+  COUPURES,
+  formatEuros,
+  paiementNeuf,
+  paiementVide,
+  totalPaiement,
+  type PaiementAdresse,
   type Appartement,
   type StatutAdresse,
 } from '../types';
 import { statutsEtendusDisponibles } from '../lib/horloge';
+import { colonneDisponible } from '../lib/capacites';
 
 const PASTILLES_STATUT: { valeur: StatutAdresse; symbole: string; titre: string }[] = [
   { valeur: 'a_faire', symbole: '○', titre: 'À faire' },
@@ -52,6 +59,7 @@ export default function FicheAdresse() {
   const [note, setNote] = useState('');
   const [rappel, setRappel] = useState('');
   const [renommage, setRenommage] = useState(false);
+  const [detailOuvert, setDetailOuvert] = useState(false);
   const [nouveauNom, setNouveauNom] = useState('');
 
   useEffect(() => {
@@ -61,6 +69,7 @@ export default function FicheAdresse() {
     setNote(adresse.note ?? '');
     setRappel(isoVersLocal(adresse.rappelLe));
     setRenommage(false);
+    setDetailOuvert(!paiementVide(adresse.paiement));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adresse?.id]);
 
@@ -93,6 +102,31 @@ export default function FicheAdresse() {
     if (valeur === null || !Number.isNaN(valeur)) {
       void s().majAdresse(adresse.id, { somme: valeur });
     }
+  };
+
+  // Détail du paiement : pièces, billets, chèques, carte.
+  // La somme se recalcule toute seule à partir du détail (on peut toujours la
+  // corriger à la main en repliant le détail).
+  const detailDisponible = colonneDisponible('paiement');
+  const paiement = adresse.paiement ?? paiementNeuf();
+
+  const majPaiement = (suite: PaiementAdresse) => {
+    const vide = paiementVide(suite);
+    const total = totalPaiement(suite);
+    setSomme(vide ? '' : String(total));
+    void s().majAdresse(adresse.id, {
+      paiement: vide ? null : suite,
+      ...(vide ? {} : { somme: total }),
+    });
+  };
+
+  const changerCoupure = (cle: string, delta: number) => {
+    const actuel = paiement.especes[cle] ?? 0;
+    const suivant = Math.max(0, actuel + delta);
+    const especes = { ...paiement.especes };
+    if (suivant === 0) delete especes[cle];
+    else especes[cle] = suivant;
+    majPaiement({ ...paiement, especes });
   };
 
   const validerCalendriers = () => {
@@ -319,6 +353,7 @@ export default function FicheAdresse() {
                 inputMode="decimal"
                 placeholder="ex. 10"
                 value={somme}
+                readOnly={detailDisponible && detailOuvert && !paiementVide(adresse.paiement)}
                 onChange={(e) => setSomme(e.target.value)}
                 onBlur={validerSomme}
               />
@@ -334,6 +369,116 @@ export default function FicheAdresse() {
                 onBlur={validerCalendriers}
               />
             </label>
+          </div>
+        )}
+
+        {adresse.statut === 'distribue' && detailDisponible && (
+          <div className="fiche-paiement">
+            <button
+              type="button"
+              className="paiement-bascule"
+              onClick={() => setDetailOuvert((o) => !o)}
+            >
+              {detailOuvert ? '▾' : '▸'} 💶 Détail du paiement
+              {!detailOuvert && !paiementVide(adresse.paiement)
+                ? ` — ${formatEuros(totalPaiement(adresse.paiement))}`
+                : ''}
+            </button>
+
+            {detailOuvert && (
+              <>
+                <div className="paiement-coupures">
+                  {COUPURES.map((c) => {
+                    const n = paiement.especes[c.cle] ?? 0;
+                    return (
+                      <div key={c.cle} className={'coupure' + (n > 0 ? ' prise' : '')}>
+                        <span className="coupure-libelle">{c.libelle.replace(' €', '')} €</span>
+                        <button
+                          type="button"
+                          aria-label={`Un ${c.libelle} de moins`}
+                          disabled={n === 0}
+                          onClick={() => changerCoupure(c.cle, -1)}
+                        >
+                          −
+                        </button>
+                        <span className="coupure-nombre">{n}</span>
+                        <button
+                          type="button"
+                          aria-label={`Un ${c.libelle} de plus`}
+                          onClick={() => changerCoupure(c.cle, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="paiement-cheques">
+                  <strong>🧾 Chèques</strong>
+                  {paiement.cheques.map((montant, i) => (
+                    <div key={i} className="cheque-ligne">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="montant"
+                        value={montant === 0 ? '' : String(montant)}
+                        onChange={(e) => {
+                          const v = Number(e.target.value.replace(',', '.'));
+                          const cheques = [...paiement.cheques];
+                          cheques[i] = Number.isNaN(v) ? 0 : v;
+                          majPaiement({ ...paiement, cheques });
+                        }}
+                      />
+                      <span>€</span>
+                      <button
+                        type="button"
+                        aria-label="Retirer ce chèque"
+                        onClick={() =>
+                          majPaiement({
+                            ...paiement,
+                            cheques: paiement.cheques.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="paiement-ajout"
+                    onClick={() => majPaiement({ ...paiement, cheques: [...paiement.cheques, 0] })}
+                  >
+                    ＋ Ajouter un chèque
+                  </button>
+                </div>
+
+                <label className="paiement-cb">
+                  💳 Carte bancaire
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={paiement.cb != null ? String(paiement.cb) : ''}
+                    onChange={(e) => {
+                      const brut = e.target.value.trim().replace(',', '.');
+                      const v = brut === '' ? null : Number(brut);
+                      majPaiement({ ...paiement, cb: v === null || Number.isNaN(v) ? null : v });
+                    }}
+                  />
+                  <span>€</span>
+                </label>
+
+                <div className="paiement-total">
+                  Total détaillé : <strong>{formatEuros(totalPaiement(paiement))}</strong>
+                </div>
+                <p className="paiement-aide">
+                  Ce détail sert à <b>pré-remplir</b> le décompte de fin de tournée. Le comptage
+                  réel reste modifiable et c'est lui qui fait foi sur le reçu.
+                </p>
+              </>
+            )}
           </div>
         )}
 

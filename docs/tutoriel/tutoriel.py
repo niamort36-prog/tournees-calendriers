@@ -417,6 +417,8 @@ puces([
     '<b>Somme</b> : ce que les habitants ont donné. C’est <b>facultatif</b> — vous '
     'pouvez laisser vide et tout compter à la fin.',
     '<b>Calendriers laissés</b> : en général 1, à modifier s’ils en ont pris plusieurs.',
+    '<b>Détail du paiement</b> : pour noter les billets, pièces et chèques reçus '
+    '(voir 2.3 bis).',
 ])
 p('Les deux derniers boutons, <b>Inhabité</b> et <b>Maison secondaire</b>, '
   'fonctionnent comme <b>Refus</b> : la maison est considérée comme traitée et il '
@@ -427,6 +429,30 @@ p('Si vous choisissez <b>Absent, à repasser</b>, vous pouvez programmer un '
   '<b>rappel</b> avec une date et une heure : le téléphone vous préviendra le moment '
   'venu. La case <b>Note</b> sert à tout le reste : « sonnette cassée », « chien '
   'méchant », « repasser après 18 h »…')
+
+p('2.3 bis — Détailler ce qu’on a reçu (facultatif)', 'h1')
+p('Sous la somme, la ligne <b>Détail du paiement</b> permet de noter <b>comment</b> '
+  'les habitants ont payé : combien de pièces, combien de billets, les chèques et la '
+  'carte bancaire. C’est entièrement facultatif — mais si vous le faites, le décompte '
+  'de fin de tournée sera <b>déjà pré-rempli</b> et vous n’aurez plus qu’à vérifier.')
+etapes([
+    'Appuyez sur <b>Détail du paiement</b> pour déplier le bloc.',
+    'Pour les espèces, appuyez sur <b>+</b> en face de la coupure reçue : un billet '
+    'de 10 €, deux pièces de 2 €… Les lignes utilisées passent en vert.',
+    'Pour un chèque, appuyez sur <b>Ajouter un chèque</b> et tapez son montant. '
+    'Recommencez s’il y en a plusieurs.',
+    'Pour un paiement par carte, remplissez la case <b>Carte bancaire</b>.',
+])
+image('membre-paiement-detail', 7.5,
+      'Le détail d’un paiement : un billet de 10 €, une pièce de 2 €, un chèque de 15 € '
+      'et 12 € par carte')
+p('La case <b>Somme</b> se remplit alors toute seule avec le total et devient non '
+  'modifiable : c’est le détail qui commande. Si vous préférez ne saisir qu’un '
+  'montant global, laissez simplement le bloc fermé.')
+encadre('Ce n’est qu’une aide à la saisie',
+        'Ces chiffres <b>ne remplacent jamais</b> le comptage de fin de tournée. Au '
+        'moment du décompte, l’équipe compte l’argent réel et peut corriger librement '
+        'chaque case : c’est ce décompte, et lui seul, qui part sur le reçu.')
 
 p('2.4 — Un immeuble avec plusieurs appartements', 'h1')
 p('Pour un immeuble, vous pouvez valider <b>chaque appartement séparément</b>.')
@@ -705,11 +731,19 @@ etapes([
     'Vérifiez les <b>participants</b> (pré-remplis avec l’équipe) et ajoutez les '
     '<b>demi-journées effectuées</b>, en précisant qui a pris sa voiture.',
     'Corrigez si besoin le nombre de <b>calendriers distribués</b>.',
-    'Comptez la recette : pièces, billets, chèques et carte bancaire. <b>Le total se '
-    'calcule tout seul.</b>',
+    'Si l’équipe a détaillé les paiements maison par maison (voir 2.3 bis), un '
+    'bandeau vert propose <b>Pré-remplir avec ces saisies</b> : un appui et les '
+    'cases sont remplies.',
+    'Comptez la recette réelle : pièces, billets, chèques et carte bancaire. <b>Le '
+    'total se calcule tout seul</b>, et vous corrigez librement ce qui ne colle pas.',
     'Cliquez sur <b>Valider la fin de tournée</b> : un numéro de reçu est attribué.',
 ])
 image('admin-decompte', 14, 'La fenêtre de fin de tournée, avec le total automatique')
+encadre('Le comptage réel fait toujours foi',
+        'Le pré-remplissage ne s’applique jamais tout seul : il faut appuyer sur le '
+        'bouton, et si le décompte contient déjà des montants l’application demande '
+        'confirmation avant de les remplacer. Comparer le total proposé au total '
+        'compté est d’ailleurs un bon moyen de repérer une erreur de saisie.')
 encadre('Rien n’est définitif',
         'Un décompte validé peut être rouvert et corrigé : le numéro de reçu reste le '
         'même. Les administrateurs reçoivent une notification à chaque tournée '

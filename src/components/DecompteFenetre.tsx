@@ -5,7 +5,14 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import RecuImprimable from './RecuImprimable';
-import { COUPURES, LIBELLE_MOMENT, formatEuros, type Seance } from '../types';
+import {
+  COUPURES,
+  LIBELLE_MOMENT,
+  formatEuros,
+  paiementVide,
+  type PaiementAdresse,
+  type Seance,
+} from '../types';
 
 const entier = (v: string) => {
   const n = Math.trunc(Number(v.trim()));
@@ -69,6 +76,72 @@ export default function DecompteFenetre({
     .filter((a) => a.statut === 'distribue')
     .reduce((n, a) => n + (a.calendriersLaisses ?? 1), 0);
   const sommesSaisies = adressesTournee.reduce((somme, a) => somme + (a.somme ?? 0), 0);
+
+  // Cumul des détails saisis maison par maison (pièces, billets, chèques, carte).
+  // Il ne sert QU'À pré-remplir : le comptage réel reste modifiable et fait foi.
+  const cumulMaisons = (() => {
+    const especesCumul: Record<string, number> = {};
+    const chequesCumul: number[] = [];
+    let cbCumul = 0;
+    let nbMaisons = 0;
+    for (const a of adressesTournee) {
+      if (paiementVide(a.paiement)) continue;
+      nbMaisons += 1;
+      const p = a.paiement as PaiementAdresse;
+      for (const [cle, n] of Object.entries(p.especes)) {
+        if (n) especesCumul[cle] = (especesCumul[cle] ?? 0) + n;
+      }
+      for (const m of p.cheques) if (m) chequesCumul.push(m);
+      cbCumul += p.cb ?? 0;
+    }
+    // les chèques de même montant sont regroupés en lignes « nombre × montant »
+    const parMontant = new Map<number, number>();
+    for (const m of chequesCumul) parMontant.set(m, (parMontant.get(m) ?? 0) + 1);
+    const lignes = [...parMontant.entries()]
+      .sort((x, y) => x[0] - y[0])
+      .map(([montant, nombre]) => ({ nombre, montant }));
+    let total = 0;
+    for (const c of COUPURES) total += (especesCumul[c.cle] ?? 0) * c.valeur;
+    for (const l of lignes) total += l.nombre * l.montant;
+    total += cbCumul;
+    return {
+      especes: especesCumul,
+      cheques: lignes,
+      cb: cbCumul,
+      nbMaisons,
+      total: Math.round(total * 100) / 100,
+    };
+  })();
+
+  const decompteVierge =
+    COUPURES.every((c) => !entier(especes[c.cle] ?? '')) &&
+    cheques.length === 0 &&
+    decimal(cb) === 0;
+
+  const reprendreLesSaisies = () => {
+    if (!decompteVierge) {
+      const ok = window.confirm(
+        'Le décompte contient déjà des montants. Les remplacer par le cumul des saisies faites aux maisons ? ' +
+          'Vous pourrez toujours les corriger ensuite.',
+      );
+      if (!ok) return;
+    }
+    const e: Record<string, string> = {};
+    for (const c of COUPURES) {
+      const n = cumulMaisons.especes[c.cle] ?? 0;
+      e[c.cle] = n ? String(n) : '';
+    }
+    setEspeces(e);
+    setCheques(cumulMaisons.cheques.map((l) => ({ nombre: String(l.nombre), montant: String(l.montant) })));
+    setCb(cumulMaisons.cb ? String(cumulMaisons.cb) : '');
+    const resultat: Record<string, number | null> = {};
+    for (const c of COUPURES) resultat[c.cle] = cumulMaisons.especes[c.cle] ?? null;
+    void s().majDecompte(decompte.id, {
+      especes: resultat,
+      cheques: cumulMaisons.cheques,
+      cb: cumulMaisons.cb || null,
+    });
+  };
 
   const totEspeces = COUPURES.reduce((somme, c) => somme + entier(especes[c.cle] ?? '') * c.valeur, 0);
   const totCheques = cheques.reduce((somme, l) => somme + entier(l.nombre) * decimal(l.montant), 0);
@@ -276,6 +349,25 @@ export default function DecompteFenetre({
             <span className="decompte-reference">compté automatiquement : {distribuesAuto}</span>
           </div>
         </div>
+
+        {cumulMaisons.nbMaisons > 0 && !fige && (
+          <div className="decompte-prefill">
+            <div>
+              💶 <b>{cumulMaisons.nbMaisons} maison(s)</b> ont un détail de paiement saisi, pour un
+              total de <b>{formatEuros(cumulMaisons.total)}</b>.
+              {decompteVierge
+                ? ' Vous pouvez partir de ces chiffres plutôt que de tout ressaisir.'
+                : ' Le décompte ci-dessous a déjà été rempli : il reste prioritaire.'}
+            </div>
+            <button type="button" onClick={reprendreLesSaisies}>
+              ⤵️ {decompteVierge ? 'Pré-remplir avec ces saisies' : 'Remplacer par ces saisies'}
+            </button>
+            <p className="decompte-prefill-aide">
+              C'est une aide à la saisie : <b>comptez toujours l'argent réel</b> et corrigez
+              librement les cases ci-dessous. C'est ce décompte, et lui seul, qui part sur le reçu.
+            </p>
+          </div>
+        )}
 
         <div className="decompte-section">
           <h3>💰 Espèces</h3>

@@ -166,6 +166,8 @@ export interface AdressePoint {
   /** Appartements de l'immeuble (statut global calculé automatiquement). */
   appartements: Appartement[];
   statut: StatutAdresse;
+  /** Détail de la somme reçue (pièces, billets, chèques, carte) — null si non détaillé. */
+  paiement: PaiementAdresse | null;
   /** Statut lors de la campagne précédente (rempli par l'archivage). */
   statutPrecedent: StatutAdresse | null;
   /** Date de saisie du commentaire (null si aucun commentaire). */
@@ -246,6 +248,41 @@ export const COUPURES: { cle: string; libelle: string; valeur: number }[] = [
   { cle: 'b50', libelle: 'Billets de 50 €', valeur: 50 },
   { cle: 'b100', libelle: 'Billets de 100 €', valeur: 100 },
 ];
+
+/**
+ * Détail de ce qui a été reçu à une adresse : nombre de pièces et de billets,
+ * chèques et carte bancaire. Sert à pré-remplir le décompte de fin de tournée
+ * au lieu de tout recompter à la main.
+ */
+export interface PaiementAdresse {
+  /** Nombre de coupures reçues, par clé de COUPURES. */
+  especes: Record<string, number>;
+  /** Montants des chèques reçus, un par chèque. */
+  cheques: number[];
+  /** Montant réglé par carte bancaire. */
+  cb: number | null;
+}
+
+export function paiementNeuf(): PaiementAdresse {
+  return { especes: {}, cheques: [], cb: null };
+}
+
+export function totalPaiement(p: PaiementAdresse | null): number {
+  if (!p) return 0;
+  let total = 0;
+  for (const c of COUPURES) total += (p.especes[c.cle] ?? 0) * c.valeur;
+  for (const montant of p.cheques) total += montant;
+  total += p.cb ?? 0;
+  return Math.round(total * 100) / 100;
+}
+
+/** Vrai si rien n'a été détaillé (aucune coupure, aucun chèque, pas de carte). */
+export function paiementVide(p: PaiementAdresse | null): boolean {
+  if (!p) return true;
+  return (
+    Object.values(p.especes).every((n) => !n) && p.cheques.length === 0 && !p.cb
+  );
+}
 
 /** Décompte de fin de tournée (un par tournée et par campagne). */
 export interface Decompte {

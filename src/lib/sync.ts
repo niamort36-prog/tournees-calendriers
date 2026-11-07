@@ -6,6 +6,7 @@
 
 import { supabase } from './supabase';
 import { maintenantISO } from './horloge';
+import { colonneDisponible, signalerColonnes } from './capacites';
 import { db, type EnAttente } from '../store/db';
 import type {
   AdressePoint,
@@ -16,6 +17,7 @@ import type {
   EntreeJournal,
   LigneCheques,
   LotCalendriers,
+  PaiementAdresse,
   Seance,
   StatutAdresse,
   Tournee,
@@ -155,6 +157,9 @@ function adresseVersLigne(a: AdressePoint) {
     type_batiment: a.typeBatiment,
     appartements: a.appartements,
     statut: a.statut,
+    // tant que la mise à jour n°15 n'est pas passée, envoyer cette colonne
+    // ferait échouer toute l'écriture — statut compris
+    ...(colonneDisponible('paiement') ? { paiement: a.paiement } : {}),
     statut_precedent: a.statutPrecedent ?? null,
     somme: a.somme,
     calendriers_laisses: a.calendriersLaisses,
@@ -165,6 +170,7 @@ function adresseVersLigne(a: AdressePoint) {
 }
 
 function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
+  signalerColonnes(l);
   return {
     id: l.id as string,
     tourneeId: l.tournee_id as string,
@@ -180,6 +186,7 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
     typeBatiment: (l.type_batiment as 'maison' | 'immeuble') ?? 'maison',
     appartements: (l.appartements as Appartement[]) ?? [],
     statut: (l.statut as StatutAdresse) ?? 'a_faire',
+    paiement: (l.paiement as PaiementAdresse | null) ?? null,
     statutPrecedent: (l.statut_precedent as StatutAdresse | null) ?? null,
     somme: (l.somme as number | null) ?? null,
     calendriersLaisses: (l.calendriers_laisses as number | null) ?? null,
