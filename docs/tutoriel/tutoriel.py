@@ -446,8 +446,13 @@ encadre('Selon votre téléphone',
 
 p('2.7 — Suivre l’avancement', 'h1')
 p('Le bouton <b>Synthèse</b> en haut de l’écran montre l’avancement de la campagne : '
-  'nombre de calendriers distribués, pourcentage d’avancement et répartition des '
-  'maisons par couleur.')
+  'nombre de calendriers distribués, <b>adresses encore à faire</b>, <b>absents à '
+  'repasser</b>, pourcentage d’avancement et répartition des maisons par couleur.')
+p('Plus bas, la partie <b>Par tournée</b> reprend ces trois chiffres pour chaque '
+  'tournée, avec les pastilles de couleur de la carte : combien il reste <b>à '
+  'faire</b> (gris), combien de calendriers ont été <b>distribués</b> (vert) et '
+  'combien d’<b>absents à repasser</b> (rouge). Ces chiffres sont visibles par tout '
+  'le monde, y compris les comptes Normal.')
 image('membre-synthese', 7.5, 'La synthèse vue par un sapeur-pompier')
 encadre('Confidentialité',
         'Les montants d’argent ne sont visibles que par les administrateurs. Un '

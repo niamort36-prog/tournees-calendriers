@@ -115,6 +115,8 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
     .reduce((n, a) => n + (a.calendriersLaisses ?? 1), 0);
   const nbPoints = adresses.length;
   const nbVus = adresses.filter((a) => a.statut !== 'a_faire').length;
+  const nbAFaire = adresses.filter((a) => a.statut === 'a_faire').length;
+  const nbARepasser = adresses.filter((a) => a.statut === 'absent').length;
   const avancement = nbPoints > 0 ? Math.round((nbVus / nbPoints) * 100) : 0;
   const restantsStock =
     campagneActive?.calendriersCommandes != null
@@ -158,6 +160,8 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
       tournee: t,
       points: siennes.length,
       vus: siennes.filter((a) => a.statut !== 'a_faire').length,
+      aFaire: siennes.filter((a) => a.statut === 'a_faire').length,
+      aRepasser: siennes.filter((a) => a.statut === 'absent').length,
       distribues,
       collecte: decompte ? totalDecompte(decompte).total : 0,
     };
@@ -192,6 +196,14 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
           <div className="compteur">
             <span className="compteur-valeur">{totalDistribues}</span>
             <span className="compteur-libelle">calendriers distribués</span>
+          </div>
+          <div className="compteur">
+            <span className="compteur-valeur">{nbAFaire}</span>
+            <span className="compteur-libelle">adresse{nbAFaire > 1 ? 's' : ''} à faire</span>
+          </div>
+          <div className="compteur">
+            <span className="compteur-valeur">{nbARepasser}</span>
+            <span className="compteur-libelle">à repasser</span>
           </div>
           <div className="compteur">
             <span className="compteur-valeur">{avancement} %</span>
@@ -274,7 +286,7 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
                 <span className="pastille" style={{ background: b.tournee.couleur }} />
                 <strong>{b.tournee.nom}</strong>
                 <span className="barre-tournee-detail">
-                  {b.vus}/{b.points} vus · {b.distribues} distribués
+                  {b.vus}/{b.points} vus
                   {estAdmin ? ` · ${formatEuros(b.collecte)}` : ''}
                 </span>
               </div>
@@ -283,6 +295,20 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
                   className="barre-remplissage avancement"
                   style={{ width: `${b.points > 0 ? (b.vus / b.points) * 100 : 0}%` }}
                 />
+              </div>
+              <div className="barre-tournee-statuts">
+                <span>
+                  <i style={{ background: COULEUR_STATUT.a_faire }} />
+                  {b.aFaire} à faire
+                </span>
+                <span>
+                  <i style={{ background: COULEUR_STATUT.distribue }} />
+                  {b.distribues} distribué{b.distribues > 1 ? 's' : ''}
+                </span>
+                <span>
+                  <i style={{ background: COULEUR_STATUT.absent }} />
+                  {b.aRepasser} à repasser
+                </span>
               </div>
               {estAdmin && (
                 <div className="barre-fond">
