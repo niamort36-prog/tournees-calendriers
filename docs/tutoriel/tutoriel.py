@@ -357,6 +357,8 @@ p('Une fois connecté, vous arrivez sur la carte de votre secteur. Chaque point 
 image('membre-carte', 6.8, 'La carte : les points de couleur sont les maisons de votre tournée')
 p('<b>Les boutons ronds, en bas à droite :</b>')
 tableau(['Bouton', 'À quoi il sert'], [
+    ['<b>Boussole</b> (flèche rouge)', 'Tourner la carte dans le sens que vous '
+     'voulez (voir 2.1 bis)'],
     ['<b>Satellite</b> (image aérienne)', 'Basculer entre le plan classique et la '
      'photo aérienne — pratique pour repérer une maison isolée ou un chemin'],
     ['<b>Liste</b> (bloc-notes)', 'Afficher la liste des adresses classées de la plus '
@@ -364,6 +366,30 @@ tableau(['Bouton', 'À quoi il sert'], [
     ['<b>Position</b> (punaise)', 'Afficher votre position : un point bleu vous suit '
      'sur la carte'],
 ], [5.4 * cm, 11 * cm])
+
+p('2.1 bis — Orienter la carte dans le sens de la marche', 'h1')
+p('Par défaut le <b>nord est en haut</b>. Ce n’est pas toujours pratique : quand on '
+  'descend une rue vers le sud, tout est à l’envers et on tourne son téléphone dans '
+  'tous les sens. Vous pouvez donc <b>faire pivoter la carte</b> pour qu’elle '
+  'corresponde à ce que vous avez sous les yeux.')
+p('<b>Trois façons de le faire :</b>')
+puces([
+    '<b>Avec deux doigts sur la carte</b> : posez deux doigts et tournez, comme pour '
+    'faire pivoter une photo. C’est le plus rapide en tournée.',
+    '<b>Avec la boussole</b> : appuyez sur le bouton rond à flèche rouge, une barre '
+    'apparaît avec deux flèches de rotation et un curseur.',
+    '<b>Sur ordinateur</b> : maintenez la touche <b>Maj</b> et faites glisser la '
+    'souris sur la carte.',
+])
+image('membre-boussole', 13.5,
+      'Le bouton boussole et sa barre de réglage : flèches, curseur, angle et retour au nord')
+p('La flèche rouge du bouton <b>pointe toujours vers le nord</b> : d’un coup d’œil '
+  'vous savez comment la carte est tournée. Le bouton devient rosé dès que le nord '
+  'n’est plus en haut.')
+encadre('Revenir au nord en un appui',
+        'Le bouton <b>Nord</b> de la barre remet la carte droite instantanément. '
+        'Tournez la carte autant que vous voulez : les points restent au bon endroit, '
+        'et appuyer dessus fonctionne exactement pareil.')
 
 p('2.2 — Retrouver sa tournée', 'h1')
 p('Appuyez sur le bouton rouge <b>Tournées</b> en haut à droite. Vous voyez la '

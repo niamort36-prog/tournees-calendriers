@@ -15,6 +15,7 @@ import { demanderPermission, permissionADemander } from './lib/notifications';
 
 export default function App() {
   const [panneauOuvert, setPanneauOuvert] = useState(true);
+  const [boussoleOuverte, setBoussoleOuverte] = useState(false);
   const [equipeOuverte, setEquipeOuverte] = useState(false);
   const [campagneOuverte, setCampagneOuverte] = useState(false);
   const [equipesOuvertes, setEquipesOuvertes] = useState(false);
@@ -24,6 +25,7 @@ export default function App() {
   const vueListe = useAppStore((s) => s.vueListe);
   const gpsActif = useAppStore((s) => s.gpsActif);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
+  const orientation = useAppStore((s) => s.orientation);
   const vueMembre = useAppStore((s) => s.vueMembre);
   const enAttente = useAppStore((s) => s.enAttente);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
@@ -207,6 +209,19 @@ export default function App() {
           <MapView />
           <div className="boutons-flottants">
             <button
+              className={'bouton-boussole' + (orientation !== 0 ? ' tournee' : '')}
+              title={
+                orientation === 0
+                  ? 'Orienter la carte (le nord est en haut)'
+                  : `Carte orientée à ${orientation}° — appui pour régler, le nord n'est plus en haut`
+              }
+              onClick={() => setBoussoleOuverte((o) => !o)}
+            >
+              <span className="aiguille" style={{ transform: `rotate(${-orientation}deg)` }}>
+                ⬆
+              </span>
+            </button>
+            <button
               title={fondSatellite ? 'Passer au plan' : 'Passer aux photos aériennes'}
               onClick={() => useAppStore.getState().basculerFondCarte()}
             >
@@ -227,6 +242,47 @@ export default function App() {
               📍
             </button>
           </div>
+          {boussoleOuverte && (
+            <div className="barre-boussole">
+              <button
+                title="Tourner vers la gauche"
+                onClick={() => useAppStore.getState().definirOrientation(orientation - 15)}
+              >
+                ↺
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={359}
+                step={1}
+                value={orientation}
+                aria-label="Orientation de la carte"
+                onChange={(e) => useAppStore.getState().definirOrientation(Number(e.target.value))}
+              />
+              <button
+                title="Tourner vers la droite"
+                onClick={() => useAppStore.getState().definirOrientation(orientation + 15)}
+              >
+                ↻
+              </button>
+              <span className="boussole-valeur">{orientation}°</span>
+              <button
+                className="boussole-nord"
+                disabled={orientation === 0}
+                title="Remettre le nord en haut"
+                onClick={() => useAppStore.getState().definirOrientation(0)}
+              >
+                <span className="boussole-nord-texte">Nord </span>⬆
+              </button>
+              <button
+                className="boussole-fermer"
+                title="Fermer"
+                onClick={() => setBoussoleOuverte(false)}
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {vueListe && <ListeAdresses />}
           <FicheAdresse />
           {(modeAjout || deplacementAdresseId) && (

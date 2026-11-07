@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
+import 'leaflet-rotate';
 import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import MenuNavigation from './MenuNavigation';
 import { COULEUR_STATUT } from '../types';
@@ -30,6 +31,7 @@ export default function MapView() {
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
+  const orientation = useAppStore((s) => s.orientation);
   const profil = useAppStore((s) => s.profil);
   const equipes = useAppStore((s) => s.equipes);
   const tourneesAffichees = useAppStore((s) => s.tourneesAffichees);
@@ -46,6 +48,12 @@ export default function MapView() {
     const map = L.map(divRef.current, {
       preferCanvas: true,
       renderer: L.canvas({ tolerance: 12 }),
+      // orientation libre de la carte : deux doigts sur téléphone,
+      // Maj + glisser sur ordinateur, et la boussole de l'application
+      rotate: true,
+      touchRotate: true,
+      shiftKeyRotate: true,
+      rotateControl: false,
     }).setView([46.6, 2.4], 6);
     fondPlanRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -105,6 +113,13 @@ export default function MapView() {
       }
     });
 
+    map.on('rotate', () => {
+      const angle = Math.round(((map.getBearing() % 360) + 360) % 360);
+      if (angle !== useAppStore.getState().orientation) {
+        useAppStore.getState().definirOrientation(angle);
+      }
+    });
+
     map.on('moveend', () => {
       const centre = map.getCenter();
       useAppStore.getState().setCentreCarte({ lat: centre.lat, lng: centre.lng });
@@ -120,6 +135,16 @@ export default function MapView() {
       mapRef.current = null;
     };
   }, []);
+
+  // Orientation demandée par la boussole : on la reporte sur la carte.
+  // (le sens inverse — gestes deux doigts, Maj + glisser — passe par
+  //  l'événement « rotate » ci-dessus ; la comparaison évite toute boucle)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const actuel = Math.round(((map.getBearing() % 360) + 360) % 360);
+    if (actuel !== orientation) map.setBearing(orientation);
+  }, [orientation]);
 
   // Appui long (téléphone) ou clic droit (PC) : proposition d'itinéraire
   useEffect(() => {

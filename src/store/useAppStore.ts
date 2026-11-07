@@ -158,6 +158,8 @@ interface EtatApp {
   adresseOuverteId: string | null;
   vueListe: boolean;
   positionGPS: { lat: number; lng: number } | null;
+  /** Orientation de la carte en degrés (0 = nord en haut). */
+  orientation: number;
   gpsActif: boolean;
   centreCarte: { lat: number; lng: number } | null;
   chargement: { actif: boolean; message: string; progression: number | null };
@@ -210,6 +212,8 @@ interface EtatApp {
   fermerVueListe: () => void;
   setCentreCarte: (c: { lat: number; lng: number }) => void;
   demarrerGPS: () => void;
+  /** Oriente la carte (degrés, ramenés dans 0–359). */
+  definirOrientation: (degres: number) => void;
   majAdresse: (id: string, patch: Partial<AdressePoint>) => Promise<void>;
 
   ajouterAdresse: (tourneeId: string, lat: number, lng: number) => Promise<void>;
@@ -656,6 +660,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     adresseOuverteId: null,
     vueListe: false,
     positionGPS: null,
+    orientation: 0,
     gpsActif: false,
     centreCarte: null,
     chargement: CHARGEMENT_INACTIF,
@@ -911,6 +916,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
         }
         return { tourneesAffichees: liste };
       }),
+
+    definirOrientation: (degres) =>
+      set({ orientation: ((Math.round(degres) % 360) + 360) % 360 }),
 
     basculerFondCarte: () =>
       set((s) => {
