@@ -9,9 +9,11 @@ import {
   LIBELLE_STATUT,
   calendriersImmeuble,
   statutAgrege,
+  STATUTS_PERMANENTS,
   type Appartement,
   type StatutAdresse,
 } from '../types';
+import { statutsEtendusDisponibles } from '../lib/horloge';
 
 const PASTILLES_STATUT: { valeur: StatutAdresse; symbole: string; titre: string }[] = [
   { valeur: 'a_faire', symbole: '○', titre: 'À faire' },
@@ -286,7 +288,9 @@ export default function FicheAdresse() {
           </div>
         ) : (
           <div className="fiche-statuts">
-            {ORDRE_STATUTS.map(({ valeur, libelle }) => {
+            {ORDRE_STATUTS.filter(
+              ({ valeur }) => !STATUTS_PERMANENTS.includes(valeur) || statutsEtendusDisponibles(),
+            ).map(({ valeur, libelle }) => {
               const actif = adresse.statut === valeur;
               return (
                 <button

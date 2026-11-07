@@ -230,13 +230,22 @@ async function executer(opr: Operation): Promise<void> {
     if (error) throw error;
     await poserTombes(opr.table, [opr.id]);
   } else {
-    const suppression = await supabase.from('adresses').delete().eq('tournee_id', opr.tourneeId);
-    if (suppression.error) throw suppression.error;
+    // Remplacement NON destructif. On écrit ce que cet appareil connaît et on
+    // ne supprime QUE ce qui a été explicitement retiré. Auparavant toutes les
+    // adresses de la tournée étaient effacées côté serveur avant réécriture :
+    // une adresse créée ailleurs — ou tout le travail de l'équipe si le
+    // recalcul n'avait rien trouvé — disparaissait définitivement.
     if (opr.donnees.length > 0) {
-      const insertion = await supabase.from('adresses').insert(opr.donnees);
-      if (insertion.error) throw insertion.error;
+      const { error } = await supabase.from('adresses').upsert(opr.donnees);
+      if (error) throw error;
     }
-    await poserTombes('adresses', opr.suppressionsIds ?? []);
+    const aSupprimer = opr.suppressionsIds ?? [];
+    for (let i = 0; i < aSupprimer.length; i += 200) {
+      const lot = aSupprimer.slice(i, i + 200);
+      const { error } = await supabase.from('adresses').delete().in('id', lot);
+      if (error) throw error;
+    }
+    await poserTombes('adresses', aSupprimer);
   }
 }
 

@@ -179,6 +179,17 @@ function CarteTournee({
             🙈
           </button>
         )}
+        {estAdmin && tournee.polygone.length > 0 && (
+          <button
+            title="Retrouver les habitations de la zone (les points déjà saisis et leurs statuts sont conservés)"
+            onClick={(e) => {
+              e.stopPropagation();
+              void s().majPolygone(tournee.id, tournee.polygone);
+            }}
+          >
+            🔄
+          </button>
+        )}
         {estAdmin && (
           <button
             className="danger"

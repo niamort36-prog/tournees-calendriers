@@ -1007,6 +1007,13 @@ export const useAppStore = create<EtatApp>((set, get) => {
       try {
         const pings = await adressesDansPolygone(poly, onEtat);
         const actuelles = get().adresses.filter((a) => a.tourneeId === id);
+        // Garde-fou : un recalcul qui ne trouve plus rien vidait la tournée —
+        // contour et statuts de l'équipe compris. On refuse d'appliquer.
+        if (pings.length === 0 && actuelles.some((a) => !a.manuelle)) {
+          throw new Error(
+            "Aucune adresse trouvée dans cette zone alors que la tournée en contient déjà : rien n'a été modifié. Réessayez avec une meilleure connexion.",
+          );
+        }
         const manuelles = actuelles.filter((a) => a.manuelle);
         const banIdsManuels = new Set(manuelles.map((a) => a.banId).filter(Boolean));
         const exclus = new Set(tournee.banIdsExclus);

@@ -210,10 +210,22 @@ export async function adressesDansPolygone(poly: LatLng[], onEtat: EtatChargemen
   const metas = await db.banCommunes.toArray();
   const communesCandidates = metas.filter((m) => bboxSeChevauchent(zone, m.bbox));
 
+  if (communesCandidates.length === 0) {
+    throw new Error(
+      "Aucune commune ne correspond à cette zone : le fichier d'adresses n'a pas pu être lu. Réessayez avec une meilleure connexion.",
+    );
+  }
+
   const parPoint = new Map<string, PingGroupe>();
   for (const meta of communesCandidates) {
     const paquet = await db.banAdressesCommunes.get(meta.codeInsee);
-    if (!paquet) continue;
+    // Une commune candidate dont les adresses manquent était ignorée en
+    // silence : le recalcul renvoyait alors une liste incomplète (ou vide).
+    if (!paquet) {
+      throw new Error(
+        `Les adresses de la commune « ${meta.nom} » n'ont pas pu être chargées. Vérifiez la connexion et réessayez : rien n'a été modifié.`,
+      );
+    }
     for (const a of paquet.adresses) {
       if (!dansBbox(a.lat, a.lng, zone)) continue;
       if (!dansPolygone(a.lat, a.lng, poly)) continue;
