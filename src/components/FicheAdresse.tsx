@@ -25,6 +25,8 @@ const ORDRE_STATUTS: { valeur: StatutAdresse; libelle: string }[] = [
   { valeur: 'distribue', libelle: 'Distribué ✔' },
   { valeur: 'absent', libelle: 'Absent, à repasser' },
   { valeur: 'refus', libelle: 'Refus' },
+  { valeur: 'inhabite', libelle: 'Inhabité' },
+  { valeur: 'secondaire', libelle: 'Maison secondaire' },
 ];
 
 function isoVersLocal(iso: string | null): string {

@@ -5,6 +5,7 @@
 // modification gagne (comparaison des dates modifie_le).
 
 import { supabase } from './supabase';
+import { maintenantISO } from './horloge';
 import { db, type EnAttente } from '../store/db';
 import type {
   AdressePoint,
@@ -245,8 +246,62 @@ async function pousser(opr: Operation): Promise<void> {
     await executer(opr);
   } catch {
     // hors-ligne ou erreur passagère : on rejouera plus tard, dans l'ordre
-    await db.enAttente.add({ operation: opr, quand: new Date().toISOString() });
+    await db.enAttente.add({ operation: opr, quand: maintenantISO() });
   }
+}
+
+/**
+ * Avant de rejouer une écriture mise de côté, on reprend la version ACTUELLE
+ * de la ligne dans la base locale. Rejouer la photo d'origine écraserait les
+ * modifications faites entre-temps par les collègues — c'est ce qui faisait
+ * « revenir en gris » des maisons déjà distribuées.
+ */
+async function rafraichirOperation(opr: Operation): Promise<Operation | null> {
+  const lire = async (table: string, id: string): Promise<Record<string, unknown> | null> => {
+    if (table === 'adresses') {
+      const x = await db.adresses.get(id);
+      return x ? adresseVersLigne(x) : null;
+    }
+    if (table === 'tournees') {
+      const x = await db.tournees.get(id);
+      return x ? tourneeVersLigne(x) : null;
+    }
+    if (table === 'campagnes') {
+      const x = await db.campagnes.get(id);
+      return x ? campagneVersLigne(x) : null;
+    }
+    if (table === 'equipes') {
+      const x = await db.equipes.get(id);
+      return x ? equipeVersLigne(x) : null;
+    }
+    if (table === 'decomptes') {
+      const x = await db.decomptes.get(id);
+      return x ? decompteVersLigne(x) : null;
+    }
+    return null;
+  };
+
+  if (opr.op === 'remplacer') {
+    const liste = await db.adresses.where('tourneeId').equals(opr.tourneeId).toArray();
+    return { ...opr, donnees: liste.map(adresseVersLigne) };
+  }
+  if (opr.op !== 'upsert') return opr;
+  // le journal est un historique : ses lignes ne changent jamais
+  if (opr.table === 'journal') return opr;
+
+  // seules les adresses s'envoient par paquets
+  if (opr.table === 'adresses' && Array.isArray(opr.donnees)) {
+    const fraiches: Record<string, unknown>[] = [];
+    for (const d of opr.donnees) {
+      const f = await lire('adresses', d.id as string);
+      if (f) fraiches.push(f);
+    }
+    return fraiches.length > 0 ? { ...opr, donnees: fraiches } : null;
+  }
+  if (Array.isArray(opr.donnees)) return opr;
+  const fraiche = await lire(opr.table, opr.donnees.id as string);
+  // ligne disparue de la base locale (supprimée depuis) : on abandonne l'envoi
+  return fraiche ? { ...opr, donnees: fraiche } : null;
 }
 
 /** Rejoue les écritures faites hors connexion (s'arrête au premier échec). */
@@ -255,12 +310,26 @@ export async function viderFileAttente(): Promise<void> {
   const entrees = await db.enAttente.orderBy('cle').toArray();
   for (const entree of entrees) {
     try {
-      await executer(entree.operation as Operation);
+      const opr = await rafraichirOperation(entree.operation as Operation);
+      if (opr) await executer(opr);
       await db.enAttente.delete(entree.cle as number);
     } catch {
       return;
     }
   }
+}
+
+// accès console en développement (tests de la file d'attente)
+if (import.meta.env.DEV) {
+  const expose = window as unknown as Record<string, unknown>;
+  expose.rafraichirOperation = rafraichirOperation;
+  expose.memeContenu = memeContenu;
+  expose.adresseVersLigne = adresseVersLigne;
+}
+
+/** Nombre d'écritures encore en attente d'envoi. */
+export async function nombreEnAttente(): Promise<number> {
+  return db.enAttente.count();
 }
 
 export const syncTournee = (t: Tournee) =>
@@ -362,6 +431,18 @@ async function chargerTable(
 
 const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
 
+/**
+ * Vrai si les deux versions ont exactement le même contenu (horodatage ignoré).
+ * Garde-fou : un appareil dont l'horloge avance verrait toutes ses lignes
+ * comme « plus récentes » et renverrait son ancienne copie par-dessus le
+ * travail des autres. On ne pousse donc que ce qui a réellement changé.
+ */
+function memeContenu<T>(a: T, b: T, vers: (x: T) => Record<string, unknown>): boolean {
+  return (
+    JSON.stringify({ ...vers(a), modifie_le: '' }) === JSON.stringify({ ...vers(b), modifie_le: '' })
+  );
+}
+
 export interface ResultatFusion {
   tournees: Tournee[];
   adresses: AdressePoint[];
@@ -404,9 +485,16 @@ export async function tirerEtFusionner(
   for (const locale of tourneesLocales) {
     if (tombes.has(locale.id)) continue;
     const distante = resultatT.get(locale.id);
-    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+    if (!distante) {
       resultatT.set(locale.id, locale);
       aPousserT.push(locale);
+    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (memeContenu(locale, distante, tourneeVersLigne)) resultatT.set(locale.id, distante);
+      else {
+        resultatT.set(locale.id, locale);
+        aPousserT.push(locale);
+      }
     }
   }
 
@@ -415,9 +503,16 @@ export async function tirerEtFusionner(
   for (const locale of adressesLocales) {
     if (tombes.has(locale.id)) continue;
     const distante = resultatA.get(locale.id);
-    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+    if (!distante) {
       resultatA.set(locale.id, locale);
       aPousserA.push(locale);
+    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (memeContenu(locale, distante, adresseVersLigne)) resultatA.set(locale.id, distante);
+      else {
+        resultatA.set(locale.id, locale);
+        aPousserA.push(locale);
+      }
     }
   }
 
@@ -426,9 +521,16 @@ export async function tirerEtFusionner(
   for (const locale of campagnesLocales) {
     if (tombes.has(locale.id)) continue;
     const distante = resultatC.get(locale.id);
-    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+    if (!distante) {
       resultatC.set(locale.id, locale);
       aPousserC.push(locale);
+    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (memeContenu(locale, distante, campagneVersLigne)) resultatC.set(locale.id, distante);
+      else {
+        resultatC.set(locale.id, locale);
+        aPousserC.push(locale);
+      }
     }
   }
 
@@ -437,9 +539,16 @@ export async function tirerEtFusionner(
   for (const locale of equipesLocales) {
     if (tombes.has(locale.id)) continue;
     const distante = resultatE.get(locale.id);
-    if (!distante || plusRecent(locale.modifieLe, distante.modifieLe)) {
+    if (!distante) {
       resultatE.set(locale.id, locale);
       aPousserE.push(locale);
+    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (memeContenu(locale, distante, equipeVersLigne)) resultatE.set(locale.id, distante);
+      else {
+        resultatE.set(locale.id, locale);
+        aPousserE.push(locale);
+      }
     }
   }
 
@@ -448,9 +557,16 @@ export async function tirerEtFusionner(
   for (const local of decomptesLocaux) {
     if (tombes.has(local.id)) continue;
     const distant = resultatD.get(local.id);
-    if (!distant || plusRecent(local.modifieLe, distant.modifieLe)) {
+    if (!distant) {
       resultatD.set(local.id, local);
       aPousserD.push(local);
+    } else if (plusRecent(local.modifieLe, distant.modifieLe)) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (memeContenu(local, distant, decompteVersLigne)) resultatD.set(local.id, distant);
+      else {
+        resultatD.set(local.id, local);
+        aPousserD.push(local);
+      }
     }
   }
 

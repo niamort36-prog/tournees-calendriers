@@ -31,6 +31,8 @@ VERT = colors.HexColor('#2e7d32')
 BLEU = colors.HexColor('#1e88e5')
 VIOLET = colors.HexColor('#8338ec')
 GRIS_PING = colors.HexColor('#8d99ae')
+BLEU_NUIT = colors.HexColor('#283593')
+TURQUOISE = colors.HexColor('#00acc1')
 
 # Polices Windows (accents corrects, rendu agréable)
 F, FB, FI = 'Calibri', 'Calibri-Gras', 'Calibri-Italique'
@@ -313,7 +315,7 @@ etapes([
     'Faites défiler et choisissez <b>« Sur l’écran d’accueil »</b>.',
 ])
 
-p('1.3 — Les quatre couleurs à connaître', 'h1')
+p('1.3 — Les six couleurs à connaître', 'h1')
 p('Sur la carte, chaque maison est représentée par un point de couleur. La couleur '
   'indique où vous en êtes. C’est le cœur de l’application :')
 tableau(['Couleur', 'Signification', 'Quand l’utiliser'], [
@@ -325,9 +327,21 @@ tableau(['Couleur', 'Signification', 'Quand l’utiliser'], [
      'Personne n’a répondu', 'Quand il faudra repasser plus tard'],
     [pastille_couleur(BLEU, '<b>Bleu</b> — Refus'),
      'Les habitants n’en veulent pas', 'Inutile de repasser cette année'],
+    [pastille_couleur(BLEU_NUIT, '<b>Bleu nuit</b> — Inhabité'),
+     'La maison est vide, personne n’y habite',
+     'Maison abandonnée, en travaux, à vendre…'],
+    [pastille_couleur(TURQUOISE, '<b>Turquoise</b> — Maison secondaire'),
+     'Les propriétaires ne vivent pas ici à l’année',
+     'Résidence secondaire, occupée seulement l’été'],
 ], [5.4 * cm, 5 * cm, 6 * cm])
+encadre('Inhabité et maison secondaire : à saisir une seule fois',
+        'Ces deux couleurs décrivent le <b>logement lui-même</b>, pas la visite de '
+        'cette année. Elles sont donc <b>conservées d’une campagne à l’autre</b> : '
+        'une maison marquée « Inhabité » restera bleu nuit l’an prochain, sans avoir '
+        'à la refaire. Si la situation change (la maison est de nouveau habitée), il '
+        'suffit d’appuyer sur une autre couleur.')
 encadre('L’astuce qui fait gagner du temps',
-        'Les refus sont mémorisés d’une année sur l’autre. L’année prochaine, en '
+        'Les refus aussi sont mémorisés d’une année sur l’autre. L’année prochaine, en '
         'ouvrant une maison, vous verrez écrit « L’an dernier : Refus » — vous saurez '
         'tout de suite à quoi vous attendre.')
 
@@ -368,7 +382,7 @@ p('C’est l’opération que vous répéterez tout au long de la tournée.')
 etapes([
     'Appuyez sur le point de la maison sur la carte (ou sur son nom dans la liste).',
     'Une fiche remonte du bas de l’écran avec l’adresse.',
-    'Appuyez sur l’un des <b>quatre gros boutons</b> selon ce qui s’est passé.',
+    'Appuyez sur l’un des <b>six gros boutons</b> selon ce qui s’est passé.',
     'Le point change de couleur immédiatement, chez vous et chez vos collègues.',
 ])
 image('membre-fiche-maison', 7.5, 'La fiche d’une maison : ici le calendrier a été distribué')
@@ -378,6 +392,11 @@ puces([
     'pouvez laisser vide et tout compter à la fin.',
     '<b>Calendriers laissés</b> : en général 1, à modifier s’ils en ont pris plusieurs.',
 ])
+p('Les deux derniers boutons, <b>Inhabité</b> et <b>Maison secondaire</b>, '
+  'fonctionnent comme <b>Refus</b> : la maison est considérée comme traitée et il '
+  'est inutile d’y repasser. Leur particularité : ils sont <b>repris automatiquement '
+  'l’année suivante</b>, car une maison vide ou une résidence secondaire le reste '
+  'en général d’une année sur l’autre.')
 p('Si vous choisissez <b>Absent, à repasser</b>, vous pouvez programmer un '
   '<b>rappel</b> avec une date et une heure : le téléphone vous préviendra le moment '
   'venu. La case <b>Note</b> sert à tout le reste : « sonnette cassée », « chien '
@@ -456,6 +475,14 @@ p('Aucun problème : un bandeau orange « Hors ligne » apparaît, et vous pouve
   '<b>continuer à travailler normalement</b>. Tout est enregistré dans le téléphone, '
   'et repart automatiquement vers les collègues dès que le réseau revient. Les '
   'portions de carte déjà consultées restent affichées.')
+p('Tant qu’il reste des saisies à envoyer, un bouton orange <b>« ⏳ N en attente »</b> '
+  's’affiche en haut de l’écran. Il disparaît tout seul dès que tout est parti. Si '
+  'vous êtes pressé, appuyez dessus : l’application réessaie immédiatement.')
+encadre('Vos saisies ne sont jamais perdues',
+        'Même si l’application est fermée ou le téléphone éteint, les modifications '
+        'faites hors réseau restent en mémoire et repartent à la prochaine ouverture. '
+        'Et au moment de l’envoi, c’est toujours la <b>valeur actuellement affichée '
+        'sur votre téléphone</b> qui part — pas une ancienne version.')
 
 p('2.11 — Les notifications', 'h1')
 p('À la première ouverture, l’application vous propose d’activer les notifications. '
@@ -670,6 +697,11 @@ tableau(['Situation', 'Que faire'], [
     ['<b>Un collègue ne voit pas mes modifications</b>',
      'Demandez-lui de fermer et rouvrir l’application. Elle se resynchronise à chaque '
      'ouverture, au retour du réseau et automatiquement toutes les trois minutes.'],
+    ['<b>Un point est repassé gris tout seul</b>',
+     'Vérifiez qu’il n’y a pas de bouton orange « ⏳ en attente » : si oui, appuyez '
+     'dessus. Vérifiez aussi que l’<b>heure du téléphone est réglée automatiquement</b> '
+     '(Réglages → Date et heure) : une horloge décalée peut faire croire à '
+     'l’application qu’une vieille saisie est la plus récente.'],
     ['<b>J’ai du mal à appuyer sur les points</b>',
      'Zoomez avec deux doigts : les points s’écartent. L’application rattrape aussi '
      'les appuis un peu à côté en ouvrant la maison la plus proche.'],

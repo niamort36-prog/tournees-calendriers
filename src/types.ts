@@ -1,13 +1,35 @@
 // Modèle de données de l'application.
 // Les statuts et champs "téléphone" sont déjà prévus pour les phases suivantes.
 
-export type StatutAdresse = 'a_faire' | 'distribue' | 'absent' | 'refus';
+export type StatutAdresse =
+  | 'a_faire'
+  | 'distribue'
+  | 'absent'
+  | 'refus'
+  | 'inhabite'
+  | 'secondaire';
+
+/**
+ * Statuts « définitifs » qui décrivent le logement lui-même : ils sont
+ * conservés d'une campagne à l'autre au lieu de repasser en « à faire ».
+ */
+export const STATUTS_PERMANENTS: StatutAdresse[] = ['inhabite', 'secondaire'];
+
+/** Statuts pour lesquels il n'y a plus rien à faire cette année. */
+export const STATUTS_TERMINES: StatutAdresse[] = [
+  'distribue',
+  'refus',
+  'inhabite',
+  'secondaire',
+];
 
 export const COULEUR_STATUT: Record<StatutAdresse, string> = {
   a_faire: '#8d99ae',
   distribue: '#2e7d32',
   absent: '#e53935',
   refus: '#1e88e5',
+  inhabite: '#283593',
+  secondaire: '#00acc1',
 };
 
 export const LIBELLE_STATUT: Record<StatutAdresse, string> = {
@@ -15,6 +37,8 @@ export const LIBELLE_STATUT: Record<StatutAdresse, string> = {
   distribue: 'Calendrier distribué',
   absent: 'Absent, à repasser',
   refus: 'Refus / pas intéressé',
+  inhabite: 'Inhabité',
+  secondaire: 'Maison secondaire',
 };
 
 export interface Profil {
@@ -114,7 +138,9 @@ export function statutAgrege(appartements: Appartement[]): StatutAdresse {
   if (appartements.some((a) => a.statut === 'absent')) return 'absent';
   if (appartements.some((a) => a.statut === 'a_faire')) return 'a_faire';
   if (appartements.some((a) => a.statut === 'distribue')) return 'distribue';
-  return 'refus';
+  // il ne reste que des refus, inhabités ou résidences secondaires
+  const premier = appartements[0].statut;
+  return appartements.every((a) => a.statut === premier) ? premier : 'refus';
 }
 
 export interface AdressePoint {

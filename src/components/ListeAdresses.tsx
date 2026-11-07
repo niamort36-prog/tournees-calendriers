@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
-import { COULEUR_STATUT, trierTournees } from '../types';
+import { COULEUR_STATUT, STATUTS_TERMINES, trierTournees } from '../types';
 import { distanceMetres } from '../lib/geo';
 import type { AdressePoint } from '../types';
 
@@ -50,7 +50,7 @@ export default function ListeAdresses() {
         x.adresse.libelle.localeCompare(y.adresse.libelle),
     );
 
-  const faites = liste.filter((a) => a.statut === 'distribue' || a.statut === 'refus').length;
+  const faites = liste.filter((a) => STATUTS_TERMINES.includes(a.statut)).length;
 
   const choisir = (a: AdressePoint) => {
     s().cadrerSur({ type: 'point', lat: a.lat, lng: a.lng, zoom: 18 });

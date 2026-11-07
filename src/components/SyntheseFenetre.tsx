@@ -121,7 +121,9 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
       ? campagneActive.calendriersCommandes - totalDistribues - calendriersLots
       : null;
 
-  const partsStatuts: Part[] = (['a_faire', 'distribue', 'absent', 'refus'] as const).map(
+  const partsStatuts: Part[] = (
+    ['a_faire', 'distribue', 'absent', 'refus', 'inhabite', 'secondaire'] as const
+  ).map(
     (statut) => ({
       libelle: LIBELLE_STATUT[statut],
       valeur: adresses.filter((a) => a.statut === statut).length,

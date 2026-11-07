@@ -25,6 +25,7 @@ export default function App() {
   const gpsActif = useAppStore((s) => s.gpsActif);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
   const vueMembre = useAppStore((s) => s.vueMembre);
+  const enAttente = useAppStore((s) => s.enAttente);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
   const [proposerNotifs, setProposerNotifs] = useState(
     () => permissionADemander() && localStorage.getItem('notifs-proposees') !== '1',
@@ -86,6 +87,15 @@ export default function App() {
           <span className="sous-titre">Amicale des Sapeurs-Pompiers</span>
         </div>
         <SearchBar />
+        {enAttente > 0 && (
+          <button
+            className="btn-attente"
+            title="Modifications pas encore envoyées au serveur. Cliquez pour réessayer maintenant."
+            onClick={() => void useAppStore.getState().forcerSynchro()}
+          >
+            ⏳ {enAttente} en attente
+          </button>
+        )}
         <button className="btn-equipe" onClick={() => setCampagneOuverte(true)}>
           📅 {campagneActive ? campagneActive.nom : 'Campagne'}
         </button>

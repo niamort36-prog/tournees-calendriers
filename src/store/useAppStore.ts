@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { formatEuros, totalDecompte, trouverDecompte } from '../types';
 import { notifier, permissionAccordee } from '../lib/notifications';
+import { maintenantISO, synchroniserHorloge } from '../lib/horloge';
 
 // verrou anti-doublon : une seule création de décompte à la fois par tournée
 const decomptesEnCreation = new Map<string, Promise<string>>();
@@ -63,6 +64,7 @@ import {
   syncAdresse,
   syncAdresses,
   chargerJournal,
+  nombreEnAttente,
   syncCampagne,
   syncDecompte,
   syncJournal,
@@ -111,7 +113,7 @@ function nouvelleAdresse(p: PingGroupe, tourneeId: string): AdressePoint {
     calendriersLaisses: null,
     rappelLe: null,
     note: null,
-    modifieLe: new Date().toISOString(),
+    modifieLe: maintenantISO(),
   };
 }
 
@@ -138,6 +140,8 @@ interface EtatApp {
   annuaire: Profil[];
   /** Journal des interventions sur les adresses (lecture admin). */
   journal: EntreeJournal[];
+  /** Nombre de modifications pas encore envoyées au serveur. */
+  enAttente: number;
   /** Tournées supplémentaires que l'utilisateur a choisi d'afficher. */
   tourneesAffichees: string[];
   /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
@@ -188,6 +192,8 @@ interface EtatApp {
   supprimerEquipe: (id: string) => Promise<void>;
   rafraichirAnnuaire: () => Promise<void>;
   rafraichirJournal: () => Promise<void>;
+  /** Relance tout de suite l'envoi des modifications en attente. */
+  forcerSynchro: () => Promise<void>;
   fermerNotification: () => void;
   basculerAffichageTournee: (id: string) => void;
   basculerFondCarte: () => void;
@@ -386,6 +392,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
   // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
   const resynchroniser = async () => {
+    await synchroniserHorloge();
     await viderFileAttente();
     const fusion = await tirerEtFusionner(
       get().tournees,
@@ -416,6 +423,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       campagnes: fusion.campagnes,
       equipes: fusion.equipes,
       decomptes: fusion.decomptes,
+      enAttente: await nombreEnAttente(),
     });
   };
 
@@ -541,7 +549,15 @@ export const useAppStore = create<EtatApp>((set, get) => {
     window.setInterval(() => {
       verifierRappels();
       void verifierCompte();
+      void nombreEnAttente().then((n) => {
+        if (n !== get().enAttente) set({ enAttente: n });
+      });
     }, 60000);
+
+    // les envois en attente repartent dès que le réseau revient
+    window.setInterval(() => {
+      if (!document.hidden && get().enAttente > 0) void resynchroniserSiPossible(true);
+    }, 45000);
     // filets de rattrapage si le temps réel a raté des changements
     window.setInterval(() => {
       if (!document.hidden) void resynchroniserSiPossible();
@@ -555,6 +571,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       expose.verifierRappels = verifierRappels;
       expose.verifierCompte = verifierCompte;
       expose.resynchroniserSiPossible = resynchroniserSiPossible;
+      expose.store = { getState: get, setState: set };
     }
   }
 
@@ -578,7 +595,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       lng: adresse.lng,
       auteurId: profil?.id ?? null,
       auteurNom: profil?.nom ?? '',
-      quand: new Date().toISOString(),
+      quand: maintenantISO(),
     };
     void syncJournal(entree);
     set((s) => ({ journal: [entree, ...s.journal] }));
@@ -595,6 +612,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     decomptes: [],
     annuaire: [],
     journal: [],
+    enAttente: 0,
     tourneesAffichees: chargerTourneesAffichees(),
     fondSatellite: localStorage.getItem('fond-satellite') === '1',
     vueMembre: localStorage.getItem('vue-membre') === '1',
@@ -671,7 +689,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
     creerCampagne: async (nom) => {
       if (!nom.trim() || get().campagnes.some((c) => c.statut === 'active')) return;
-      const maintenant = new Date().toISOString();
+      const maintenant = maintenantISO();
       const campagne: Campagne = {
         id: crypto.randomUUID(),
         nom: nom.trim(),
@@ -691,7 +709,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     majCampagne: async (id, patch) => {
       const campagne = get().campagnes.find((c) => c.id === id);
       if (!campagne) return;
-      const maj = { ...campagne, ...patch, modifieLe: new Date().toISOString() };
+      const maj = { ...campagne, ...patch, modifieLe: maintenantISO() };
       await db.campagnes.put(maj);
       set((s) => ({ campagnes: s.campagnes.map((c) => (c.id === id ? maj : c)) }));
       await syncCampagne(maj);
@@ -740,7 +758,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const enCours = decomptesEnCreation.get(cle);
       if (enCours) return enCours;
       const creation = (async () => {
-        const maintenant = new Date().toISOString();
+        const maintenant = maintenantISO();
         // participants pré-remplis avec les membres des équipes de la tournée
         const participants = [
           ...new Set(
@@ -777,7 +795,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     majDecompte: async (id, patch) => {
       const decompte = get().decomptes.find((d) => d.id === id);
       if (!decompte) return;
-      const maj = { ...decompte, ...patch, modifieLe: new Date().toISOString() };
+      const maj = { ...decompte, ...patch, modifieLe: maintenantISO() };
       await db.decomptes.put(maj);
       set((s) => ({ decomptes: s.decomptes.map((d) => (d.id === id ? maj : d)) }));
       await syncDecompte(maj);
@@ -791,7 +809,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         Math.max(0, ...get().decomptes.map((d) => d.numeroRecu ?? 0)) + 1;
       await get().majDecompte(id, {
         termine: true,
-        termineLe: new Date().toISOString(),
+        termineLe: maintenantISO(),
         numeroRecu: numero,
       });
     },
@@ -802,7 +820,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
     creerEquipe: async (nom) => {
       if (!nom.trim()) return;
-      const maintenant = new Date().toISOString();
+      const maintenant = maintenantISO();
       const equipe: Equipe = {
         id: crypto.randomUUID(),
         nom: nom.trim(),
@@ -819,7 +837,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     majEquipe: async (id, patch) => {
       const equipe = get().equipes.find((e) => e.id === id);
       if (!equipe) return;
-      const maj = { ...equipe, ...patch, modifieLe: new Date().toISOString() };
+      const maj = { ...equipe, ...patch, modifieLe: maintenantISO() };
       await db.equipes.put(maj);
       set((s) => ({ equipes: s.equipes.map((e) => (e.id === id ? maj : e)) }));
       await syncEquipe(maj);
@@ -829,6 +847,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
       await db.equipes.delete(id);
       set((s) => ({ equipes: s.equipes.filter((e) => e.id !== id) }));
       await syncSupprimerEquipe(id);
+    },
+
+    forcerSynchro: async () => {
+      await resynchroniserSiPossible(true);
+      set({ enAttente: await nombreEnAttente() });
     },
 
     rafraichirJournal: async () => {
@@ -913,7 +936,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse) return;
       const noteChangee = patch.note !== undefined && (patch.note ?? null) !== (adresse.note ?? null);
-      const maintenant = new Date().toISOString();
+      const maintenant = maintenantISO();
       const maj = {
         ...adresse,
         ...patch,
@@ -934,7 +957,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       try {
         const pings = await adressesDansPolygone(poly, onEtat);
         const numero = get().tournees.length + 1;
-        const maintenant = new Date().toISOString();
+        const maintenant = maintenantISO();
         const tournee: Tournee = {
           id: crypto.randomUUID(),
           nom: `Tournée ${numero}`,
@@ -968,7 +991,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     majTournee: async (id, patch) => {
       const tournee = get().tournees.find((t) => t.id === id);
       if (!tournee) return;
-      const maj = { ...tournee, ...patch, modifieLe: new Date().toISOString() };
+      const maj = { ...tournee, ...patch, modifieLe: maintenantISO() };
       await db.tournees.put(maj);
       set((s) => ({ tournees: s.tournees.map((t) => (t.id === id ? maj : t)) }));
       await syncTournee(maj);
@@ -996,7 +1019,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
           const existante = existantesParBanId.get(p.banId);
           conservees.push(existante ?? nouvelleAdresse(p, id));
         }
-        const tourneeMaj = { ...tournee, polygone: poly, modifieLe: new Date().toISOString() };
+        const tourneeMaj = { ...tournee, polygone: poly, modifieLe: maintenantISO() };
         await db.transaction('rw', db.tournees, db.adresses, async () => {
           await db.tournees.put(tourneeMaj);
           await db.adresses.where('tourneeId').equals(id).delete();
@@ -1038,7 +1061,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     ajouterAdresse: async (tourneeId, lat, lng) => {
       set({ modeAjout: false, chargement: { actif: true, message: "Recherche de l'adresse…", progression: null } });
       const info = await geocodageInverse(lat, lng);
-      const maintenant = new Date().toISOString();
+      const maintenant = maintenantISO();
       const adresse: AdressePoint = {
         id: crypto.randomUUID(),
         tourneeId,
@@ -1084,7 +1107,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     renommerAdresse: async (id, libelle) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse || !libelle.trim()) return;
-      const maj = { ...adresse, libelle: libelle.trim(), modifieLe: new Date().toISOString() };
+      const maj = { ...adresse, libelle: libelle.trim(), modifieLe: maintenantISO() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
       consigner('renommage', maj, `« ${adresse.libelle} » → « ${maj.libelle} »`);
@@ -1094,7 +1117,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     deplacerAdresse: async (id, lat, lng) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse) return;
-      const maj = { ...adresse, lat, lng, modifieLe: new Date().toISOString() };
+      const maj = { ...adresse, lat, lng, modifieLe: maintenantISO() };
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)), deplacementAdresseId: null }));
       consigner(
@@ -1116,7 +1139,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         tourneeMaj = {
           ...tournee,
           banIdsExclus: [...tournee.banIdsExclus, adresse.banId],
-          modifieLe: new Date().toISOString(),
+          modifieLe: maintenantISO(),
         };
         await db.tournees.put(tourneeMaj);
         const fige = tourneeMaj;

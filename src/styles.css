@@ -681,6 +681,21 @@ body {
 
 /* ---------- Fenêtre Équipe ---------- */
 
+.btn-attente {
+  background: #9a3412;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-attente:hover {
+  filter: brightness(1.2);
+}
+
 .btn-equipe {
   background: var(--marine-clair);
   color: #fff;
