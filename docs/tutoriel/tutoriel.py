@@ -568,6 +568,16 @@ p('2.11 — Les notifications', 'h1')
 p('À la première ouverture, l’application vous propose d’activer les notifications. '
   'Acceptez : vous serez prévenu quand un rappel « à repasser » arrive à échéance et '
   'quand l’administrateur vous affecte à une équipe ou change votre tournée.')
+p('La notification d’un rappel indique l’adresse, la commune et <b>le nom de la '
+  'tournée</b> concernée, ainsi que la note s’il y en a une.')
+encadre('Chacun ne reçoit que les rappels qui le concernent',
+        'Un rappel « à repasser » ne sonne que chez les membres de <b>l’équipe '
+        'affectée à cette tournée</b>. Afficher la tournée d’un collègue sur la '
+        'carte ne vous abonne pas à ses rappels, et un administrateur n’est pas '
+        'dérangé par les rappels des tournées dont il ne fait pas partie. '
+        'Seule exception : <b>le rappel que vous avez programmé vous-même</b> '
+        'sonne toujours sur votre téléphone, même en dehors de votre équipe — '
+        'personne ne risque d’oublier un rappel qu’il a posé.')
 
 # ============================== PARTIE 3 ==============================
 titre_partie(3, 'Guide de l’administrateur')

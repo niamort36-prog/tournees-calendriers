@@ -50,6 +50,46 @@ export function calculerTourneesVisibles(
   return ids;
 }
 
+/**
+ * Tournées auxquelles la personne est réellement ASSOCIÉE : elle figure dans
+ * une équipe affectée à cette tournée.
+ *
+ * Différent de calculerTourneesVisibles() : ici pas de passe-droit pour les
+ * administrateurs, et les tournées simplement « affichées » sur la carte ne
+ * comptent pas. Un rappel d'absence ne doit sonner que chez les personnes
+ * concernées par la tournée, pas chez tout le monde.
+ */
+export function tourneesAssociees(profil: Profil | null, equipes: Equipe[]): Set<string> {
+  const ids = new Set<string>();
+  if (!profil) return ids;
+  for (const e of equipes) {
+    if (e.tourneeId && e.membres.includes(profil.id)) ids.add(e.tourneeId);
+  }
+  return ids;
+}
+
+// ----- rappels posés depuis CET appareil -----
+// Filet de sécurité : celui qui pose un rappel doit l'entendre sonner, même
+// s'il n'est dans aucune équipe (un administrateur qui donne un coup de main,
+// une tournée sans équipe affectée). Purement local, rien n'est synchronisé.
+const CLE_RAPPELS_POSES = 'rappels-poses';
+
+function lireRappelsPoses(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(CLE_RAPPELS_POSES) ?? '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function ecrireRappelsPoses(valeurs: Record<string, string>): void {
+  try {
+    localStorage.setItem(CLE_RAPPELS_POSES, JSON.stringify(valeurs));
+  } catch {
+    /* stockage indisponible : on perd seulement ce filet de sécurité */
+  }
+}
+
 function chargerTourneesAffichees(): string[] {
   try {
     return JSON.parse(localStorage.getItem('tournees-affichees') ?? '[]') as string[];
@@ -361,7 +401,10 @@ export const useAppStore = create<EtatApp>((set, get) => {
   const verifierRappels = () => {
     const s = get();
     if (!permissionAccordee() || !s.pret) return;
-    const visibles = calculerTourneesVisibles(s.profil, s.equipes, s.tourneesAffichees);
+    // Un rappel ne sonne que chez l'équipe de SA tournée (+ celui qui l'a posé).
+    const miennes = tourneesAssociees(s.profil, s.equipes);
+    const poses = lireRappelsPoses();
+    const nomTournee = new Map(s.tournees.map((t) => [t.id, t.nom]));
     const maintenant = Date.now();
     let dejaNotifies: Record<string, string> = {};
     try {
@@ -372,12 +415,15 @@ export const useAppStore = create<EtatApp>((set, get) => {
     let modifie = false;
     for (const a of s.adresses) {
       if (!a.rappelLe || a.statut !== 'absent') continue;
-      if (visibles !== null && !visibles.has(a.tourneeId)) continue;
+      if (!miennes.has(a.tourneeId) && poses[a.id] !== a.rappelLe) continue;
       const echeance = Date.parse(a.rappelLe);
       if (!Number.isFinite(echeance) || echeance > maintenant) continue;
       if (maintenant - echeance > 24 * 3600 * 1000) continue; // trop ancien
       if (dejaNotifies[a.id] === a.rappelLe) continue;
-      void notifier(`⏰ À repasser : ${a.libelle}`, `${a.commune}${a.note ? ' — ' + a.note : ''}`);
+      void notifier(
+        `⏰ À repasser : ${a.libelle}`,
+        [a.commune, nomTournee.get(a.tourneeId), a.note].filter((t): t is string => !!t).join(' — '),
+      );
       dejaNotifies[a.id] = a.rappelLe;
       modifie = true;
     }
@@ -984,6 +1030,12 @@ export const useAppStore = create<EtatApp>((set, get) => {
         ...(noteChangee ? { noteLe: patch.note ? maintenant : null } : {}),
         modifieLe: maintenant,
       };
+      if (patch.rappelLe !== undefined) {
+        const poses = lireRappelsPoses();
+        if (maj.rappelLe) poses[id] = maj.rappelLe;
+        else delete poses[id];
+        ecrireRappelsPoses(poses);
+      }
       await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
       if (noteChangee && maj.note) consigner('commentaire', maj, maj.note);
