@@ -31,10 +31,11 @@ as $$
 declare premier boolean;
 begin
   premier := (select count(*) from public.profils) = 0;
-  insert into public.profils (id, nom, role, approuve)
+  insert into public.profils (id, nom, email, role, approuve)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'nom', split_part(new.email, '@', 1)),
+    coalesce(new.email, ''),
     case when premier then 'admin' else 'normal' end,
     premier
   );
@@ -50,10 +51,16 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.role is distinct from old.role and not public.est_admin() then
+  -- auth.uid() est nul en contexte serveur (fonction d'administration,
+  -- SQL Editor) : on laisse passer, comme le correctif n°3.
+  if new.role is distinct from old.role
+     and auth.uid() is not null
+     and not public.est_admin() then
     raise exception 'Seul un administrateur peut changer les rôles.';
   end if;
-  if new.approuve is distinct from old.approuve and not public.est_admin() then
+  if new.approuve is distinct from old.approuve
+     and auth.uid() is not null
+     and not public.est_admin() then
     raise exception 'Seul un administrateur peut valider un compte.';
   end if;
   return new;
