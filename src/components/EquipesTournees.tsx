@@ -107,6 +107,7 @@ export default function EquipesTournees({ onFermer }: { onFermer: () => void }) 
   const [nom, setNom] = useState('');
   const vueMembre = useAppStore((s) => s.vueMembre);
   const estAdmin = estAdminEffectif(profil, vueMembre);
+  const notifierTout = useAppStore((s) => s.notifierTout);
 
   useEffect(() => {
     void useAppStore.getState().rafraichirAnnuaire();
@@ -151,7 +152,27 @@ export default function EquipesTournees({ onFermer }: { onFermer: () => void }) 
 
         <p className="equipe-note">
           Les membres concernés voient leur affectation changer en direct sur leur appareil.
+          Les rappels « à repasser » ne sonnent que chez les membres de l'équipe affectée à la
+          tournée — plus celui qui a programmé le rappel.
         </p>
+
+        {estAdmin && (
+          <label className="reglage-notif-tout">
+            <input
+              type="checkbox"
+              checked={notifierTout}
+              onChange={(e) => useAppStore.getState().definirNotifierTout(e.target.checked)}
+            />
+            <span>
+              <strong>🔔 Me notifier de tous les rappels</strong>
+              <em>
+                Réservé aux administrateurs, et valable sur ce seul appareil : vous recevez les
+                rappels de toutes les tournées, même celles de vos collègues. Au-delà de trois
+                rappels en même temps, vous ne recevez qu'un résumé.
+              </em>
+            </span>
+          </label>
+        )}
       </div>
     </div>
   );

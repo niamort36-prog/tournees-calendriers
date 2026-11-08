@@ -578,6 +578,9 @@ encadre('Chacun ne reçoit que les rappels qui le concernent',
         'Seule exception : <b>le rappel que vous avez programmé vous-même</b> '
         'sonne toujours sur votre téléphone, même en dehors de votre équipe — '
         'personne ne risque d’oublier un rappel qu’il a posé.')
+p('Si plus de trois rappels tombent en même temps, l’application n’envoie '
+  'qu’une seule notification de résumé (« ⏰ 6 adresses à repasser ») au lieu '
+  'de faire sonner le téléphone six fois de suite.')
 
 # ============================== PARTIE 3 ==============================
 titre_partie(3, 'Guide de l’administrateur')
@@ -723,6 +726,19 @@ encadre('Les intéressés sont prévenus immédiatement',
         'reçoivent une notification sur leur téléphone et voient une étoile sur leur '
         'tournée. Vous pouvez faire ces changements en pleine tournée, y compris '
         'depuis votre téléphone.')
+p('Les équipes décident aussi de <b>qui reçoit les rappels</b> « à repasser » : '
+  'seuls les membres de l’équipe affectée à une tournée sont prévenus (voir 2.11).')
+encadre('🔔 Me notifier de tous les rappels',
+        'En bas de la fenêtre <b>Équipes</b>, vous seul disposez de cette case. '
+        'Cochée, vous recevez les rappels de <b>toutes</b> les tournées, même celles '
+        'où vous n’êtes pas dans l’équipe — pratique pour garder un œil sur '
+        'l’ensemble de la campagne. Décochée (réglage par défaut), vous n’êtes '
+        'prévenu que pour vos propres équipes et pour les rappels que vous avez '
+        'programmés vous-même.<br/><br/>'
+        'Deux précisions : le réglage ne vaut que pour <b>l’appareil</b> sur lequel '
+        'vous le cochez (votre téléphone peut tout suivre sans que votre ordinateur '
+        'ne sonne), et il s’efface quand vous passez en « vue membre », pour que la '
+        'simulation reste fidèle.')
 
 p('3.8 — Suivre l’avancement et exporter', 'h1')
 p('Bouton <b>Synthèse</b>. Vous y trouvez, en un coup d’œil : le total collecté '

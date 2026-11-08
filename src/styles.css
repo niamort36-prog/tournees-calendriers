@@ -789,6 +789,40 @@ body {
   color: var(--texte-doux);
 }
 
+/* Réglage « me notifier de tout » (bas de la fenêtre Équipes, admins) */
+.reglage-notif-tout {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  background: var(--fond);
+  cursor: pointer;
+}
+
+.reglage-notif-tout input[type='checkbox'] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  cursor: pointer;
+}
+
+.reglage-notif-tout strong {
+  display: block;
+  font-size: 13px;
+}
+
+.reglage-notif-tout em {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-style: normal;
+  color: var(--texte-doux);
+}
+
 .equipe-liste {
   display: flex;
   flex-direction: column;

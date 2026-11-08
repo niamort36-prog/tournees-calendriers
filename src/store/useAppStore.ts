@@ -68,6 +68,22 @@ export function tourneesAssociees(profil: Profil | null, equipes: Equipe[]): Set
   return ids;
 }
 
+// ----- réglage « me notifier de tout » (administrateurs) -----
+// Propre à l'appareil : un administrateur peut vouloir tout suivre depuis son
+// téléphone sans encombrer celui des autres. Rien n'est synchronisé.
+/** Au-delà de ce nombre de rappels dus d'un coup, on n'envoie qu'un résumé. */
+const SEUIL_REGROUPEMENT_RAPPELS = 3;
+
+const CLE_NOTIFIER_TOUT = 'notifier-tout';
+
+function chargerNotifierTout(): boolean {
+  try {
+    return localStorage.getItem(CLE_NOTIFIER_TOUT) === '1';
+  } catch {
+    return false;
+  }
+}
+
 // ----- rappels posés depuis CET appareil -----
 // Filet de sécurité : celui qui pose un rappel doit l'entendre sonner, même
 // s'il n'est dans aucune équipe (un administrateur qui donne un coup de main,
@@ -201,6 +217,11 @@ interface EtatApp {
   positionGPS: { lat: number; lng: number } | null;
   /** Orientation de la carte en degrés (0 = nord en haut). */
   orientation: number;
+  /**
+   * Réservé aux administrateurs : recevoir les rappels de TOUTES les tournées,
+   * et pas seulement celles de ses équipes. Propre à cet appareil.
+   */
+  notifierTout: boolean;
   gpsActif: boolean;
   centreCarte: { lat: number; lng: number } | null;
   chargement: { actif: boolean; message: string; progression: number | null };
@@ -255,6 +276,7 @@ interface EtatApp {
   demarrerGPS: () => void;
   /** Oriente la carte (degrés, ramenés dans 0–359). */
   definirOrientation: (degres: number) => void;
+  definirNotifierTout: (actif: boolean) => void;
   majAdresse: (id: string, patch: Partial<AdressePoint>) => Promise<void>;
 
   ajouterAdresse: (tourneeId: string, lat: number, lng: number) => Promise<void>;
@@ -401,7 +423,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
   const verifierRappels = () => {
     const s = get();
     if (!permissionAccordee() || !s.pret) return;
-    // Un rappel ne sonne que chez l'équipe de SA tournée (+ celui qui l'a posé).
+    // Un rappel ne sonne que chez l'équipe de SA tournée (+ celui qui l'a
+    // posé) — sauf réglage « me notifier de tout », réservé aux admins.
+    const toutSuivre = s.notifierTout && estAdminEffectif(s.profil, s.vueMembre);
     const miennes = tourneesAssociees(s.profil, s.equipes);
     const poses = lireRappelsPoses();
     const nomTournee = new Map(s.tournees.map((t) => [t.id, t.nom]));
@@ -412,27 +436,41 @@ export const useAppStore = create<EtatApp>((set, get) => {
     } catch {
       dejaNotifies = {};
     }
-    let modifie = false;
+    // On rassemble d'abord tout ce qui est dû : au-delà de quelques rappels,
+    // mieux vaut une notification groupée que vingt d'affilée sur le téléphone.
+    const dus: AdressePoint[] = [];
     for (const a of s.adresses) {
       if (!a.rappelLe || a.statut !== 'absent') continue;
-      if (!miennes.has(a.tourneeId) && poses[a.id] !== a.rappelLe) continue;
+      if (!toutSuivre && !miennes.has(a.tourneeId) && poses[a.id] !== a.rappelLe) continue;
       const echeance = Date.parse(a.rappelLe);
       if (!Number.isFinite(echeance) || echeance > maintenant) continue;
       if (maintenant - echeance > 24 * 3600 * 1000) continue; // trop ancien
       if (dejaNotifies[a.id] === a.rappelLe) continue;
-      void notifier(
-        `⏰ À repasser : ${a.libelle}`,
-        [a.commune, nomTournee.get(a.tourneeId), a.note].filter((t): t is string => !!t).join(' — '),
-      );
+      dus.push(a);
       dejaNotifies[a.id] = a.rappelLe;
-      modifie = true;
     }
-    if (modifie) {
-      try {
-        localStorage.setItem('rappels-notifies', JSON.stringify(dejaNotifies));
-      } catch {
-        // stockage local indisponible : le rappel pourra se répéter, sans gravité
+    if (dus.length === 0) return;
+    if (dus.length <= SEUIL_REGROUPEMENT_RAPPELS) {
+      for (const a of dus) {
+        void notifier(
+          `⏰ À repasser : ${a.libelle}`,
+          [a.commune, nomTournee.get(a.tourneeId), a.note]
+            .filter((t): t is string => !!t)
+            .join(' — '),
+        );
       }
+    } else {
+      const apercu = dus.slice(0, 3).map((a) => a.libelle);
+      const reste = dus.length - apercu.length;
+      void notifier(
+        `⏰ ${dus.length} adresses à repasser`,
+        apercu.join(', ') + (reste > 0 ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : ''),
+      );
+    }
+    try {
+      localStorage.setItem('rappels-notifies', JSON.stringify(dejaNotifies));
+    } catch {
+      // stockage local indisponible : le rappel pourra se répéter, sans gravité
     }
   };
 
@@ -708,6 +746,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     vueListe: false,
     positionGPS: null,
     orientation: 0,
+    notifierTout: chargerNotifierTout(),
     gpsActif: false,
     centreCarte: null,
     chargement: CHARGEMENT_INACTIF,
@@ -966,6 +1005,16 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
     definirOrientation: (degres) =>
       set({ orientation: ((Math.round(degres) % 360) + 360) % 360 }),
+
+    definirNotifierTout: (actif) => {
+      try {
+        if (actif) localStorage.setItem(CLE_NOTIFIER_TOUT, '1');
+        else localStorage.removeItem(CLE_NOTIFIER_TOUT);
+      } catch {
+        /* stockage indisponible : le réglage ne survivra pas au rechargement */
+      }
+      set({ notifierTout: actif });
+    },
 
     basculerFondCarte: () =>
       set((s) => {
