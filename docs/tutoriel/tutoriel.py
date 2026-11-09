@@ -461,6 +461,14 @@ encadre('Ce n’est qu’une aide à la saisie',
         'Ces chiffres <b>ne remplacent jamais</b> le comptage de fin de tournée. Au '
         'moment du décompte, l’équipe compte l’argent réel et peut corriger librement '
         'chaque case : c’est ce décompte, et lui seul, qui part sur le reçu.')
+encadre('Qui voit les sommes ?',
+        'La case <b>Somme</b> et le <b>détail du paiement</b> ne s’affichent que pour '
+        'les personnes <b>associées à cette tournée</b> par leur équipe, et pour les '
+        'administrateurs. Sur une adresse d’une autre tournée, vous voyez le statut, '
+        'les calendriers laissés et les notes, mais à la place des montants une '
+        'simple ligne vous le rappelle. Et si un administrateur vous retire de '
+        'l’équipe, les sommes disparaissent aussitôt de votre écran, même pour les '
+        'maisons que vous avez faites vous-même.')
 
 p('2.4 — Un immeuble avec plusieurs appartements', 'h1')
 p('Pour un immeuble, vous pouvez valider <b>chaque appartement séparément</b>.')
@@ -532,8 +540,9 @@ image('membre-synthese', 7.5, 'La synthèse vue par un sapeur-pompier')
 encadre('Confidentialité',
         'Dans la <b>Synthèse</b>, les montants d’argent ne sont visibles que par les '
         'administrateurs : un compte Normal voit uniquement l’avancement de la '
-        'prospection. Le total de <b>sa propre</b> tournée reste visible pour son '
-        'équipe, sur la fiche de la tournée (voir 2.8).')
+        'prospection. L’argent de <b>sa propre</b> tournée reste visible pour son '
+        'équipe : les sommes maison par maison sur les fiches d’adresses (voir '
+        '2.3 bis) et le total sur la fiche de la tournée (voir 2.8).')
 
 p('2.8 — Terminer sa tournée', 'h1')
 p('Quand la tournée est finie, les membres de l’équipe font le décompte de la '
@@ -547,7 +556,8 @@ encadre('L’argent d’une tournée ne sort pas de la tournée',
         'indique seulement « <b>Terminée · Reçu n°…</b> », sans le montant, et le '
         'bouton drapeau n’apparaît pas. Et si un administrateur vous retire de '
         'l’équipe, le montant disparaît aussitôt de votre écran, même pour une '
-        'tournée que vous avez faite vous-même.')
+        'tournée que vous avez faite vous-même. Les sommes notées maison par maison '
+        'suivent exactement la même règle (voir 2.3 bis).')
 
 p('2.9 — Corriger ou ajouter une adresse', 'h1')
 p('Si une maison manque ou si une adresse est fausse, vous pouvez la corriger '
@@ -738,6 +748,14 @@ encadre('Les intéressés sont prévenus immédiatement',
         'depuis votre téléphone.')
 p('Les équipes décident aussi de <b>qui reçoit les rappels</b> « à repasser » : '
   'seuls les membres de l’équipe affectée à une tournée sont prévenus (voir 2.11).')
+encadre('L’équipe commande aussi l’accès à l’argent',
+        'Seuls les membres de l’équipe affectée à une tournée voient les <b>sommes '
+        'reçues</b> sur ses adresses et le <b>total du reçu</b> — vous, '
+        'administrateur, voyez tout. Conséquence pratique : si un sapeur-pompier '
+        'donne un coup de main à une autre équipe, <b>ajoutez-le à cette équipe</b>, '
+        'sinon il pourra bien noter les statuts et les calendriers mais pas les '
+        'sommes. Et le jour où vous le retirez d’une équipe, il perd aussitôt l’accès '
+        'aux montants de cette tournée, y compris pour les campagnes passées.')
 encadre('🔔 Me notifier de tous les rappels',
         'En bas de la fenêtre <b>Équipes</b>, vous seul disposez de cette case. '
         'Cochée, vous recevez les rappels de <b>toutes</b> les tournées, même celles '
@@ -813,7 +831,8 @@ encadre('Qui voit le total ?',
         'tournée marquée « <b>Terminée · Reçu n°…</b> », sans le montant, et n’ont '
         'pas le bouton drapeau. Retirer quelqu’un d’une équipe (partie 3.7) lui '
         'retire donc du même coup l’accès au total de cette tournée, y compris pour '
-        'les campagnes passées. Vous, administrateur, voyez tout : si vous voulez '
+        'les campagnes passées — et avec lui l’accès aux sommes reçues sur chaque '
+        'adresse de cette tournée. Vous, administrateur, voyez tout : si vous voulez '
         'voir l’écran tel que le voit un sapeur-pompier, utilisez la bascule '
         '<b>Vue membre</b> (partie 3.2).')
 

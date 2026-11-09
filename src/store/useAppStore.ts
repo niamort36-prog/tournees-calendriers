@@ -85,9 +85,23 @@ export function peutVoirRecette(
   tourneeId: string | null,
   vueMembre = false,
 ): boolean {
-  if (estAdminEffectif(profil, vueMembre)) return true;
-  if (!tourneeId) return false;
-  return tourneesAssociees(profil, equipes).has(tourneeId);
+  if (!tourneeId) return estAdminEffectif(profil, vueMembre);
+  const permises = tourneesDontOnVoitLaRecette(profil, equipes, vueMembre);
+  return permises === null || permises.has(tourneeId);
+}
+
+/**
+ * Même règle que peutVoirRecette(), mais sous forme d'ensemble : utile pour
+ * parcourir une liste d'adresses sans recalculer les équipes à chaque ligne.
+ * null = toutes les tournées (administrateur).
+ */
+export function tourneesDontOnVoitLaRecette(
+  profil: Profil | null,
+  equipes: Equipe[],
+  vueMembre = false,
+): Set<string> | null {
+  if (estAdminEffectif(profil, vueMembre)) return null;
+  return tourneesAssociees(profil, equipes);
 }
 
 // ----- réglage « me notifier de tout » (administrateurs) -----

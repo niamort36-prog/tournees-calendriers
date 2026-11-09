@@ -2,7 +2,11 @@
 // la carte). Périmètre : tournée sélectionnée, sinon « ma tournée », sinon tout.
 
 import { useMemo } from 'react';
-import { calculerTourneesVisibles, useAppStore } from '../store/useAppStore';
+import {
+  calculerTourneesVisibles,
+  tourneesDontOnVoitLaRecette,
+  useAppStore,
+} from '../store/useAppStore';
 import { COULEUR_STATUT, STATUTS_TERMINES, trierTournees } from '../types';
 import { distanceMetres } from '../lib/geo';
 import type { AdressePoint } from '../types';
@@ -28,6 +32,12 @@ export default function ListeAdresses() {
   const visibles = useMemo(
     () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
     [profil, equipes, tourneesAffichees, vueMembre],
+  );
+  // Le repère « 💶 » dit qu'une somme a été reçue : réservé, lui aussi, à
+  // l'équipe de la tournée et aux administrateurs.
+  const recettesVisibles = useMemo(
+    () => tourneesDontOnVoitLaRecette(profil, equipes, vueMembre),
+    [profil, equipes, vueMembre],
   );
 
   const maTourneeId = profil
@@ -96,7 +106,9 @@ export default function ListeAdresses() {
                 {(1 + adresse.autresAdresses.length > 1 || adresse.typeBatiment === 'immeuble') &&
                   '🏢'}
                 {adresse.rappelLe && '⏰'}
-                {adresse.somme != null && '💶'}
+                {adresse.somme != null &&
+                  (recettesVisibles === null || recettesVisibles.has(adresse.tourneeId)) &&
+                  '💶'}
                 {adresse.note && '📝'}
               </span>
               <span className="liste-distance">{formatDistance(distance)}</span>

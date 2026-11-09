@@ -1908,6 +1908,22 @@ body {
   margin-bottom: 10px;
 }
 
+/* Quand la case « Somme » est masquée, « Calendriers laissés » prend la place. */
+.fiche-champs.une-colonne {
+  grid-template-columns: 1fr;
+}
+
+/* Explication affichée là où la somme aurait dû apparaître. */
+.fiche-sommes-cachees {
+  background: #f1f5f9;
+  border-radius: 7px;
+  padding: 6px 9px;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--texte-doux);
+}
+
 .fiche-champs label {
   font-size: 12px;
   color: var(--texte-doux);

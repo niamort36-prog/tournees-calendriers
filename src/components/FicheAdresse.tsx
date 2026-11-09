@@ -3,7 +3,7 @@
 // actions (renommer, déplacer, supprimer).
 
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { peutVoirRecette, useAppStore } from '../store/useAppStore';
 import {
   COULEUR_STATUT,
   LIBELLE_STATUT,
@@ -55,6 +55,9 @@ function localVersIso(local: string): string | null {
 export default function FicheAdresse() {
   const adresse = useAppStore((s) => s.adresses.find((a) => a.id === s.adresseOuverteId));
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
+  const profil = useAppStore((s) => s.profil);
+  const equipes = useAppStore((s) => s.equipes);
+  const vueMembre = useAppStore((s) => s.vueMembre);
   const [somme, setSomme] = useState('');
   const [calendriers, setCalendriers] = useState('');
   const [note, setNote] = useState('');
@@ -78,6 +81,9 @@ export default function FicheAdresse() {
 
   if (!adresse) return null;
   const s = useAppStore.getState;
+  // L'argent reste dans la tournée : les sommes reçues ne s'affichent que pour
+  // les personnes associées à cette tournée et pour les administrateurs.
+  const voitSommes = peutVoirRecette(profil, equipes, adresse.tourneeId, vueMembre);
   const nbGroupe = 1 + adresse.autresAdresses.length;
   const estImmeuble = adresse.typeBatiment === 'immeuble';
 
@@ -203,7 +209,8 @@ export default function FicheAdresse() {
                   ` — ${calendriersImmeuble(adresse.appartements)} calendrier${
                     calendriersImmeuble(adresse.appartements) > 1 ? 's' : ''
                   }`}
-                {sommeImmeuble(adresse.appartements) > 0 &&
+                {voitSommes &&
+                  sommeImmeuble(adresse.appartements) > 0 &&
                   ` — ${formatEuros(sommeImmeuble(adresse.appartements))}`}{' '}
                 — statut d'ensemble :{' '}
                 <strong style={{ color: COULEUR_STATUT[adresse.statut] }}>
@@ -295,7 +302,7 @@ export default function FicheAdresse() {
                   />
                 </label>
               )}
-              {app.statut === 'distribue' && (
+              {app.statut === 'distribue' && voitSommes && (
                 <DetailPaiement
                   compact
                   paiement={app.paiement ?? null}
@@ -348,24 +355,33 @@ export default function FicheAdresse() {
           </div>
         )}
 
+        {adresse.statut === 'distribue' && !voitSommes && (
+          <p className="fiche-sommes-cachees">
+            🔒 Les sommes de cette tournée ne sont visibles que par son équipe et par les
+            administrateurs.
+          </p>
+        )}
+
         {adresse.statut === 'distribue' && (
-          <div className="fiche-champs">
-            <label>
-              Somme (€) <span className="facultatif">facultatif</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="ex. 10"
-                value={somme}
-                readOnly={
-                  (detailDisponible && detailOuvert && !paiementVide(adresse.paiement)) ||
-                  (estImmeuble &&
-                    adresse.appartements.some((a) => !paiementVide(a.paiement ?? null)))
-                }
-                onChange={(e) => setSomme(e.target.value)}
-                onBlur={validerSomme}
-              />
-            </label>
+          <div className={'fiche-champs' + (voitSommes ? '' : ' une-colonne')}>
+            {voitSommes && (
+              <label>
+                Somme (€) <span className="facultatif">facultatif</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="ex. 10"
+                  value={somme}
+                  readOnly={
+                    (detailDisponible && detailOuvert && !paiementVide(adresse.paiement)) ||
+                    (estImmeuble &&
+                      adresse.appartements.some((a) => !paiementVide(a.paiement ?? null)))
+                  }
+                  onChange={(e) => setSomme(e.target.value)}
+                  onBlur={validerSomme}
+                />
+              </label>
+            )}
             <label>
               Calendriers laissés
               <input
@@ -380,7 +396,7 @@ export default function FicheAdresse() {
           </div>
         )}
 
-        {adresse.statut === 'distribue' && !estImmeuble && detailDisponible && (
+        {adresse.statut === 'distribue' && !estImmeuble && detailDisponible && voitSommes && (
           <DetailPaiement
             paiement={adresse.paiement}
             ouvert={detailOuvert}
