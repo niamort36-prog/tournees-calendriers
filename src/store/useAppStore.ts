@@ -68,6 +68,28 @@ export function tourneesAssociees(profil: Profil | null, equipes: Equipe[]): Set
   return ids;
 }
 
+/**
+ * Droit de voir l'argent d'une tournée : le décompte de fin de tournée et le
+ * total porté sur le reçu.
+ *
+ * Réservé aux administrateurs et aux personnes réellement associées à la
+ * tournée par leur équipe. Dès que quelqu'un quitte l'équipe, le total
+ * disparaît de son écran : c'est l'argent de l'amicale, pas une information
+ * à garder d'une année sur l'autre.
+ *
+ * Une tournée simplement « affichée » sur la carte ne donne aucun droit.
+ */
+export function peutVoirRecette(
+  profil: Profil | null,
+  equipes: Equipe[],
+  tourneeId: string | null,
+  vueMembre = false,
+): boolean {
+  if (estAdminEffectif(profil, vueMembre)) return true;
+  if (!tourneeId) return false;
+  return tourneesAssociees(profil, equipes).has(tourneeId);
+}
+
 // ----- réglage « me notifier de tout » (administrateurs) -----
 // Propre à l'appareil : un administrateur peut vouloir tout suivre depuis son
 // téléphone sans encombrer celui des autres. Rien n'est synchronisé.

@@ -2,7 +2,7 @@
 // boîte d'impression du navigateur). Récapitule : tournée, participants,
 // voitures par demi-journée, détail par coupure, chèques, CB et total.
 
-import { useAppStore } from '../store/useAppStore';
+import { peutVoirRecette, useAppStore } from '../store/useAppStore';
 import { COUPURES, LIBELLE_MOMENT, formatEuros, totalDecompte } from '../types';
 
 export default function RecuImprimable({
@@ -17,8 +17,28 @@ export default function RecuImprimable({
   const campagne = useAppStore((s) => s.campagnes.find((c) => c.id === decompte?.campagneId));
   const annuaire = useAppStore((s) => s.annuaire);
   const profil = useAppStore((s) => s.profil);
+  const equipes = useAppStore((s) => s.equipes);
+  const vueMembre = useAppStore((s) => s.vueMembre);
 
   if (!decompte || !tournee) return null;
+
+  // Double verrou : la fenêtre de décompte filtre déjà, mais c'est le reçu qui
+  // porte le total — on ne compte pas sur l'appelant pour le protéger.
+  if (!peutVoirRecette(profil, equipes, tournee.id, vueMembre)) {
+    return (
+      <div className="recu-voile" onClick={onFermer}>
+        <div className="recu-conteneur" onClick={(e) => e.stopPropagation()}>
+          <div className="recu-outils no-print">
+            <button onClick={onFermer}>Fermer</button>
+          </div>
+          <p className="recu-refus">
+            🔒 Le total du reçu n'est visible que par les personnes associées à cette
+            tournée et par les administrateurs.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const totaux = totalDecompte(decompte);
   const nomDe = (id: string) => annuaire.find((p) => p.id === id)?.nom ?? '—';

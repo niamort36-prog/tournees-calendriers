@@ -1,7 +1,12 @@
 // Panneau latéral : liste des tournées avec leurs infos et actions.
 
 import { useEffect, useMemo, useState } from 'react';
-import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
+import {
+  calculerTourneesVisibles,
+  estAdminEffectif,
+  peutVoirRecette,
+  useAppStore,
+} from '../store/useAppStore';
 import DecompteFenetre from './DecompteFenetre';
 import { formatEuros, totalDecompte, trierTournees, trouverDecompte, type Tournee } from '../types';
 
@@ -46,6 +51,9 @@ function CarteTournee({
 
   const equipesIci = equipes.filter((e) => e.tourneeId === tournee.id);
   const maTournee = profil !== null && equipesIci.some((e) => e.membres.includes(profil.id));
+  // L'argent de la tournée (décompte et total du reçu) ne s'affiche que pour
+  // les personnes associées à la tournée et pour les administrateurs.
+  const voitRecette = peutVoirRecette(profil, equipes, tournee.id, vueMembre);
 
   const decomptes = useAppStore((st) => st.decomptes);
   const decompteIci = trouverDecompte(decomptes, tournee.id, campagneActive?.id ?? null);
@@ -94,12 +102,17 @@ function CarteTournee({
           </div>
         );
       })}
-      {decompteIci?.termine && (
-        <div className="tournee-decompte">
-          💶 <strong>{formatEuros(totalDecompte(decompteIci).total)}</strong> · Reçu n°
-          {decompteIci.numeroRecu}
-        </div>
-      )}
+      {decompteIci?.termine &&
+        (voitRecette ? (
+          <div className="tournee-decompte">
+            💶 <strong>{formatEuros(totalDecompte(decompteIci).total)}</strong> · Reçu n°
+            {decompteIci.numeroRecu}
+          </div>
+        ) : (
+          <div className="tournee-decompte sans-montant">
+            ✅ Terminée · Reçu n°{decompteIci.numeroRecu}
+          </div>
+        ))}
       {estAdmin ? (
         <>
           <label className="tournee-champ">
@@ -157,7 +170,7 @@ function CarteTournee({
         >
           ➕ Adresse
         </button>
-        {(estAdmin || maTournee) && (
+        {voitRecette && (
           <button
             title="Fin de tournée / décompte"
             onClick={(e) => {

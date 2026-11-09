@@ -530,14 +530,24 @@ p('Plus bas, la partie <b>Par tournée</b> reprend ces trois chiffres pour chaqu
   'le monde, y compris les comptes Normal.')
 image('membre-synthese', 7.5, 'La synthèse vue par un sapeur-pompier')
 encadre('Confidentialité',
-        'Les montants d’argent ne sont visibles que par les administrateurs. Un '
-        'compte Normal voit uniquement l’avancement de la prospection.')
+        'Dans la <b>Synthèse</b>, les montants d’argent ne sont visibles que par les '
+        'administrateurs : un compte Normal voit uniquement l’avancement de la '
+        'prospection. Le total de <b>sa propre</b> tournée reste visible pour son '
+        'équipe, sur la fiche de la tournée (voir 2.8).')
 
 p('2.8 — Terminer sa tournée', 'h1')
 p('Quand la tournée est finie, les membres de l’équipe font le décompte de la '
   'recette avec le bouton <b>drapeau</b> sur la fiche de la tournée. Cette étape est '
   'décrite en détail en <b>partie 3.10</b> : elle est identique sur téléphone et sur '
   'ordinateur.')
+encadre('L’argent d’une tournée ne sort pas de la tournée',
+        'Le total de la recette et le reçu ne sont visibles que par les personnes '
+        '<b>associées à cette tournée</b> par leur équipe, et par les '
+        'administrateurs. Sur une tournée que vous n’avez pas faite, la fiche '
+        'indique seulement « <b>Terminée · Reçu n°…</b> », sans le montant, et le '
+        'bouton drapeau n’apparaît pas. Et si un administrateur vous retire de '
+        'l’équipe, le montant disparaît aussitôt de votre écran, même pour une '
+        'tournée que vous avez faite vous-même.')
 
 p('2.9 — Corriger ou ajouter une adresse', 'h1')
 p('Si une maison manque ou si une adresse est fausse, vous pouvez la corriger '
@@ -797,6 +807,15 @@ encadre('Rien n’est définitif',
         'Un décompte validé peut être rouvert et corrigé : le numéro de reçu reste le '
         'même. Les administrateurs reçoivent une notification à chaque tournée '
         'terminée, avec le montant.')
+encadre('Qui voit le total ?',
+        'Le décompte et le reçu sont réservés aux personnes <b>associées à la '
+        'tournée</b> par leur équipe, et aux administrateurs. Les autres voient la '
+        'tournée marquée « <b>Terminée · Reçu n°…</b> », sans le montant, et n’ont '
+        'pas le bouton drapeau. Retirer quelqu’un d’une équipe (partie 3.7) lui '
+        'retire donc du même coup l’accès au total de cette tournée, y compris pour '
+        'les campagnes passées. Vous, administrateur, voyez tout : si vous voulez '
+        'voir l’écran tel que le voit un sapeur-pompier, utilisez la bascule '
+        '<b>Vue membre</b> (partie 3.2).')
 
 p('3.11 — Imprimer le reçu', 'h1')
 p('Une fois la tournée validée, le bouton <b>Reçu</b> affiche un document prêt à '
@@ -805,6 +824,9 @@ image('admin-recu', 12, 'Le reçu, prêt à imprimer ou à enregistrer en PDF')
 p('Le bouton <b>Imprimer / enregistrer en PDF</b> ouvre la fenêtre d’impression de '
   'votre navigateur : choisissez votre imprimante, ou « Enregistrer au format PDF » '
   'pour le conserver dans les comptes de l’amicale.')
+p('Comme le décompte, le reçu n’est affiché qu’aux personnes associées à la tournée '
+  'et aux administrateurs : quelqu’un qui n’est plus dans l’équipe voit un message '
+  'à la place du total.')
 
 p('3.12 — Clôturer la campagne', 'h1')
 p('Une fois toutes les tournées terminées, ouvrez <b>Campagne</b> et cliquez sur '

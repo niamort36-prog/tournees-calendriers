@@ -3,7 +3,7 @@
 // avec total automatique, validation avec numéro de reçu.
 
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { peutVoirRecette, useAppStore } from '../store/useAppStore';
 import RecuImprimable from './RecuImprimable';
 import {
   COUPURES,
@@ -33,9 +33,19 @@ export default function DecompteFenetre({
 }) {
   const [decompteId, setDecompteId] = useState<string | null>(null);
   const [recuVisible, setRecuVisible] = useState(false);
+
+  // Le décompte, c'est l'argent de la tournée : il n'est ouvert qu'aux
+  // personnes associées à la tournée et aux administrateurs.
+  const profil = useAppStore((s) => s.profil);
+  const equipes = useAppStore((s) => s.equipes);
+  const vueMembre = useAppStore((s) => s.vueMembre);
+  const autorise = peutVoirRecette(profil, equipes, tourneeId, vueMembre);
+
   useEffect(() => {
+    // Ne rien créer pour quelqu'un qui n'a pas le droit de le consulter.
+    if (!autorise) return;
     void useAppStore.getState().obtenirOuCreerDecompte(tourneeId).then(setDecompteId);
-  }, [tourneeId]);
+  }, [tourneeId, autorise]);
 
   const decompte = useAppStore((s) => s.decomptes.find((d) => d.id === decompteId));
   const tournee = useAppStore((s) => s.tournees.find((t) => t.id === tourneeId));
@@ -64,6 +74,25 @@ export default function DecompteFenetre({
     setCalendriers(decompte.calendriersDistribues != null ? String(decompte.calendriersDistribues) : '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decompte?.id]);
+
+  if (!autorise) {
+    return (
+      <div className="fenetre-voile" onClick={onFermer}>
+        <div className="fenetre" onClick={(e) => e.stopPropagation()}>
+          <div className="fenetre-entete">
+            <h2>🔒 Décompte réservé</h2>
+            <button className="panneau-fermer" onClick={onFermer}>
+              ✕
+            </button>
+          </div>
+          <div className="controle attention">
+            Le décompte et le total du reçu ne sont visibles que par les personnes associées à
+            cette tournée et par les administrateurs.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!decompte || !tournee) return null;
   const s = useAppStore.getState;

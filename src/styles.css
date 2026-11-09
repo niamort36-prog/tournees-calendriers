@@ -2176,6 +2176,13 @@ body {
   color: #065f46;
 }
 
+/* Tournée terminée vue par quelqu'un qui n'a pas accès au montant. */
+.tournee-decompte.sans-montant {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
 .controle {
   border-radius: 10px;
   padding: 10px 12px;
@@ -2409,6 +2416,16 @@ body {
   font-size: 13.5px;
   cursor: pointer;
   background: #fff;
+}
+
+.recu-refus {
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #334155;
 }
 
 .recu-outils .btn-imprimer {
