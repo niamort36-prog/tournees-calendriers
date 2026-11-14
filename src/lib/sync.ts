@@ -242,6 +242,19 @@ export function estTourneeVide(t: { nom?: unknown; polygone?: unknown }): boolea
   return nom === '' && points === 0;
 }
 
+/**
+ * Une équipe sans nom n'a été créée par personne : le formulaire exige un nom
+ * et le renommage refuse une case vide. C'est donc, comme pour les tournées,
+ * le reste d'un évènement temps réel dont le nom est arrivé vide — et qu'un
+ * appareil administrateur a ensuite renvoyé vers la base partagée. On ne
+ * l'envoie plus.
+ */
+export function estEquipeVide(e: { nom?: unknown; membres?: unknown }): boolean {
+  const nom = typeof e.nom === 'string' ? e.nom.trim() : '';
+  const membres = Array.isArray(e.membres) ? e.membres.length : 0;
+  return nom === '' && membres === 0;
+}
+
 /** Les cinq listes de l'application, telles qu'elles sortent d'une fusion. */
 export interface ResultatFusion {
   tournees: Tournee[];
@@ -504,6 +517,7 @@ if (import.meta.env.DEV) {
   expose.estFantome = estFantome;
   expose.purgerFantomes = purgerFantomes;
   expose.estTourneeVide = estTourneeVide;
+  expose.estEquipeVide = estEquipeVide;
   expose.ligneVersTournee = ligneVersTournee;
 }
 
@@ -522,7 +536,7 @@ export const syncCampagne = (c: Campagne) =>
     ? Promise.resolve()
     : pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
 export const syncEquipe = (e: Equipe) =>
-  estFantome(e)
+  estFantome(e) || estEquipeVide(e)
     ? Promise.resolve()
     : pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
 export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });

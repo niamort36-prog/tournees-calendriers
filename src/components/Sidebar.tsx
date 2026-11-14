@@ -9,6 +9,7 @@ import {
   useAppStore,
 } from '../store/useAppStore';
 import DecompteFenetre from './DecompteFenetre';
+import { estEquipeVide } from '../lib/sync';
 import { formatEuros, totalDecompte, trierTournees, trouverDecompte, type Tournee } from '../types';
 
 function CarteTournee({
@@ -50,7 +51,9 @@ function CarteTournee({
   const taille = campagneActive?.taillePaquet ?? null;
   const paquets = taille && base > 0 ? Math.ceil(base / taille) : null;
 
-  const equipesIci = equipes.filter((e) => e.tourneeId === tournee.id);
+  // Les équipes vides (ni nom ni membre) sont du bruit : on ne les affiche pas
+  // sur la fiche de la tournée. L'administrateur les retire depuis 🚒 Équipes.
+  const equipesIci = equipes.filter((e) => e.tourneeId === tournee.id && !estEquipeVide(e));
   const maTournee = profil !== null && equipesIci.some((e) => e.membres.includes(profil.id));
   // L'argent de la tournée (décompte et total du reçu) ne s'affiche que pour
   // les personnes associées à la tournée et pour les administrateurs.
@@ -254,7 +257,7 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
       </div>
       <div className="panneau-corps">
         {estAdmin && vides.length > 0 && (
-          <div className="tournees-vides">
+          <div className="menage-vides">
             <div>
               🧹 <strong>
                 {vides.length} tournée{vides.length > 1 ? 's' : ''} vide

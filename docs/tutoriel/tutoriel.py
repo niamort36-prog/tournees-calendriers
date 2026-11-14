@@ -728,6 +728,13 @@ etapes([
     'Donnez un nom à la tournée en cliquant sur son titre dans le panneau de gauche.',
 ])
 image('admin-fiche-tournee', 8.5, 'La fiche d’une tournée côté administrateur')
+encadre('🧹 Si des équipes vides apparaissent',
+        'Même chose dans la fenêtre <b>Équipes</b> : une équipe <b>sans nom et sans '
+        'aucun membre</b> n’a pu être créée par personne, puisque le formulaire exige '
+        'un nom. Un bandeau orange vous propose de les retirer toutes d’un coup. Une '
+        'équipe qui a un nom <i>ou</i> au moins un membre n’est jamais proposée. Sur '
+        'la fiche d’une tournée, ces lignes vides ne s’affichent plus du tout.')
+
 encadre('🧹 Si des tournées vides apparaissent',
         'Une tournée <b>sans nom, sans contour et sans aucune adresse</b> n’a été '
         'dessinée par personne : c’est un reste d’un défaut de synchronisation. Un '

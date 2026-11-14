@@ -130,6 +130,14 @@ export function tourneesVides(
   );
 }
 
+/**
+ * Équipes manifestement créées par erreur : pas de nom et aucun membre. Les
+ * supprimer ne retire donc personne d'une tournée.
+ */
+export function equipesVides(equipes: Equipe[]): Equipe[] {
+  return equipes.filter(estEquipeVide);
+}
+
 // ----- réglage « me notifier de tout » (administrateurs) -----
 // Propre à l'appareil : un administrateur peut vouloir tout suivre depuis son
 // téléphone sans encombrer celui des autres. Rien n'est synchronisé.
@@ -182,6 +190,7 @@ import {
   syncAdresse,
   syncAdresses,
   chargerJournal,
+  estEquipeVide,
   estTourneeVide,
   nombreEnAttente,
   purgerFantomes,
@@ -318,6 +327,8 @@ interface EtatApp {
   creerEquipe: (nom: string) => Promise<void>;
   majEquipe: (id: string, patch: Partial<Equipe>) => Promise<void>;
   supprimerEquipe: (id: string) => Promise<void>;
+  /** Supprime d'un coup les équipes vides créées par erreur. Renvoie le nombre retiré. */
+  supprimerEquipesVides: () => Promise<number>;
   rafraichirAnnuaire: () => Promise<void>;
   rafraichirJournal: () => Promise<void>;
   /** Relance tout de suite l'envoi des modifications en attente. */
@@ -405,6 +416,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
               notification = `📣 L'équipe « ${avant.nom} » a été dissoute.`;
             }
           }
+        } else if (estEquipeVide(c.equipe)) {
+          // Une équipe sans nom et sans membre n'a jamais été créée par le
+          // formulaire. L'évènement est défectueux : l'appliquer effacerait le
+          // nom et les membres d'une équipe bien réelle. On relit la vraie ligne.
+          surEvenementIncomplet();
         } else {
           const locale = equipes.get(c.equipe.id);
           if (!locale || plusRecent(c.equipe.modifieLe, locale.modifieLe)) {
@@ -448,6 +464,10 @@ export const useAppStore = create<EtatApp>((set, get) => {
             await db.adresses.where('tourneeId').equals(c.id).delete();
             for (const a of [...adresses.values()]) if (a.tourneeId === c.id) adresses.delete(a.id);
           }
+        } else if (estTourneeVide(c.tournee)) {
+          // Même garde-fou : une tournée sans nom ni contour n'a été dessinée
+          // par personne. On ne l'enregistre pas et on relit la vraie ligne.
+          surEvenementIncomplet();
         } else {
           const locale = tournees.get(c.tournee.id);
           if (!locale || plusRecent(c.tournee.modifieLe, locale.modifieLe)) {
@@ -768,6 +788,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       expose.verifierRappels = verifierRappels;
       expose.verifierCompte = verifierCompte;
       expose.resynchroniserSiPossible = resynchroniserSiPossible;
+      expose.surChangementDistant = surChangementDistant;
       expose.store = { getState: get, setState: set };
     }
   }
@@ -1056,6 +1077,16 @@ export const useAppStore = create<EtatApp>((set, get) => {
       await db.equipes.delete(id);
       set((s) => ({ equipes: s.equipes.filter((e) => e.id !== id) }));
       await syncSupprimerEquipe(id);
+    },
+
+    supprimerEquipesVides: async () => {
+      if (supabaseActif && get().profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut supprimer une équipe.' });
+        return 0;
+      }
+      const vides = equipesVides(get().equipes);
+      for (const e of vides) await get().supprimerEquipe(e.id);
+      return vides.length;
     },
 
     forcerSynchro: async () => {

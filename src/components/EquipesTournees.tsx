@@ -1,8 +1,8 @@
 // Fenêtre « Équipes » : composition des équipes à partir des comptes SP et
 // attribution aux tournées. Lecture pour tous, modification par les admins.
 
-import { useEffect, useState, type FormEvent } from 'react';
-import { estAdminEffectif, useAppStore } from '../store/useAppStore';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { equipesVides, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import { trierTournees, type Equipe } from '../types';
 
 function CarteEquipe({ equipe, estAdmin }: { equipe: Equipe; estAdmin: boolean }) {
@@ -108,6 +108,8 @@ export default function EquipesTournees({ onFermer }: { onFermer: () => void }) 
   const vueMembre = useAppStore((s) => s.vueMembre);
   const estAdmin = estAdminEffectif(profil, vueMembre);
   const notifierTout = useAppStore((s) => s.notifierTout);
+  // Équipes créées par erreur : ni nom, ni membre (voir estEquipeVide).
+  const vides = useMemo(() => equipesVides(equipes), [equipes]);
 
   useEffect(() => {
     void useAppStore.getState().rafraichirAnnuaire();
@@ -139,6 +141,29 @@ export default function EquipesTournees({ onFermer }: { onFermer: () => void }) 
             />
             <button type="submit">Créer l'équipe</button>
           </form>
+        )}
+
+        {estAdmin && vides.length > 0 && (
+          <div className="menage-vides">
+            <div>
+              🧹 <strong>
+                {vides.length} équipe{vides.length > 1 ? 's' : ''} vide{vides.length > 1 ? 's' : ''}
+              </strong>{' '}
+              : sans nom et sans aucun membre. Créées par erreur par une version précédente —
+              les supprimer ne retire personne d'une tournée.
+            </div>
+            <button
+              onClick={() => {
+                const message =
+                  vides.length > 1
+                    ? `Supprimer ces ${vides.length} équipes vides ?`
+                    : 'Supprimer cette équipe vide ?';
+                if (window.confirm(message)) void useAppStore.getState().supprimerEquipesVides();
+              }}
+            >
+              🗑️ Supprimer
+            </button>
+          </div>
         )}
 
         {equipes.length === 0 ? (

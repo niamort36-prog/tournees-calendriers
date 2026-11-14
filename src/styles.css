@@ -2182,8 +2182,8 @@ body {
 
 /* ---------- Fin de tournée / décompte ---------- */
 
-/* Bandeau de ménage : tournées vides créées par erreur (admin seulement). */
-.tournees-vides {
+/* Bandeau de ménage : tournées ou équipes vides créées par erreur (admin). */
+.menage-vides {
   background: #fff7ed;
   border: 1px solid #fed7aa;
   border-radius: 10px;
@@ -2197,7 +2197,7 @@ body {
   gap: 8px;
 }
 
-.tournees-vides button {
+.menage-vides button {
   align-self: flex-start;
   border: 1px solid #fdba74;
   background: #fff;
