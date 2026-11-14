@@ -226,6 +226,22 @@ function estFantome(x: { id?: unknown; modifieLe?: unknown }): boolean {
   return typeof x.id !== 'string' || x.id === '' || typeof x.modifieLe !== 'string';
 }
 
+/**
+ * Une tournée sans nom ET sans contour n'a jamais été dessinée par un
+ * administrateur : c'est un reste d'évènement temps réel incomplet.
+ *
+ * Attention, elle n'est PAS reconnue par estFantome() : la conversion remplace
+ * le nom manquant par une chaîne vide, et « vide » est une valeur acceptée par
+ * la base. C'est ainsi que de fausses tournées ont fini par être envoyées
+ * depuis un appareil administrateur et sont devenues visibles de toute
+ * l'équipe. On ne les envoie plus.
+ */
+export function estTourneeVide(t: { nom?: unknown; polygone?: unknown }): boolean {
+  const nom = typeof t.nom === 'string' ? t.nom.trim() : '';
+  const points = Array.isArray(t.polygone) ? t.polygone.length : 0;
+  return nom === '' && points === 0;
+}
+
 /** Les cinq listes de l'application, telles qu'elles sortent d'une fusion. */
 export interface ResultatFusion {
   tournees: Tournee[];
@@ -487,6 +503,7 @@ if (import.meta.env.DEV) {
   expose.ligneComplete = ligneComplete;
   expose.estFantome = estFantome;
   expose.purgerFantomes = purgerFantomes;
+  expose.estTourneeVide = estTourneeVide;
   expose.ligneVersTournee = ligneVersTournee;
 }
 
@@ -496,7 +513,7 @@ export async function nombreEnAttente(): Promise<number> {
 }
 
 export const syncTournee = (t: Tournee) =>
-  estFantome(t)
+  estFantome(t) || estTourneeVide(t)
     ? Promise.resolve()
     : pousser({ table: 'tournees', op: 'upsert', donnees: tourneeVersLigne(t) });
 export const syncSupprimerTournee = (id: string) => pousser({ table: 'tournees', op: 'delete', id });

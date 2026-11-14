@@ -728,6 +728,15 @@ etapes([
     'Donnez un nom à la tournée en cliquant sur son titre dans le panneau de gauche.',
 ])
 image('admin-fiche-tournee', 8.5, 'La fiche d’une tournée côté administrateur')
+encadre('🧹 Si des tournées vides apparaissent',
+        'Une tournée <b>sans nom, sans contour et sans aucune adresse</b> n’a été '
+        'dessinée par personne : c’est un reste d’un défaut de synchronisation. Un '
+        'bandeau orange s’affiche alors en haut de votre panneau <b>Mes tournées</b>, '
+        'avec un bouton <b>Supprimer</b> qui les retire toutes d’un coup. Il ne '
+        'propose que les tournées réellement vides : une tournée qui a au moins une '
+        'adresse, une équipe ou un décompte n’est jamais touchée. Les sapeurs-pompiers '
+        'ne voient pas ces coquilles vides — vous êtes seul à les voir, et seul à '
+        'pouvoir les effacer.')
 p('Vous pouvez ensuite renseigner la <b>disponibilité conseillée</b> (« 2 équipes, '
   '3 soirées ») et le nombre de calendriers <b>distribués l’an dernier</b>, qui sert '
   'de référence pour les paquets à prendre.')
@@ -883,9 +892,10 @@ tableau(['Situation', 'Que faire'], [
      'automatiquement</b> (Réglages → Date et heure) : une horloge décalée peut faire '
      'croire à l’application qu’une vieille saisie est la plus récente.'],
     ['<b>Une tournée sans nom et sans point apparaît dans la liste</b>',
-     'C’est un défaut d’affichage corrigé : fermez et rouvrez l’application, elle '
-     's’effacera toute seule au démarrage. <b>N’appuyez pas sur la corbeille</b> : '
-     'prévenez l’administrateur si elle revient.'],
+     'Vous ne devriez plus en voir : ces coquilles vides sont désormais masquées aux '
+     'comptes Normal et l’administrateur les supprime d’un bouton. Si l’une d’elles '
+     'réapparaît chez vous, fermez et rouvrez l’application, puis prévenez '
+     'l’administrateur.'],
     ['<b>J’ai du mal à appuyer sur les points</b>',
      'Zoomez avec deux doigts : les points s’écartent. L’application rattrape aussi '
      'les appuis un peu à côté en ouvrant la maison la plus proche.'],

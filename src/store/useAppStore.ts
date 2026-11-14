@@ -104,6 +104,32 @@ export function tourneesDontOnVoitLaRecette(
   return tourneesAssociees(profil, equipes);
 }
 
+/**
+ * Tournées manifestement créées par erreur : pas de nom, pas de contour, et
+ * rien d'accroché — aucune adresse, aucune équipe, aucun décompte. Les
+ * supprimer ne peut donc faire perdre le travail de personne.
+ *
+ * Elles viennent d'évènements temps réel incomplets reçus par une version
+ * précédente (voir estTourneeVide dans lib/sync.ts).
+ */
+export function tourneesVides(
+  tournees: Tournee[],
+  adresses: AdressePoint[],
+  equipes: Equipe[],
+  decomptes: Decompte[],
+): Tournee[] {
+  const avecAdresse = new Set(adresses.map((a) => a.tourneeId));
+  const avecEquipe = new Set(equipes.map((e) => e.tourneeId).filter((x): x is string => !!x));
+  const avecDecompte = new Set(decomptes.map((d) => d.tourneeId));
+  return tournees.filter(
+    (t) =>
+      estTourneeVide(t) &&
+      !avecAdresse.has(t.id) &&
+      !avecEquipe.has(t.id) &&
+      !avecDecompte.has(t.id),
+  );
+}
+
 // ----- réglage « me notifier de tout » (administrateurs) -----
 // Propre à l'appareil : un administrateur peut vouloir tout suivre depuis son
 // téléphone sans encombrer celui des autres. Rien n'est synchronisé.
@@ -156,6 +182,7 @@ import {
   syncAdresse,
   syncAdresses,
   chargerJournal,
+  estTourneeVide,
   nombreEnAttente,
   purgerFantomes,
   syncCampagne,
@@ -304,6 +331,8 @@ interface EtatApp {
   majTournee: (id: string, patch: Partial<Tournee>) => Promise<void>;
   majPolygone: (id: string, poly: LatLng[]) => Promise<void>;
   supprimerTournee: (id: string) => Promise<void>;
+  /** Supprime d'un coup les tournées vides créées par erreur. Renvoie le nombre retiré. */
+  supprimerTourneesVides: () => Promise<number>;
 
   ouvrirAdresse: (id: string) => void;
   fermerAdresse: () => void;
@@ -1262,6 +1291,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
         selectionTourneeId: s.selectionTourneeId === id ? null : s.selectionTourneeId,
       }));
       await syncSupprimerTournee(id);
+    },
+
+    supprimerTourneesVides: async () => {
+      const s = get();
+      if (supabaseActif && s.profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut supprimer une tournée.' });
+        return 0;
+      }
+      const vides = tourneesVides(s.tournees, s.adresses, s.equipes, s.decomptes);
+      for (const t of vides) await get().supprimerTournee(t.id);
+      return vides.length;
     },
 
     ajouterAdresse: async (tourneeId, lat, lng) => {

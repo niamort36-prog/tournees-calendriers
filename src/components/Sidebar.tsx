@@ -5,6 +5,7 @@ import {
   calculerTourneesVisibles,
   estAdminEffectif,
   peutVoirRecette,
+  tourneesVides,
   useAppStore,
 } from '../store/useAppStore';
 import DecompteFenetre from './DecompteFenetre';
@@ -229,6 +230,14 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
   const vueMembre = useAppStore((s) => s.vueMembre);
   const estAdmin = estAdminEffectif(profil, vueMembre);
   const [decompteTourneeId, setDecompteTourneeId] = useState<string | null>(null);
+  const adresses = useAppStore((s) => s.adresses);
+  const decomptes = useAppStore((s) => s.decomptes);
+  // Tournées créées par erreur : ni nom, ni contour, ni rien d'accroché.
+  const vides = useMemo(
+    () => tourneesVides(tournees, adresses, equipes, decomptes),
+    [tournees, adresses, equipes, decomptes],
+  );
+  const idsVides = useMemo(() => new Set(vides.map((t) => t.id)), [vides]);
   const visibles = useMemo(
     () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
     [profil, equipes, tourneesAffichees, vueMembre],
@@ -244,6 +253,29 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
         </button>
       </div>
       <div className="panneau-corps">
+        {estAdmin && vides.length > 0 && (
+          <div className="tournees-vides">
+            <div>
+              🧹 <strong>
+                {vides.length} tournée{vides.length > 1 ? 's' : ''} vide
+                {vides.length > 1 ? 's' : ''}
+              </strong>{' '}
+              : sans nom, sans contour et sans aucune adresse. Créées par erreur par une
+              version précédente — les supprimer ne fait perdre aucun travail.
+            </div>
+            <button
+              onClick={() => {
+                const message =
+                  vides.length > 1
+                    ? `Supprimer ces ${vides.length} tournées vides ?`
+                    : 'Supprimer cette tournée vide ?';
+                if (window.confirm(message)) void useAppStore.getState().supprimerTourneesVides();
+              }}
+            >
+              🗑️ Supprimer
+            </button>
+          </div>
+        )}
         {tournees.length === 0 ? (
           <div className="panneau-vide">
             <p>🗺️ Aucune tournée pour l'instant.</p>
@@ -261,6 +293,8 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
           </div>
         ) : (
           trierTournees(tournees).map((t) => {
+            // une coquille vide n'intéresse que l'administrateur, qui la supprime
+            if (idsVides.has(t.id) && !estAdmin) return null;
             const cachee = visibles !== null && !visibles.has(t.id);
             if (cachee) {
               return (

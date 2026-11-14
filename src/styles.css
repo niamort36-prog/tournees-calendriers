@@ -2182,6 +2182,33 @@ body {
 
 /* ---------- Fin de tournée / décompte ---------- */
 
+/* Bandeau de ménage : tournées vides créées par erreur (admin seulement). */
+.tournees-vides {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9a3412;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tournees-vides button {
+  align-self: flex-start;
+  border: 1px solid #fdba74;
+  background: #fff;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .tournee-decompte {
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
