@@ -199,23 +199,42 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
 // ---------- garde-fous contre les lignes incomplètes ----------
 
 /**
- * Vrai si cette ligne venue du serveur porte vraiment un enregistrement.
- *
- * Le flux temps réel de Supabase n'est pas toujours complet : quand il ne peut
- * pas transmettre une ligne (trop grosse pour le flux, erreur « Payload Too
- * Large »), il envoie un enregistrement VIDE. Convertir ce vide donnait une
- * tournée sans nom, sans contour et sans adresse — une « tournée fantôme »
- * que personne n'avait créée, qui s'enregistrait dans le téléphone puis
- * repartait vers le serveur à la synchronisation suivante, où tout le monde
- * la voyait apparaître.
- *
- * On ne devine donc plus rien : si l'identifiant ou l'horodatage manquent, on
- * ignore l'évènement et on demande une relecture complète.
+ * Colonnes que la base déclare « not null » : une vraie ligne venue du serveur
+ * les porte forcément, toutes. Liste tirée directement du schéma SQL.
  */
-function ligneComplete(l: unknown): l is Record<string, unknown> {
+const COLONNES_OBLIGATOIRES = {
+  tournees: ['nom', 'couleur', 'polygone', 'cree_le', 'modifie_le'],
+  adresses: ['tournee_id', 'libelle', 'lat', 'lng', 'statut', 'modifie_le'],
+  campagnes: ['nom', 'statut', 'cree_le', 'modifie_le'],
+  equipes: ['nom', 'membres', 'cree_le', 'modifie_le'],
+  decomptes: ['tournee_id', 'participants', 'especes', 'termine', 'cree_le', 'modifie_le'],
+} as const;
+
+export type TableSynchronisee = keyof typeof COLONNES_OBLIGATOIRES;
+
+/**
+ * Vrai si cet évènement temps réel porte vraiment toute la ligne.
+ *
+ * Le flux de Supabase n'est pas toujours complet : il peut n'envoyer que
+ * l'identifiant, rien du tout (ligne trop grosse : « Payload Too Large »), ou
+ * une colonne à vide. L'application remplissait alors les trous avec des
+ * valeurs par défaut — d'où des tournées sans nom ni contour, et des équipes
+ * ayant perdu nom et membres, qu'un appareil administrateur renvoyait ensuite
+ * vers la base partagée.
+ *
+ * On ne devine plus rien : il manque une colonne obligatoire, on ignore
+ * l'évènement et on relit la vraie ligne. Le même garde-fou protège les
+ * adresses (statut, somme, note), les campagnes et les décomptes (montants,
+ * numéro de reçu), qui avaient exactement la même faiblesse.
+ *
+ * Attention : on teste la PRÉSENCE, pas la valeur — false, 0 et la chaîne
+ * vide sont des valeurs parfaitement légitimes.
+ */
+function ligneComplete(table: TableSynchronisee, l: unknown): l is Record<string, unknown> {
   if (!l || typeof l !== 'object') return false;
   const r = l as Record<string, unknown>;
-  return typeof r.id === 'string' && r.id !== '' && typeof r.modifie_le === 'string';
+  if (typeof r.id !== 'string' || r.id === '') return false;
+  return COLONNES_OBLIGATOIRES[table].every((c) => r[c] !== undefined && r[c] !== null);
 }
 
 /**
@@ -835,7 +854,7 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'tournees', type: 'delete', id });
-      } else if (!ligneComplete(p.new)) {
+      } else if (!ligneComplete('tournees', p.new)) {
         onIncomplet?.();
       } else {
         onChangement({ table: 'tournees', type: 'upsert', tournee: ligneVersTournee(p.new) });
@@ -845,7 +864,7 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'adresses', type: 'delete', id });
-      } else if (!ligneComplete(p.new)) {
+      } else if (!ligneComplete('adresses', p.new)) {
         onIncomplet?.();
       } else {
         onChangement({ table: 'adresses', type: 'upsert', adresse: ligneVersAdresse(p.new) });
@@ -855,7 +874,7 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'campagnes', type: 'delete', id });
-      } else if (!ligneComplete(p.new)) {
+      } else if (!ligneComplete('campagnes', p.new)) {
         onIncomplet?.();
       } else {
         onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new) });
@@ -865,7 +884,7 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'equipes', type: 'delete', id });
-      } else if (!ligneComplete(p.new)) {
+      } else if (!ligneComplete('equipes', p.new)) {
         onIncomplet?.();
       } else {
         onChangement({ table: 'equipes', type: 'upsert', equipe: ligneVersEquipe(p.new) });
@@ -875,7 +894,7 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'decomptes', type: 'delete', id });
-      } else if (!ligneComplete(p.new)) {
+      } else if (!ligneComplete('decomptes', p.new)) {
         onIncomplet?.();
       } else {
         onChangement({ table: 'decomptes', type: 'upsert', decompte: ligneVersDecompte(p.new) });
