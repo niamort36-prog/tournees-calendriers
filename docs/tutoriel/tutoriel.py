@@ -806,17 +806,26 @@ p('Juste en dessous, <b>💾 Sauvegarde complète (fichier de secours)</b> enreg
 
 p('3.8 bis — Les sauvegardes automatiques', 'h1')
 p('Indépendamment de tout cela, l’avancement des tournées est sauvegardé '
-  '<b>trois fois par jour — à 6 h, à 13 h et à 23 h</b> — dans le Google Drive de '
-  'l’amicale, dossier <b>sauvegarde calendriers pompiers</b>. Vous n’avez rien à '
-  'faire : ça tourne chez Google, pas sur un ordinateur, donc les sauvegardes '
-  'partent même ordinateur éteint et téléphone éteint.')
-p('À chaque passage, deux fichiers arrivent dans le dossier :')
+  '<b>trois fois par jour — à 6 h, à 13 h et à 23 h</b> — dans un dossier '
+  '<b>sauvegarde calendriers pompiers</b>. Vous n’avez rien à faire : c’est '
+  'automatique.')
+p('À chaque passage, le dossier reçoit :')
 puces([
-    'un fichier <b>sauvegarde-2026-11-14-06h.json</b> : la vraie copie, celle qui '
-    'sert à restaurer. Inutile de l’ouvrir ;',
-    'une <b>feuille de calcul du jour</b>, remise à jour aux trois passages, qui '
-    's’ouvre d’un clic : tournées, adresses et décomptes en clair.',
+    'la <b>vraie copie</b> (un fichier « sauvegarde-2026-11-15-06h ») : c’est elle '
+    'qui sert à tout remettre en place. Inutile de l’ouvrir ;',
+    'une <b>version lisible</b> — tournées, adresses et décomptes en clair, qui '
+    's’ouvre dans Excel ou dans le navigateur ;',
+    'un <b>journal</b> des passages, avec le motif en cas d’échec.',
 ])
+encadre('Deux montages possibles',
+        'La sauvegarde peut tourner <b>sur l’ordinateur de l’amicale</b> (une tâche '
+        'Windows) ou <b>chez Google</b>, indépendamment de tout ordinateur. '
+        'Différence à connaître : sur l’ordinateur, si celui-ci était éteint à '
+        'l’heure prévue, la sauvegarde se fait à l’ouverture de session suivante '
+        '— soit en pratique une par jour d’allumage plutôt que trois. Chez '
+        'Google, elles partent toujours à l’heure. Le montage en place et la '
+        'marche à suivre sont décrits dans le dossier <b>docs/sauvegarde</b> du '
+        'projet.')
 p('Ce qui est sauvegardé : le statut de chaque maison, les sommes reçues et leur '
   'détail, les calendriers laissés, les commentaires, les rappels « à repasser », '
   'les appartements des immeubles, les décomptes et numéros de reçu, les équipes, '
@@ -939,9 +948,9 @@ tableau(['Situation', 'Que faire'], [
      'automatiquement</b> (Réglages → Date et heure) : une horloge décalée peut faire '
      'croire à l’application qu’une vieille saisie est la plus récente.'],
     ['<b>Où sont les sauvegardes ?</b>',
-     'Dans votre Google Drive, dossier <b>sauvegarde calendriers pompiers</b> : trois '
-     'par jour, à 6 h, 13 h et 23 h. La feuille <b>lisible-...</b> du jour s’ouvre '
-     'directement dans le navigateur. Voir la partie 3.8 bis.'],
+     'Dans le dossier <b>sauvegarde calendriers pompiers</b> : trois par jour, à 6 h, '
+     '13 h et 23 h. Les fichiers <b>derniere-sauvegarde-...</b> s’ouvrent dans Excel. '
+     'Voir la partie 3.8 bis.'],
     ['<b>Une tournée sans nom et sans point apparaît dans la liste</b>',
      'Vous ne devriez plus en voir : ces coquilles vides sont désormais masquées aux '
      'comptes Normal et l’administrateur les supprime d’un bouton. Si l’une d’elles '

@@ -14,7 +14,8 @@
  * Exemples
  * --------
  *   # voir ce que contient la sauvegarde et ce qui serait réécrit
- *   node restaurer.mjs sauvegarde-2026-11-14-06h.json --cle COLLER_LA_CLE
+ *   # (.json comme .json.gz, les deux sont acceptés)
+ *   node restaurer.mjs sauvegarde-2026-11-14-06h.json.gz --cle COLLER_LA_CLE
  *
  *   # ne remettre qu'une seule tournée (ses adresses, son équipe, son décompte)
  *   node restaurer.mjs sauvegarde.json --cle ... --tournee "Tournée 23"
@@ -28,6 +29,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 
 const URL_BASE = 'https://enopjnyqycrtydgtuiys.supabase.co';
 
@@ -108,7 +110,13 @@ async function envoyer(table, lignes, cle, colonnesRetirees) {
 
 async function main() {
   const options = lireArguments(process.argv.slice(2));
-  const sauvegarde = JSON.parse(readFileSync(options.fichier, 'utf8'));
+  // Les sauvegardes faites par l'ordinateur sont compressées (.json.gz),
+  // celles du Drive et du bouton de l'appli sont en clair (.json).
+  const brut = readFileSync(options.fichier);
+  const texte = options.fichier.endsWith('.gz')
+    ? gunzipSync(brut).toString('utf8')
+    : brut.toString('utf8');
+  const sauvegarde = JSON.parse(texte);
 
   if (sauvegarde.format !== 'sauvegarde-tournees-calendriers') {
     throw new Error(

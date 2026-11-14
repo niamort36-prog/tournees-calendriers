@@ -1,8 +1,69 @@
-# Sauvegarde automatique sur Google Drive
+# Sauvegarde automatique
 
 Trois sauvegardes par jour — **6 h, 13 h et 23 h** — de tout l'avancement des
-tournées, déposées dans le dossier **« sauvegarde calendriers pompiers »** de
-votre Google Drive.
+tournées. Deux montages possibles, au choix :
+
+| | Où ça tourne | Les fichiers arrivent | Mise en place |
+|---|---|---|---|
+| **A — sur l'ordinateur** *(installé le 15/11/2026)* | tâche Windows de ce PC | dans `Documents\Sauvegardes calendriers pompiers` — **et directement sur le Drive** si Google Drive pour ordinateur est installé | faite ; il reste la clé à coller |
+| **B — chez Google** | Apps Script, indépendant de tout ordinateur | dans le dossier Drive « sauvegarde calendriers pompiers » | 10 minutes, voir plus bas |
+
+**La différence qui compte :** le montage A ne part que si l'ordinateur est
+allumé (ou en veille — Windows le réveille). S'il était éteint à 6 h, la
+sauvegarde se fait à l'ouverture de session suivante : vous avez donc en
+pratique une sauvegarde par jour d'allumage, pas trois. Le montage B part
+toujours, à l'heure. Les deux peuvent cohabiter sans se gêner.
+
+---
+
+## Montage A — sur cet ordinateur
+
+Déjà installé. La tâche Windows s'appelle **« Sauvegarde calendriers
+pompiers »** et se déclenche à 6 h, 13 h et 23 h.
+
+**Il reste une seule chose à faire** : ouvrir
+`Documents\Sauvegardes calendriers pompiers\cle.txt`, y coller la clé
+**service_role** de Supabase (étape 1 plus bas), enregistrer. La sauvegarde
+suivante partira.
+
+Ce qui arrive dans le dossier :
+
+- `sauvegarde-2026-11-15-06h.json.gz` — la vraie sauvegarde, compressée
+  (quelques centaines de Ko) ;
+- `derniere-sauvegarde-tournees.csv`, `-adresses.csv`, `-decomptes.csv` — la
+  dernière photo, lisible dans Excel, remplacée à chaque passage ;
+- `journal.txt` — l'historique des passages ;
+- `SAUVEGARDE-EN-ECHEC-LIRE-MOI.txt` — n'apparaît qu'en cas de problème et
+  disparaît tout seul au passage suivant ;
+- `corbeille\` — les sauvegardes écartées par le ménage, **jamais effacées**.
+
+Lancer une sauvegarde tout de suite : **Planificateur de tâches** →
+Bibliothèque → clic droit sur la tâche → **Exécuter**. Ou, en ligne de
+commande :
+
+```bash
+node "docs/sauvegarde/sauvegarder-sur-ce-pc.mjs"
+```
+
+### Les faire monter sur le Drive
+
+Installez **Google Drive pour ordinateur** (<https://www.google.com/drive/download/>)
+et créez dans « Mon Drive » le dossier `sauvegarde calendriers pompiers`. Le
+script le détecte tout seul au passage suivant et écrit directement dedans :
+les sauvegardes montent alors sur le Drive sans rien changer d'autre. Le
+journal indique à chaque fois le dossier utilisé.
+
+### Désinstaller / réinstaller
+
+```bash
+powershell -ExecutionPolicy Bypass -File "docs/sauvegarde/installer-sur-ce-pc.ps1" -Desinstaller
+```
+
+Sans `-Desinstaller`, la même commande (ré)installe la tâche.
+
+---
+
+## Montage B — chez Google (Apps Script)
 
 Le script tourne **chez Google**, pas sur un ordinateur : les sauvegardes
 partent même ordinateur éteint et téléphone éteint. C'est gratuit et il n'y a
@@ -34,7 +95,7 @@ Tout ce qui se remplit sur le terrain, et tout le reste :
 
 ---
 
-## Mise en place (une seule fois, environ 10 minutes)
+### Mise en place (une seule fois, environ 10 minutes)
 
 ### 1. Récupérer la clé de la base
 
