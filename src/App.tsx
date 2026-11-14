@@ -118,7 +118,7 @@ export default function App() {
           <span className="sous-titre">Amicale des Sapeurs-Pompiers</span>
         </div>
         <SearchBar />
-        {enAttente > 0 && (
+        {enAttente > 0 && estAdminReel && !vueMembre && (
           <button
             className="btn-attente"
             title="Modifications pas encore envoyées au serveur. Cliquez pour réessayer maintenant."

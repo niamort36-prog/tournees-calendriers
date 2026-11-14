@@ -196,6 +196,90 @@ function ligneVersAdresse(l: Record<string, unknown>): AdressePoint {
   };
 }
 
+// ---------- garde-fous contre les lignes incomplètes ----------
+
+/**
+ * Vrai si cette ligne venue du serveur porte vraiment un enregistrement.
+ *
+ * Le flux temps réel de Supabase n'est pas toujours complet : quand il ne peut
+ * pas transmettre une ligne (trop grosse pour le flux, erreur « Payload Too
+ * Large »), il envoie un enregistrement VIDE. Convertir ce vide donnait une
+ * tournée sans nom, sans contour et sans adresse — une « tournée fantôme »
+ * que personne n'avait créée, qui s'enregistrait dans le téléphone puis
+ * repartait vers le serveur à la synchronisation suivante, où tout le monde
+ * la voyait apparaître.
+ *
+ * On ne devine donc plus rien : si l'identifiant ou l'horodatage manquent, on
+ * ignore l'évènement et on demande une relecture complète.
+ */
+function ligneComplete(l: unknown): l is Record<string, unknown> {
+  if (!l || typeof l !== 'object') return false;
+  const r = l as Record<string, unknown>;
+  return typeof r.id === 'string' && r.id !== '' && typeof r.modifie_le === 'string';
+}
+
+/**
+ * Vrai si cet enregistrement local est un fantôme : identifiant ou horodatage
+ * manquants. Ces lignes sont jetées à la fusion et ne sont jamais envoyées.
+ */
+function estFantome(x: { id?: unknown; modifieLe?: unknown }): boolean {
+  return typeof x.id !== 'string' || x.id === '' || typeof x.modifieLe !== 'string';
+}
+
+/** Les cinq listes de l'application, telles qu'elles sortent d'une fusion. */
+export interface ResultatFusion {
+  tournees: Tournee[];
+  adresses: AdressePoint[];
+  campagnes: Campagne[];
+  equipes: Equipe[];
+  decomptes: Decompte[];
+}
+
+/**
+ * Retire du téléphone les enregistrements fantômes (voir estFantome) laissés
+ * par une version précédente, et renvoie les listes nettoyées.
+ *
+ * Appelé au lancement : une tournée sans nom disparaît donc dès le premier
+ * démarrage, sans attendre le réseau.
+ */
+export async function purgerFantomes(
+  listes: ResultatFusion,
+): Promise<{ propre: ResultatFusion; retires: number }> {
+  let retires = 0;
+  const garder = <T extends { id?: unknown; modifieLe?: unknown }>(liste: T[]): T[] => {
+    const bons = liste.filter((x) => !estFantome(x));
+    retires += liste.length - bons.length;
+    return bons;
+  };
+  const propre: ResultatFusion = {
+    tournees: garder(listes.tournees),
+    adresses: garder(listes.adresses),
+    campagnes: garder(listes.campagnes),
+    equipes: garder(listes.equipes),
+    decomptes: garder(listes.decomptes),
+  };
+  if (retires > 0) {
+    // La clé d'un fantôme est inutilisable : on réécrit les tables sans lui.
+    await db.transaction(
+      'rw',
+      [db.tournees, db.adresses, db.campagnes, db.equipes, db.decomptes],
+      async () => {
+        await db.tournees.clear();
+        await db.tournees.bulkPut(propre.tournees);
+        await db.adresses.clear();
+        await db.adresses.bulkPut(propre.adresses);
+        await db.campagnes.clear();
+        await db.campagnes.bulkPut(propre.campagnes);
+        await db.equipes.clear();
+        await db.equipes.bulkPut(propre.equipes);
+        await db.decomptes.clear();
+        await db.decomptes.bulkPut(propre.decomptes);
+      },
+    );
+  }
+  return { propre, retires };
+}
+
 // ---------- opérations et file d'attente ----------
 
 type Operation =
@@ -400,6 +484,10 @@ if (import.meta.env.DEV) {
   expose.rafraichirOperation = rafraichirOperation;
   expose.memeContenu = memeContenu;
   expose.adresseVersLigne = adresseVersLigne;
+  expose.ligneComplete = ligneComplete;
+  expose.estFantome = estFantome;
+  expose.purgerFantomes = purgerFantomes;
+  expose.ligneVersTournee = ligneVersTournee;
 }
 
 /** Nombre d'écritures encore en attente d'envoi. */
@@ -408,12 +496,18 @@ export async function nombreEnAttente(): Promise<number> {
 }
 
 export const syncTournee = (t: Tournee) =>
-  pousser({ table: 'tournees', op: 'upsert', donnees: tourneeVersLigne(t) });
+  estFantome(t)
+    ? Promise.resolve()
+    : pousser({ table: 'tournees', op: 'upsert', donnees: tourneeVersLigne(t) });
 export const syncSupprimerTournee = (id: string) => pousser({ table: 'tournees', op: 'delete', id });
 export const syncCampagne = (c: Campagne) =>
-  pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
+  estFantome(c)
+    ? Promise.resolve()
+    : pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
 export const syncEquipe = (e: Equipe) =>
-  pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
+  estFantome(e)
+    ? Promise.resolve()
+    : pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
 export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });
 function journalVersLigne(e: EntreeJournal) {
   return {
@@ -466,13 +560,19 @@ export async function chargerJournal(limite = 300): Promise<EntreeJournal[]> {
 }
 
 export const syncDecompte = (d: Decompte) =>
-  pousser({ table: 'decomptes', op: 'upsert', donnees: decompteVersLigne(d) });
+  estFantome(d)
+    ? Promise.resolve()
+    : pousser({ table: 'decomptes', op: 'upsert', donnees: decompteVersLigne(d) });
 export const syncAdresse = (a: AdressePoint) =>
-  pousser({ table: 'adresses', op: 'upsert', donnees: adresseVersLigne(a) });
-export const syncAdresses = (liste: AdressePoint[]) =>
-  liste.length > 0
-    ? pousser({ table: 'adresses', op: 'upsert', donnees: liste.map(adresseVersLigne) })
+  estFantome(a)
+    ? Promise.resolve()
+    : pousser({ table: 'adresses', op: 'upsert', donnees: adresseVersLigne(a) });
+export const syncAdresses = (liste: AdressePoint[]) => {
+  const vraies = liste.filter((a) => !estFantome(a));
+  return vraies.length > 0
+    ? pousser({ table: 'adresses', op: 'upsert', donnees: vraies.map(adresseVersLigne) })
     : Promise.resolve();
+};
 export const syncSupprimerAdresse = (id: string) => pousser({ table: 'adresses', op: 'delete', id });
 export const syncRemplacerAdresses = (
   tourneeId: string,
@@ -518,14 +618,6 @@ function memeContenu<T>(a: T, b: T, vers: (x: T) => Record<string, unknown>): bo
   );
 }
 
-export interface ResultatFusion {
-  tournees: Tournee[];
-  adresses: AdressePoint[];
-  campagnes: Campagne[];
-  equipes: Equipe[];
-  decomptes: Decompte[];
-}
-
 /**
  * Récupère tout le contenu distant et le fusionne avec le contenu local :
  * la version la plus récente gagne ; ce qui n'existe que d'un côté est
@@ -558,6 +650,8 @@ export async function tirerEtFusionner(
   const resultatT = new Map<string, Tournee>(distantesT.map((t) => [t.id, t]));
   const aPousserT: Tournee[] = [];
   for (const locale of tourneesLocales) {
+    // fantôme d'un évènement temps réel incomplet : on l'oublie
+    if (estFantome(locale)) continue;
     if (tombes.has(locale.id)) continue;
     const distante = resultatT.get(locale.id);
     if (!distante) {
@@ -576,6 +670,8 @@ export async function tirerEtFusionner(
   const resultatA = new Map<string, AdressePoint>(distantesA.map((a) => [a.id, a]));
   const aPousserA: AdressePoint[] = [];
   for (const locale of adressesLocales) {
+    // fantôme d'un évènement temps réel incomplet : on l'oublie
+    if (estFantome(locale)) continue;
     if (tombes.has(locale.id)) continue;
     const distante = resultatA.get(locale.id);
     if (!distante) {
@@ -594,6 +690,8 @@ export async function tirerEtFusionner(
   const resultatC = new Map<string, Campagne>(distantesC.map((c) => [c.id, c]));
   const aPousserC: Campagne[] = [];
   for (const locale of campagnesLocales) {
+    // fantôme d'un évènement temps réel incomplet : on l'oublie
+    if (estFantome(locale)) continue;
     if (tombes.has(locale.id)) continue;
     const distante = resultatC.get(locale.id);
     if (!distante) {
@@ -612,6 +710,8 @@ export async function tirerEtFusionner(
   const resultatE = new Map<string, Equipe>(distantesE.map((e) => [e.id, e]));
   const aPousserE: Equipe[] = [];
   for (const locale of equipesLocales) {
+    // fantôme d'un évènement temps réel incomplet : on l'oublie
+    if (estFantome(locale)) continue;
     if (tombes.has(locale.id)) continue;
     const distante = resultatE.get(locale.id);
     if (!distante) {
@@ -630,6 +730,8 @@ export async function tirerEtFusionner(
   const resultatD = new Map<string, Decompte>(distantsD.map((d) => [d.id, d]));
   const aPousserD: Decompte[] = [];
   for (const local of decomptesLocaux) {
+    // fantôme d'un évènement temps réel incomplet : on l'oublie
+    if (estFantome(local)) continue;
     if (tombes.has(local.id)) continue;
     const distant = resultatD.get(local.id);
     if (!distant) {
@@ -685,11 +787,13 @@ export type Changement =
 /**
  * S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt.
  * `onPerte` est appelé si le flux tombe (veille, changement de réseau…) —
- * jamais lors d'un arrêt volontaire.
+ * jamais lors d'un arrêt volontaire. `onIncomplet` est appelé quand un
+ * évènement arrive sans son contenu : il faut alors relire la vraie ligne.
  */
 export function abonnerTempsReel(
   onChangement: (c: Changement) => void,
   onPerte?: () => void,
+  onIncomplet?: () => void,
 ): () => void {
   if (!supabase) return () => undefined;
   const client = supabase;
@@ -700,40 +804,50 @@ export function abonnerTempsReel(
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'tournees', type: 'delete', id });
+      } else if (!ligneComplete(p.new)) {
+        onIncomplet?.();
       } else {
-        onChangement({ table: 'tournees', type: 'upsert', tournee: ligneVersTournee(p.new as Record<string, unknown>) });
+        onChangement({ table: 'tournees', type: 'upsert', tournee: ligneVersTournee(p.new) });
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'adresses' }, (p) => {
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'adresses', type: 'delete', id });
+      } else if (!ligneComplete(p.new)) {
+        onIncomplet?.();
       } else {
-        onChangement({ table: 'adresses', type: 'upsert', adresse: ligneVersAdresse(p.new as Record<string, unknown>) });
+        onChangement({ table: 'adresses', type: 'upsert', adresse: ligneVersAdresse(p.new) });
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'campagnes' }, (p) => {
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'campagnes', type: 'delete', id });
+      } else if (!ligneComplete(p.new)) {
+        onIncomplet?.();
       } else {
-        onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new as Record<string, unknown>) });
+        onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new) });
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'equipes' }, (p) => {
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'equipes', type: 'delete', id });
+      } else if (!ligneComplete(p.new)) {
+        onIncomplet?.();
       } else {
-        onChangement({ table: 'equipes', type: 'upsert', equipe: ligneVersEquipe(p.new as Record<string, unknown>) });
+        onChangement({ table: 'equipes', type: 'upsert', equipe: ligneVersEquipe(p.new) });
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'decomptes' }, (p) => {
       if (p.eventType === 'DELETE') {
         const id = (p.old as { id?: string }).id;
         if (id) onChangement({ table: 'decomptes', type: 'delete', id });
+      } else if (!ligneComplete(p.new)) {
+        onIncomplet?.();
       } else {
-        onChangement({ table: 'decomptes', type: 'upsert', decompte: ligneVersDecompte(p.new as Record<string, unknown>) });
+        onChangement({ table: 'decomptes', type: 'upsert', decompte: ligneVersDecompte(p.new) });
       }
     })
     .subscribe((etat) => {

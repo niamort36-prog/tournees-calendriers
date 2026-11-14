@@ -157,6 +157,7 @@ import {
   syncAdresses,
   chargerJournal,
   nombreEnAttente,
+  purgerFantomes,
   syncCampagne,
   syncDecompte,
   syncJournal,
@@ -519,7 +520,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
   const resynchroniser = async () => {
     await synchroniserHorloge();
     const abandonnees = await viderFileAttente();
-    if (abandonnees > 0) {
+    // Message de plomberie : seul un administrateur peut y faire quelque chose.
+    // Les sapeurs-pompiers n'ont pas à voir passer ça en pleine tournée.
+    if (abandonnees > 0 && estAdminEffectif(get().profil, get().vueMembre)) {
       set({
         notification:
           `⚠️ ${abandonnees} modification(s) en attente ont été refusées par le serveur et abandonnées ` +
@@ -649,6 +652,14 @@ export const useAppStore = create<EtatApp>((set, get) => {
     }
   };
 
+  // ----- évènement temps réel arrivé sans son contenu -----
+  // On ne devine pas la ligne manquante (c'est ce qui fabriquait des tournées
+  // sans nom) : on relit tout. Le garde-fou anti-rafales de 30 s évite qu'une
+  // série d'évènements incomplets déclenche une série de relectures.
+  const surEvenementIncomplet = () => {
+    void resynchroniserSiPossible();
+  };
+
   // ----- reconnexion du temps réel s'il tombe (veille, réseau…) -----
   let reabonnementPrevu = false;
   const surPerteTempsReel = () => {
@@ -658,7 +669,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       reabonnementPrevu = false;
       if (!get().session) return;
       desabonner?.();
-      desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel);
+      desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel, surEvenementIncomplet);
       void resynchroniserSiPossible(true);
     }, 10000);
   };
@@ -699,7 +710,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
       });
     }
     desabonner?.();
-    desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel);
+    desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel, surEvenementIncomplet);
   };
 
   if (typeof window !== 'undefined') {
@@ -797,7 +808,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
         db.equipes.toArray(),
         db.decomptes.toArray(),
       ]);
-      set({ tournees, adresses, campagnes, equipes, decomptes });
+      // Ménage : une version précédente pouvait enregistrer des « tournées
+      // fantômes » (sans nom ni contour) à partir d'un évènement temps réel
+      // incomplet. Elles disparaissent ici, dès le lancement et sans réseau.
+      const { propre } = await purgerFantomes({
+        tournees,
+        adresses,
+        campagnes,
+        equipes,
+        decomptes,
+      });
+      set(propre);
       if (!supabaseActif || !supabase) {
         set({ pret: true });
         return;

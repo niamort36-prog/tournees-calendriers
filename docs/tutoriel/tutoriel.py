@@ -575,9 +575,11 @@ p('Aucun problème : un bandeau orange « Hors ligne » apparaît, et vous pouve
   '<b>continuer à travailler normalement</b>. Tout est enregistré dans le téléphone, '
   'et repart automatiquement vers les collègues dès que le réseau revient. Les '
   'portions de carte déjà consultées restent affichées.')
-p('Tant qu’il reste des saisies à envoyer, un bouton orange <b>« ⏳ N en attente »</b> '
-  's’affiche en haut de l’écran. Il disparaît tout seul dès que tout est parti. Si '
-  'vous êtes pressé, appuyez dessus : l’application réessaie immédiatement.')
+p('Vous n’avez rien à surveiller ni aucun bouton à appuyer : les saisies repartent '
+  'toutes seules dès que le réseau revient, à chaque ouverture de l’application et '
+  'automatiquement toutes les trois minutes. Les indicateurs d’envoi et les messages '
+  'techniques de synchronisation sont réservés à l’administrateur, pour ne pas vous '
+  'encombrer l’écran en pleine tournée.')
 encadre('Vos saisies ne sont jamais perdues',
         'Même si l’application est fermée ou le téléphone éteint, les modifications '
         'faites hors réseau restent en mémoire et repartent à la prochaine ouverture. '
@@ -617,7 +619,10 @@ puces([
     'des <b>outils de dessin</b> en haut à gauche de la carte, pour tracer les tournées ;',
     'du bouton <b>Membres</b>, pour gérer les comptes ;',
     'des montants et des exports dans la <b>Synthèse</b> ;',
-    'de la <b>visibilité de toutes les tournées</b>.',
+    'de la <b>visibilité de toutes les tournées</b> ;',
+    'du <b>suivi des envois</b> : le bouton orange « ⏳ N en attente » et les messages '
+    'techniques de synchronisation n’apparaissent que chez vous. Appuyez sur le '
+    'bouton pour forcer un envoi immédiat.',
 ])
 
 p('3.2 — Passer en « vue membre » pour simplifier l’écran', 'h1')
@@ -873,10 +878,14 @@ tableau(['Situation', 'Que faire'], [
      'Demandez-lui de fermer et rouvrir l’application. Elle se resynchronise à chaque '
      'ouverture, au retour du réseau et automatiquement toutes les trois minutes.'],
     ['<b>Un point est repassé gris tout seul</b>',
-     'Vérifiez qu’il n’y a pas de bouton orange « ⏳ en attente » : si oui, appuyez '
-     'dessus. Vérifiez aussi que l’<b>heure du téléphone est réglée automatiquement</b> '
-     '(Réglages → Date et heure) : une horloge décalée peut faire croire à '
-     'l’application qu’une vieille saisie est la plus récente.'],
+     'Fermez et rouvrez l’application : les envois restés en attente repartent à '
+     'l’ouverture. Vérifiez aussi que l’<b>heure du téléphone est réglée '
+     'automatiquement</b> (Réglages → Date et heure) : une horloge décalée peut faire '
+     'croire à l’application qu’une vieille saisie est la plus récente.'],
+    ['<b>Une tournée sans nom et sans point apparaît dans la liste</b>',
+     'C’est un défaut d’affichage corrigé : fermez et rouvrez l’application, elle '
+     's’effacera toute seule au démarrage. <b>N’appuyez pas sur la corbeille</b> : '
+     'prévenez l’administrateur si elle revient.'],
     ['<b>J’ai du mal à appuyer sur les points</b>',
      'Zoomez avec deux doigts : les points s’écartent. L’application rattrape aussi '
      'les appuis un peu à côté en ouvrant la maison la plus proche.'],
