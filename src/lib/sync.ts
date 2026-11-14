@@ -25,7 +25,7 @@ import type {
 
 // ---------- correspondance application <-> colonnes SQL ----------
 
-function tourneeVersLigne(t: Tournee) {
+export function tourneeVersLigne(t: Tournee) {
   return {
     id: t.id,
     nom: t.nom,
@@ -53,7 +53,7 @@ function ligneVersTournee(l: Record<string, unknown>): Tournee {
   };
 }
 
-function campagneVersLigne(c: Campagne) {
+export function campagneVersLigne(c: Campagne) {
   return {
     id: c.id,
     nom: c.nom,
@@ -81,7 +81,7 @@ function ligneVersCampagne(l: Record<string, unknown>): Campagne {
   };
 }
 
-function equipeVersLigne(e: Equipe) {
+export function equipeVersLigne(e: Equipe) {
   return {
     id: e.id,
     nom: e.nom,
@@ -103,7 +103,7 @@ function ligneVersEquipe(l: Record<string, unknown>): Equipe {
   };
 }
 
-function decompteVersLigne(d: Decompte) {
+export function decompteVersLigne(d: Decompte) {
   return {
     id: d.id,
     tournee_id: d.tourneeId,
@@ -141,7 +141,7 @@ function ligneVersDecompte(l: Record<string, unknown>): Decompte {
   };
 }
 
-function adresseVersLigne(a: AdressePoint) {
+export function adresseVersLigne(a: AdressePoint) {
   return {
     id: a.id,
     tournee_id: a.tourneeId,
@@ -559,7 +559,7 @@ export const syncEquipe = (e: Equipe) =>
     ? Promise.resolve()
     : pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
 export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });
-function journalVersLigne(e: EntreeJournal) {
+export function journalVersLigne(e: EntreeJournal) {
   return {
     id: e.id,
     type: e.type,

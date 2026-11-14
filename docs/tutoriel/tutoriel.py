@@ -798,6 +798,46 @@ p('En bas, le tableau <b>Historique par tournée</b> se remplit d’année en an
   'vous pourrez comparer les campagnes entre elles. Le bouton <b>Exporter tout en '
   'Excel</b> produit un classeur avec cinq feuilles (tournées, adresses, décomptes, '
   'lots, campagne) — idéal pour la comptabilité de l’amicale.')
+p('Juste en dessous, <b>💾 Sauvegarde complète (fichier de secours)</b> enregistre '
+  'tout l’avancement dans un seul fichier, sur l’appareil. Ce n’est pas un document à '
+  'lire : c’est la copie qui permettrait de <b>tout remettre en place</b> si la base '
+  'était perdue. Le réflexe utile : appuyer dessus <b>juste avant une manipulation '
+  'délicate</b> — recalculer une zone, archiver la campagne, un gros ménage.')
+
+p('3.8 bis — Les sauvegardes automatiques', 'h1')
+p('Indépendamment de tout cela, l’avancement des tournées est sauvegardé '
+  '<b>trois fois par jour — à 6 h, à 13 h et à 23 h</b> — dans le Google Drive de '
+  'l’amicale, dossier <b>sauvegarde calendriers pompiers</b>. Vous n’avez rien à '
+  'faire : ça tourne chez Google, pas sur un ordinateur, donc les sauvegardes '
+  'partent même ordinateur éteint et téléphone éteint.')
+p('À chaque passage, deux fichiers arrivent dans le dossier :')
+puces([
+    'un fichier <b>sauvegarde-2026-11-14-06h.json</b> : la vraie copie, celle qui '
+    'sert à restaurer. Inutile de l’ouvrir ;',
+    'une <b>feuille de calcul du jour</b>, remise à jour aux trois passages, qui '
+    's’ouvre d’un clic : tournées, adresses et décomptes en clair.',
+])
+p('Ce qui est sauvegardé : le statut de chaque maison, les sommes reçues et leur '
+  'détail, les calendriers laissés, les commentaires, les rappels « à repasser », '
+  'les appartements des immeubles, les décomptes et numéros de reçu, les équipes, '
+  'les campagnes et le journal des interventions. Jamais les mots de passe : ils '
+  'ne sont lisibles par personne, vous compris.')
+encadre('Si une sauvegarde échoue',
+        'Vous recevez un courriel avec le motif, sur l’adresse du compte Google qui '
+        'a installé la sauvegarde. Les sauvegardes précédentes ne sont jamais '
+        'touchées : une panne ne peut pas les abîmer, et la tentative suivante a '
+        'lieu au prochain horaire.')
+encadre('Pour que le dossier ne grossisse pas sans fin',
+        'Tout est gardé pendant <b>60 jours</b> ; ensuite une sauvegarde par jour '
+        'pendant un an ; au-delà, une par mois, pour toujours. Rien n’est effacé '
+        'définitivement : les fichiers écartés partent à la <b>corbeille du '
+        'Drive</b>, où ils restent récupérables.')
+encadre('Et pour restaurer ?',
+        'Cela ne s’improvise pas et ne se fait pas depuis l’application : une '
+        'restauration écrase ce qui est dans la base. La marche à suivre est '
+        'écrite dans le dossier <b>docs/sauvegarde</b> du projet, et il est '
+        'possible de ne remettre <b>qu’une seule tournée</b>. En cas de besoin, '
+        'commencez par prendre une sauvegarde fraîche avec le bouton du 3.8.')
 
 p('3.9 — Le récapitulatif des commentaires et des interventions', 'h1')
 p('En bas de la Synthèse, deux tableaux réservés aux administrateurs permettent de '
@@ -898,6 +938,10 @@ tableau(['Situation', 'Que faire'], [
      'l’ouverture. Vérifiez aussi que l’<b>heure du téléphone est réglée '
      'automatiquement</b> (Réglages → Date et heure) : une horloge décalée peut faire '
      'croire à l’application qu’une vieille saisie est la plus récente.'],
+    ['<b>Où sont les sauvegardes ?</b>',
+     'Dans votre Google Drive, dossier <b>sauvegarde calendriers pompiers</b> : trois '
+     'par jour, à 6 h, 13 h et 23 h. La feuille <b>lisible-...</b> du jour s’ouvre '
+     'directement dans le navigateur. Voir la partie 3.8 bis.'],
     ['<b>Une tournée sans nom et sans point apparaît dans la liste</b>',
      'Vous ne devriez plus en voir : ces coquilles vides sont désormais masquées aux '
      'comptes Normal et l’administrateur les supprime d’un bouton. Si l’une d’elles '

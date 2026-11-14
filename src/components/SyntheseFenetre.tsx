@@ -1,10 +1,11 @@
 // Fenêtre « Synthèse » : grands compteurs, camemberts (statuts des adresses,
-// répartition des paiements), barres par tournée, export Excel.
+// répartition des paiements), barres par tournée, export Excel et sauvegarde.
 
 import { useEffect, useState } from 'react';
 import { estAdminEffectif, useAppStore } from '../store/useAppStore';
 import RecapModifications from './RecapModifications';
 import { construireFeuilles, exporterExcel, type DonneesExport } from '../lib/exportExcel';
+import { telechargerSauvegarde } from '../lib/sauvegarde';
 import {
   COULEUR_STATUT,
   LIBELLE_JOURNAL,
@@ -174,6 +175,21 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
       (window as unknown as Record<string, unknown>).dernierExport = construireFeuilles(donnees);
     }
     exporterExcel(donnees);
+  };
+
+  // Sauvegarde complete : tout l'avancement dans un seul fichier, au meme
+  // format que les sauvegardes automatiques du Drive. Sert a repartir de zero
+  // si la base etait perdue (voir docs/sauvegarde/README.md).
+  const sauvegarder = () => {
+    telechargerSauvegarde({
+      tournees,
+      adresses,
+      equipes,
+      decomptes,
+      campagnes,
+      annuaire,
+      journal,
+    });
   };
 
   return (
@@ -452,6 +468,12 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
         {estAdmin && (
           <button className="btn-export" onClick={exporter}>
             📥 Exporter tout en Excel
+          </button>
+        )}
+
+        {estAdmin && (
+          <button className="btn-export secondaire" onClick={sauvegarder}>
+            💾 Sauvegarde complète (fichier de secours)
           </button>
         )}
 
