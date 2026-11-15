@@ -370,7 +370,7 @@ tableau(['Bouton', 'À quoi il sert'], [
     ['<b>Liste</b> (bloc-notes)', 'Afficher la liste des adresses classées de la plus '
      'proche à la plus lointaine'],
     ['<b>Position</b> (punaise)', 'Afficher votre position : un point bleu vous suit '
-     'sur la carte'],
+     'sur la carte (ou l’icône de votre choix, voir 2.12)'],
 ], [5.4 * cm, 11 * cm])
 
 p('2.1 bis — Orienter la carte dans le sens de la marche', 'h1')
@@ -625,6 +625,27 @@ encadre('Chacun ne reçoit que les rappels qui le concernent',
 p('Si plus de trois rappels tombent en même temps, l’application n’envoie '
   'qu’une seule notification de résumé (« ⏰ 6 adresses à repasser ») au lieu '
   'de faire sonner le téléphone six fois de suite.')
+
+p('2.12 — Les réglages : choisir l’icône de sa position', 'h1')
+p('Le bouton <b>Réglages</b> (la roue dentée), en haut de l’écran, regroupe vos '
+  'réglages personnels. Sur un téléphone, il est réduit à la <b>roue dentée seule</b>, '
+  'juste à côté du nom de la campagne.')
+p('Pour commencer, il permet de choisir l’<b>icône qui marque votre position</b> sur '
+  'la carte, à la place du rond bleu habituel : un pompier, la tête casquée, le '
+  'camion, l’ambulance, le gyrophare, l’hélicoptère… et même une <b>citrouille</b> ou '
+  'un <b>bonhomme de neige</b> coiffés du casque de pompier.')
+etapes([
+    'Appuyez sur <b>Réglages</b> (la roue dentée) en haut de l’écran.',
+    'Touchez l’icône qui vous plaît : elle s’entoure de bleu et se coche.',
+    'Fermez la fenêtre, ou appuyez sur <b>Afficher ma position sur la carte</b>.',
+])
+image('membre-reglages', 5.4, 'La fenêtre Réglages : ici, la citrouille casquée est choisie')
+encadre('Bon à savoir',
+        'Le choix vaut pour <b>ce téléphone</b> seulement : chacun peut avoir la sienne. '
+        'Votre position, elle, n’est jamais envoyée aux collègues. L’icône reste droite '
+        'quand on tourne la carte, et elle ne gêne pas : toucher une maison juste '
+        'dessous ouvre bien sa fiche. Le dessin des emojis varie un peu selon la '
+        'marque du téléphone. Pour revenir au point habituel, choisissez <b>Rond bleu</b>.')
 
 # ============================== PARTIE 3 ==============================
 titre_partie(3, 'Guide de l’administrateur')

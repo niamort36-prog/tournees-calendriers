@@ -2969,6 +2969,31 @@ body {
   padding: 4px 6px;
 }
 
+/* ---------- Écrans moyens (tablette, petit PC) ---------- */
+
+/* Le bouton Réglages se réduit à ⚙️ tant que la place manque. */
+@media (max-width: 1100px) {
+  .libelle-reglages {
+    display: none;
+  }
+  .entete > .btn-reglages {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+}
+
+/* Le bandeau passe à la ligne plutôt que de sortir de l'écran (« ☰ Tournées »
+   devenait invisible) ou d'écraser la recherche. */
+@media (min-width: 721px) and (max-width: 1200px) {
+  .entete {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .recherche {
+    min-width: 200px;
+  }
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {
@@ -2985,6 +3010,23 @@ body {
     order: 3;
     flex-basis: 100%;
     max-width: none;
+  }
+
+  /* Le bouton Réglages, réduit à ⚙️, monte sur la première ligne à côté de
+     la campagne : le bandeau ne prend pas une ligne de plus sur la carte. */
+  .entete > * {
+    order: 2;
+  }
+  .entete > .titre,
+  .entete > .btn-attente,
+  .entete > .btn-campagne {
+    order: 0;
+  }
+  .entete > .btn-reglages {
+    order: 1;
+  }
+  .entete > .recherche {
+    order: 3;
   }
 
   .panneau {
@@ -3041,4 +3083,124 @@ body {
   color: var(--texte);
   font-size: 14px;
   cursor: pointer;
+}
+
+/* ---------- Réglages : icône de ma position ---------- */
+
+.reglage-bloc h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.icones-groupe h4 {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-doux);
+}
+
+.icones-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.icone-choix {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 84px;
+  padding: 8px 4px 7px;
+  border: 2px solid var(--bordure);
+  border-radius: 10px;
+  background: #f2efe9; /* teinte du plan de la carte */
+  color: var(--texte);
+  font: inherit;
+  cursor: pointer;
+}
+
+.icone-choix:hover {
+  border-color: #9fb3cf;
+}
+
+.icone-choix.choisie {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+  box-shadow: 0 0 0 1px #1a73e8;
+}
+
+.icone-choix-nom {
+  font-size: 11.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.icone-choix-coche {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.apercu-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.apercu-icone svg {
+  width: 40px;
+  height: 40px;
+}
+
+.apercu-rond-bleu {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1a73e8;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.reglage-voir-position {
+  margin-top: 16px;
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 9px;
+  background: var(--marine);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Sur la carte : l'icône choisie, avec un léger contour pour rester visible
+   sur le plan comme sur les photos aériennes. Le doigt passe au travers. */
+.leaflet-marker-icon.icone-position {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.icone-position-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.icone-position.dessin svg {
+  width: 40px;
+  height: 40px;
 }

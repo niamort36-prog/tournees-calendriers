@@ -18,6 +18,7 @@ import type {
 import { decompteVide, formatEuros, totalDecompte, trouverDecompte } from '../types';
 import { notifier, permissionAccordee } from '../lib/notifications';
 import { maintenantISO, synchroniserHorloge } from '../lib/horloge';
+import { ecrireIconePosition, lireIconePosition, trouverIcone } from '../lib/iconesPosition';
 
 // verrou anti-doublon : une seule création de décompte à la fois par tournée
 const decomptesEnCreation = new Map<string, Promise<string>>();
@@ -338,6 +339,8 @@ interface EtatApp {
   adresseOuverteId: string | null;
   vueListe: boolean;
   positionGPS: { lat: number; lng: number } | null;
+  /** Icône qui marque ma position sur la carte (réglage propre à cet appareil). */
+  iconePosition: string;
   /** Orientation de la carte en degrés (0 = nord en haut). */
   orientation: number;
   /**
@@ -403,6 +406,7 @@ interface EtatApp {
   fermerVueListe: () => void;
   setCentreCarte: (c: { lat: number; lng: number }) => void;
   demarrerGPS: () => void;
+  choisirIconePosition: (id: string) => void;
   /** Oriente la carte (degrés, ramenés dans 0–359). */
   definirOrientation: (degres: number) => void;
   definirNotifierTout: (actif: boolean) => void;
@@ -1154,6 +1158,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     adresseOuverteId: null,
     vueListe: false,
     positionGPS: null,
+    iconePosition: lireIconePosition(),
     orientation: 0,
     notifierTout: chargerNotifierTout(),
     gpsActif: false,
@@ -1551,6 +1556,12 @@ export const useAppStore = create<EtatApp>((set, get) => {
         },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
       );
+    },
+
+    choisirIconePosition: (id) => {
+      const choisie = trouverIcone(id).id;
+      ecrireIconePosition(choisie);
+      set({ iconePosition: choisie });
     },
 
     majAdresse: async (id, patch) => {

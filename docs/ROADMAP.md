@@ -151,6 +151,15 @@
       base d'essai PGlite : `tests/sql/`) ; l'appli refuse d'archiver tant
       qu'elle n'est pas passée. Pré-remplissage du décompte et total d'un
       immeuble : seul l'argent des maisons / appartements « distribué » compte.
+- [x] Onglet « ⚙️ Réglages » dans le bandeau (15/11/2026) : choix de l'icône
+      de ma position (rond bleu par défaut ; pompiers, véhicules, gyrophare,
+      hélicoptère ; citrouille, bonhomme de neige et tête coiffés d'un casque F1,
+      dessinés dans `src/lib/iconesPosition.ts`). Choix propre à l'appareil
+      (localStorage `icone-position`), jamais envoyé au serveur. L'icône reste
+      droite quand la carte tourne et laisse passer le doigt vers les pings.
+      Bandeau : « ⚙️ » seul sous 1100 px, sur la 1re ligne au téléphone ; entre
+      721 et 1200 px le bandeau passe à la ligne (avant : « ☰ Tournées » sortait
+      de l'écran sur tablette, recherche écrasée).
 
 ## Limites connues (v1)
 - Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une

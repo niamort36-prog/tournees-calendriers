@@ -8,6 +8,7 @@ import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../stor
 import MenuNavigation from './MenuNavigation';
 import { COULEUR_STATUT, type AdressePoint } from '../types';
 import type { LatLng } from '../lib/geo';
+import { htmlIcone, ICONE_PAR_DEFAUT, trouverIcone } from '../lib/iconesPosition';
 
 // ----- dernière vue de la carte, gardée sur l'appareil -----
 // L'application rouvre là où on l'a laissée, au lieu de montrer la France
@@ -53,6 +54,8 @@ export default function MapView() {
   // vrai une fois la carte placée (vue mémorisée, ou premier cadrage sur les tournées)
   const cadrageInitialFait = useRef(false);
   const positionRef = useRef<L.LayerGroup | null>(null);
+  // le point « ma position » affiché, et l'icône avec laquelle il a été dessiné
+  const pointPositionRef = useRef<{ couche: L.Marker | L.CircleMarker; icone: string } | null>(null);
   const fondPlanRef = useRef<L.TileLayer | null>(null);
   const fondSatelliteRef = useRef<L.TileLayer | null>(null);
   const editionActiveRef = useRef(false);
@@ -68,6 +71,7 @@ export default function MapView() {
   const deplacementAdresseId = useAppStore((s) => s.deplacementAdresseId);
   const cadrage = useAppStore((s) => s.cadrage);
   const positionGPS = useAppStore((s) => s.positionGPS);
+  const iconePosition = useAppStore((s) => s.iconePosition);
   const fondSatellite = useAppStore((s) => s.fondSatellite);
   const orientation = useAppStore((s) => s.orientation);
   const profil = useAppStore((s) => s.profil);
@@ -186,6 +190,7 @@ export default function MapView() {
       map.remove();
       mapRef.current = null;
       marqueursParId.current = new Map();
+      pointPositionRef.current = null;
     };
   }, []);
 
@@ -433,23 +438,54 @@ export default function MapView() {
     }
   }, [adresses, visibles]);
 
-  // Point bleu : ma position GPS
+  // Ma position GPS : le rond bleu, ou l'icône choisie dans les réglages.
+  // Le point est déplacé à chaque nouvelle position, et redessiné seulement
+  // quand l'icône change.
   useEffect(() => {
     const groupe = positionRef.current;
     if (!groupe) return;
-    groupe.clearLayers();
-    if (positionGPS) {
-      L.circleMarker([positionGPS.lat, positionGPS.lng], {
-        radius: 9,
-        color: '#ffffff',
-        weight: 3,
-        fillColor: '#1a73e8',
-        fillOpacity: 1,
-        bubblingMouseEvents: false,
-        pmIgnore: true,
-      } as L.CircleMarkerOptions).addTo(groupe);
+    if (!positionGPS) {
+      groupe.clearLayers();
+      pointPositionRef.current = null;
+      return;
     }
-  }, [positionGPS]);
+    const ici: L.LatLngExpression = [positionGPS.lat, positionGPS.lng];
+    const actuel = pointPositionRef.current;
+    if (actuel && actuel.icone === iconePosition) {
+      actuel.couche.setLatLng(ici);
+      return;
+    }
+    groupe.clearLayers();
+    const icone = trouverIcone(iconePosition);
+    const couche =
+      icone.id === ICONE_PAR_DEFAUT
+        ? L.circleMarker(ici, {
+            radius: 9,
+            color: '#ffffff',
+            weight: 3,
+            fillColor: '#1a73e8',
+            fillOpacity: 1,
+            bubblingMouseEvents: false,
+            pmIgnore: true,
+          } as L.CircleMarkerOptions)
+        : // L'icône reste droite quand on tourne la carte, passe au-dessus des
+          // pings, et laisse passer le doigt : toucher une maison sous
+          // l'icône ouvre toujours sa fiche.
+          L.marker(ici, {
+            icon: L.divIcon({
+              className: 'icone-position' + (icone.svg ? ' dessin' : ''),
+              html: htmlIcone(icone),
+              iconSize: [40, 40],
+              iconAnchor: [20, 20],
+            }),
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 1000,
+            pmIgnore: true,
+          } as L.MarkerOptions);
+    couche.addTo(groupe);
+    pointPositionRef.current = { couche, icone: icone.id };
+  }, [positionGPS, iconePosition]);
 
   // Recentrage demandé par la recherche ou le bouton « Voir »
   useEffect(() => {

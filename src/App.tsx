@@ -9,6 +9,7 @@ import EquipesTournees from './components/EquipesTournees';
 import FicheAdresse from './components/FicheAdresse';
 import ListeAdresses from './components/ListeAdresses';
 import SyntheseFenetre from './components/SyntheseFenetre';
+import Reglages from './components/Reglages';
 import { useAppStore } from './store/useAppStore';
 import { supabaseActif } from './lib/supabase';
 import { demanderPermission, permissionADemander } from './lib/notifications';
@@ -20,6 +21,7 @@ export default function App() {
   const [campagneOuverte, setCampagneOuverte] = useState(false);
   const [equipesOuvertes, setEquipesOuvertes] = useState(false);
   const [syntheseOuverte, setSyntheseOuverte] = useState(false);
+  const [reglagesOuverts, setReglagesOuverts] = useState(false);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const notification = useAppStore((s) => s.notification);
   const vueListe = useAppStore((s) => s.vueListe);
@@ -131,7 +133,7 @@ export default function App() {
             ⏳ {enAttente} en attente
           </button>
         )}
-        <button className="btn-equipe" onClick={() => setCampagneOuverte(true)}>
+        <button className="btn-equipe btn-campagne" onClick={() => setCampagneOuverte(true)}>
           📅 {campagneActive ? campagneActive.nom : 'Campagne'}
         </button>
         <button className="btn-equipe" onClick={() => setEquipesOuvertes(true)}>
@@ -145,6 +147,14 @@ export default function App() {
             👥 Membres
           </button>
         )}
+        <button
+          className="btn-equipe btn-reglages"
+          title="Réglages"
+          aria-label="Réglages"
+          onClick={() => setReglagesOuverts(true)}
+        >
+          ⚙️<span className="libelle-reglages"> Réglages</span>
+        </button>
         {profil && (
           <div className="utilisateur">
             👤 {profil.nom}
@@ -207,6 +217,7 @@ export default function App() {
       {campagneOuverte && <CampagneFenetre onFermer={() => setCampagneOuverte(false)} />}
       {equipesOuvertes && <EquipesTournees onFermer={() => setEquipesOuvertes(false)} />}
       {syntheseOuverte && <SyntheseFenetre onFermer={() => setSyntheseOuverte(false)} />}
+      {reglagesOuverts && <Reglages onFermer={() => setReglagesOuverts(false)} />}
       <div className="contenu">
         <Sidebar ouvert={panneauOuvert} onFermer={() => setPanneauOuvert(false)} />
         <main className="carte-conteneur">
