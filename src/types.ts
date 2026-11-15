@@ -335,6 +335,33 @@ export function formatEuros(n: number): string {
   return n.toFixed(2).replace('.', ',') + ' €';
 }
 
+/**
+ * Vrai si un décompte ne contient rien du tout : aucun participant, aucune
+ * demi-journée, aucun montant, pas terminé, pas de numéro de reçu.
+ */
+export function decompteVide(d: Decompte): boolean {
+  return (
+    (d.participants ?? []).length === 0 &&
+    (d.seances ?? []).length === 0 &&
+    Object.values(d.especes ?? {}).every((n) => !n) &&
+    (d.cheques ?? []).length === 0 &&
+    d.cb == null &&
+    d.calendriersDistribues == null &&
+    !d.termine &&
+    d.numeroRecu == null
+  );
+}
+
+/**
+ * Date du jour (AAAA-MM-JJ) à l'heure du téléphone. L'heure universelle
+ * donnait la veille entre minuit et une heure du matin.
+ */
+export function aujourdHui(): string {
+  const d = new Date();
+  const deux = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`;
+}
+
 /** Tri alphabétique des tournées (numérique : « Tournée 2 » avant « Tournée 10 »). */
 export function trierTournees(liste: Tournee[]): Tournee[] {
   return [...liste].sort((a, b) =>

@@ -53,6 +53,9 @@ export default function Equipe({ onFermer }: { onFermer: () => void }) {
           approuve: d.approuve !== false,
         })),
       );
+      // les autres fenêtres (équipes, décompte) connaissent aussitôt les
+      // comptes créés, renommés ou supprimés ici
+      void useAppStore.getState().rafraichirAnnuaire();
     }
   };
 

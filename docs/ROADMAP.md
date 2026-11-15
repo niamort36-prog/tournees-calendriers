@@ -127,6 +127,23 @@
       - export Excel chargé à la demande, mise à jour automatique de
         l'application, ménage des décomptes vides ;
       - tests automatiques : `npm test` (voir tests/LISEZ-MOI.md).
+- [x] Seconde passe de l'audit (15/11/2026), écrans d'administration :
+      - décompte : ce qui est tapé est pris en compte à la validation, à la
+        fermeture et au verrouillage (le dernier montant pouvait manquer au
+        reçu) ; les cases suivent le décompte rempli par un collègue ; plus
+        d'écriture sans changement ;
+      - toutes les modifications (décompte, équipe, campagne, tournée) mettent
+        l'écran à jour avant d'écrire sur le disque : deux modifications
+        rapprochées ne s'écrasent plus ;
+      - détail du paiement : les montants à virgule se tapent normalement
+        (« 12,50 » devenait 1250) ;
+      - campagne : commandés / taille des paquets enregistrés en sortant de la
+        case, et non à chaque chiffre ;
+      - export Excel : feuille des décomptes sans les décomptes vides, avec une
+        colonne Campagne ;
+      - outils de dessin chargés pour les seuls administrateurs : fichier
+        principal 1 129 → 849 Ko (1 407 Ko avant l'audit) ;
+      - recherche d'adresse et « ➕ Adresse » : plus de blocage sans réseau.
 
 ## Limites connues (v1)
 - Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une

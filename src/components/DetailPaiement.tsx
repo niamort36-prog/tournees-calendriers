@@ -1,6 +1,7 @@
 // Bloc « détail du paiement » : pièces, billets, chèques et carte bancaire.
 // Utilisé pour une maison et pour chaque appartement d'un immeuble.
 
+import { useEffect, useState } from 'react';
 import {
   COUPURES,
   formatEuros,
@@ -9,6 +10,64 @@ import {
   totalPaiement,
   type PaiementAdresse,
 } from '../types';
+
+/** Lit un montant tapé : null si la case est vide, undefined si ce n'est pas un nombre. */
+function lireMontant(texte: string): number | null | undefined {
+  const brut = texte.trim().replace(',', '.');
+  if (brut === '') return null;
+  const n = Number(brut);
+  return Number.isNaN(n) || n < 0 ? undefined : n;
+}
+
+/**
+ * Case de montant où l'on peut taper une virgule.
+ *
+ * Avant, la case réaffichait à chaque frappe le nombre déjà compris : en
+ * tapant « 12,50 », la virgule disparaissait aussitôt (« 12, » vaut 12) et l'on
+ * obtenait 1250. Ici la case garde le texte tel qu'il est tapé et ne transmet
+ * que le nombre qu'il représente.
+ *
+ * `zeroSiVide` : pour un chèque, une case vide vaut 0 (et 0 s'affiche vide).
+ */
+function ChampMontant({
+  valeur,
+  onValeur,
+  placeholder,
+  zeroSiVide = false,
+}: {
+  valeur: number | null;
+  onValeur: (v: number | null) => void;
+  placeholder: string;
+  zeroSiVide?: boolean;
+}) {
+  const normaliser = (v: number | null | undefined) => (zeroSiVide ? (v ?? 0) : (v ?? null));
+  const enTexte = (v: number | null) =>
+    v == null || (zeroSiVide && v === 0) ? '' : String(v).replace('.', ',');
+  const [texte, setTexte] = useState(() => enTexte(valeur));
+
+  // La valeur a changé ailleurs (collègue, ligne retirée) : la case suit.
+  useEffect(() => {
+    const lu = lireMontant(texte);
+    if (lu === undefined || normaliser(lu) !== normaliser(valeur)) setTexte(enTexte(valeur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valeur]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={texte}
+      onChange={(e) => {
+        const suite = e.target.value;
+        setTexte(suite);
+        const lu = lireMontant(suite);
+        // texte incomplet (« 12, ») ou identique : rien à transmettre
+        if (lu !== undefined && normaliser(lu) !== normaliser(valeur)) onValeur(lu);
+      }}
+    />
+  );
+}
 
 export default function DetailPaiement({
   paiement,
@@ -80,15 +139,13 @@ export default function DetailPaiement({
             <strong>🧾 Chèques</strong>
             {p.cheques.map((montant, i) => (
               <div key={i} className="cheque-ligne">
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <ChampMontant
                   placeholder="montant"
-                  value={montant === 0 ? '' : String(montant)}
-                  onChange={(e) => {
-                    const v = Number(e.target.value.replace(',', '.'));
+                  zeroSiVide
+                  valeur={montant}
+                  onValeur={(v) => {
                     const cheques = [...p.cheques];
-                    cheques[i] = Number.isNaN(v) ? 0 : v;
+                    cheques[i] = v ?? 0;
                     appliquer({ ...p, cheques });
                   }}
                 />
@@ -113,16 +170,10 @@ export default function DetailPaiement({
 
           <label className="paiement-cb">
             💳 Carte bancaire
-            <input
-              type="text"
-              inputMode="decimal"
+            <ChampMontant
               placeholder="0"
-              value={p.cb != null ? String(p.cb) : ''}
-              onChange={(e) => {
-                const brut = e.target.value.trim().replace(',', '.');
-                const v = brut === '' ? null : Number(brut);
-                appliquer({ ...p, cb: v === null || Number.isNaN(v) ? null : v });
-              }}
+              valeur={p.cb ?? null}
+              onValeur={(v) => appliquer({ ...p, cb: v })}
             />
             <span>€</span>
           </label>

@@ -15,7 +15,7 @@ import type {
   Tournee,
   TypeJournal,
 } from '../types';
-import { formatEuros, totalDecompte, trouverDecompte } from '../types';
+import { decompteVide, formatEuros, totalDecompte, trouverDecompte } from '../types';
 import { notifier, permissionAccordee } from '../lib/notifications';
 import { maintenantISO, synchroniserHorloge } from '../lib/horloge';
 
@@ -149,18 +149,7 @@ export function equipesVides(equipes: Equipe[]): Equipe[] {
  * l'écran, mais chaque téléphone les télécharge à chaque synchronisation.
  */
 export function decomptesVides(decomptes: Decompte[]): Decompte[] {
-  return decomptes.filter(
-    (d) =>
-      d.campagneId === null &&
-      (d.participants ?? []).length === 0 &&
-      (d.seances ?? []).length === 0 &&
-      Object.values(d.especes ?? {}).every((n) => !n) &&
-      (d.cheques ?? []).length === 0 &&
-      d.cb == null &&
-      d.calendriersDistribues == null &&
-      !d.termine &&
-      d.numeroRecu == null,
-  );
+  return decomptes.filter((d) => d.campagneId === null && decompteVide(d));
 }
 
 // ----- réglage « me notifier de tout » (administrateurs) -----
@@ -1274,8 +1263,11 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const campagne = get().campagnes.find((c) => c.id === id);
       if (!campagne) return;
       const maj = { ...campagne, ...patch, modifieLe: maintenantISO() };
-      await db.campagnes.put(maj);
+      // L'écran d'abord, le disque ensuite : deux modifications qui se suivent
+      // de près partent ainsi chacune de la précédente. Avant, la seconde
+      // repartait de l'ancienne version et effaçait la première.
       set((s) => ({ campagnes: s.campagnes.map((c) => (c.id === id ? maj : c)) }));
+      await db.campagnes.put(maj);
       await syncCampagne(maj);
     },
 
@@ -1360,8 +1352,12 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const decompte = get().decomptes.find((d) => d.id === id);
       if (!decompte) return;
       const maj = { ...decompte, ...patch, modifieLe: maintenantISO() };
-      await db.decomptes.put(maj);
+      // L'écran d'abord (voir majCampagne). Ici l'enjeu est l'argent : un
+      // montant tapé juste avant « Valider la fin de tournée » était enregistré
+      // par une première écriture, puis la validation repartait de l'ancienne
+      // version du décompte — le reçu était validé sans ce montant.
       set((s) => ({ decomptes: s.decomptes.map((d) => (d.id === id ? maj : d)) }));
+      await db.decomptes.put(maj);
       await syncDecompte(maj);
     },
 
@@ -1402,8 +1398,10 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const equipe = get().equipes.find((e) => e.id === id);
       if (!equipe) return;
       const maj = { ...equipe, ...patch, modifieLe: maintenantISO() };
-      await db.equipes.put(maj);
+      // l'écran d'abord (voir majCampagne) : ajouter deux membres coup sur
+      // coup n'en perd plus un
       set((s) => ({ equipes: s.equipes.map((e) => (e.id === id ? maj : e)) }));
+      await db.equipes.put(maj);
       await syncEquipe(maj);
     },
 
@@ -1609,8 +1607,9 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const tournee = get().tournees.find((t) => t.id === id);
       if (!tournee) return;
       const maj = { ...tournee, ...patch, modifieLe: maintenantISO() };
-      await db.tournees.put(maj);
+      // l'écran d'abord (voir majCampagne)
       set((s) => ({ tournees: s.tournees.map((t) => (t.id === id ? maj : t)) }));
+      await db.tournees.put(maj);
       await syncTournee(maj);
     },
 
@@ -1744,8 +1743,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse || !libelle.trim()) return;
       const maj = { ...adresse, libelle: libelle.trim(), modifieLe: maintenantISO() };
-      await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      await db.adresses.put(maj);
       consigner('renommage', maj, `« ${adresse.libelle} » → « ${maj.libelle} »`);
       await syncAdresse(maj);
     },
@@ -1754,8 +1753,8 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const adresse = get().adresses.find((a) => a.id === id);
       if (!adresse) return;
       const maj = { ...adresse, lat, lng, modifieLe: maintenantISO() };
-      await db.adresses.put(maj);
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)), deplacementAdresseId: null }));
+      await db.adresses.put(maj);
       consigner(
         'deplacement',
         maj,

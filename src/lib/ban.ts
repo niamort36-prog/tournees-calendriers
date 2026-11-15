@@ -52,8 +52,15 @@ export interface InfoAdresse {
 }
 
 export async function geocodageInverse(lat: number, lng: number): Promise<InfoAdresse | null> {
+  // Pas plus de cinq secondes : sur un réseau faible la question restait sans
+  // réponse et le sablier « Recherche de l'adresse… » bloquait l'écran. Passé
+  // ce délai, l'adresse est créée « à préciser » et se renomme à la main.
+  const abandon = new AbortController();
+  const minuterie = setTimeout(() => abandon.abort(), 5000);
   try {
-    const r = await fetch(`${API_ADRESSE}/reverse/?lon=${lng}&lat=${lat}`);
+    const r = await fetch(`${API_ADRESSE}/reverse/?lon=${lng}&lat=${lat}`, {
+      signal: abandon.signal,
+    });
     if (!r.ok) return null;
     const f = (await r.json()).features?.[0];
     if (!f) return null;
@@ -65,6 +72,8 @@ export async function geocodageInverse(lat: number, lng: number): Promise<InfoAd
     };
   } catch {
     return null;
+  } finally {
+    clearTimeout(minuterie);
   }
 }
 

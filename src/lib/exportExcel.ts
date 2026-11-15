@@ -6,6 +6,7 @@ import type { AdressePoint, Campagne, Decompte, Equipe, Profil, Tournee } from '
 import {
   COUPURES,
   LIBELLE_STATUT,
+  decompteVide,
   totalCalendriersLots,
   totalDecompte,
   totalMontantLots,
@@ -63,9 +64,29 @@ export function construireFeuilles(d: DonneesExport): Record<string, Ligne[]> {
     Rappel: a.rappelLe ? new Date(a.rappelLe).toLocaleString('fr-FR') : '',
   }));
 
-  const feuilleDecomptes: Ligne[] = d.decomptes.map((dec) => {
+  // Les décomptes entièrement vides ne sont pas exportés (des centaines avaient
+  // été créés par erreur : la feuille en était noyée). La colonne « Campagne »
+  // distingue l'année en cours des années archivées.
+  const nomCampagne = (id: string | null) =>
+    id === null ? '' : (d.campagnes.find((c) => c.id === id)?.nom ?? '?');
+  const rangCampagne = (id: string | null) => (id === (campagneActive?.id ?? null) ? 0 : 1);
+  const decomptesReels = d.decomptes
+    .filter((dec) => !decompteVide(dec))
+    .sort(
+      (a, b) =>
+        rangCampagne(a.campagneId) - rangCampagne(b.campagneId) ||
+        nomCampagne(b.campagneId).localeCompare(nomCampagne(a.campagneId), 'fr', { numeric: true }) ||
+        nomTournee(a.tourneeId).localeCompare(nomTournee(b.tourneeId), 'fr', {
+          numeric: true,
+          sensitivity: 'base',
+        }),
+    );
+  const feuilleDecomptes: Ligne[] = decomptesReels.map((dec) => {
     const totaux = totalDecompte(dec);
     const ligne: Ligne = {
+      Campagne:
+        nomCampagne(dec.campagneId) +
+        (dec.campagneId !== null && dec.campagneId !== campagneActive?.id ? ' (archivée)' : ''),
       Tournée: nomTournee(dec.tourneeId),
       'N° de reçu': dec.numeroRecu,
       Terminée: dec.termine ? 'oui' : 'non',

@@ -16,6 +16,9 @@ export default function SearchBar() {
   const [resultats, setResultats] = useState<ResultatRecherche[]>([]);
   const [ouvert, setOuvert] = useState(false);
   const minuterie = useRef<number | null>(null);
+  // numéro de la dernière recherche lancée : une réponse plus ancienne, arrivée
+  // en retard, ne doit pas remplacer les résultats de la plus récente
+  const derniere = useRef(0);
 
   useEffect(() => {
     if (minuterie.current) window.clearTimeout(minuterie.current);
@@ -25,7 +28,15 @@ export default function SearchBar() {
       return;
     }
     minuterie.current = window.setTimeout(async () => {
-      const r = await rechercherAdresse(q.trim());
+      derniere.current += 1;
+      const numero = derniere.current;
+      let r: ResultatRecherche[] = [];
+      try {
+        r = await rechercherAdresse(q.trim());
+      } catch {
+        // hors ligne : pas de proposition, sans message d'erreur
+      }
+      if (numero !== derniere.current) return;
       setResultats(r);
       setOuvert(r.length > 0);
     }, 300);

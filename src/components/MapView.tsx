@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import '@geoman-io/leaflet-geoman-free';
 import 'leaflet-rotate';
+import { chargerOutilsDessin, equiperCarte } from '../lib/dessin';
 import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import MenuNavigation from './MenuNavigation';
 import { COULEUR_STATUT, type AdressePoint } from '../types';
@@ -109,7 +109,6 @@ export default function MapView() {
       { attribution: '© IGN — photos aériennes', maxZoom: 19 },
     );
 
-    map.pm.setLang('fr');
 
     map.on('pm:create', (e: any) => {
       const layer = e.layer as L.Polygon;
@@ -300,29 +299,47 @@ export default function MapView() {
     }
   }, [fondSatellite]);
 
-  // Outils de dessin : réservés aux administrateurs
+  // Outils de dessin : réservés aux administrateurs, et chargés pour eux seuls
+  // (voir lib/dessin.ts). La carte existe déjà à ce moment-là : on l'équipe,
+  // puis on retrace les zones pour qu'elles deviennent modifiables.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    let abandonne = false;
     if (estAdmin) {
-      map.pm.addControls({
-        position: 'topleft',
-        drawPolygon: true,
-        drawRectangle: true,
-        drawMarker: false,
-        drawCircleMarker: false,
-        drawCircle: false,
-        drawPolyline: false,
-        drawText: false,
-        editMode: true,
-        dragMode: false,
-        cutPolygon: false,
-        removalMode: false,
-        rotateMode: false,
-      });
-    } else {
+      void chargerOutilsDessin()
+        .then(() => {
+          if (abandonne || mapRef.current !== map || !equiperCarte(map)) return;
+          map.pm.setLang('fr');
+          map.pm.addControls({
+            position: 'topleft',
+            drawPolygon: true,
+            drawRectangle: true,
+            drawMarker: false,
+            drawCircleMarker: false,
+            drawCircle: false,
+            drawPolyline: false,
+            drawText: false,
+            editMode: true,
+            dragMode: false,
+            cutPolygon: false,
+            removalMode: false,
+            rotateMode: false,
+          });
+          setVersionEdition((v) => v + 1);
+        })
+        .catch(() => {
+          useAppStore.setState({
+            erreur:
+              "Les outils de dessin des tournées n'ont pas pu se charger (connexion ?). Le reste de l'application fonctionne normalement.",
+          });
+        });
+    } else if ((map as unknown as { pm?: unknown }).pm) {
       map.pm.removeControls();
     }
+    return () => {
+      abandonne = true;
+    };
   }, [estAdmin]);
 
   // Zones des tournées. On ne reconstruit pas les couches pendant l'édition de

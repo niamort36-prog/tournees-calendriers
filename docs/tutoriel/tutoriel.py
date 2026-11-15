@@ -461,6 +461,8 @@ etapes([
     'Recommencez s’il y en a plusieurs.',
     'Pour un paiement par carte, remplissez la case <b>Carte bancaire</b>.',
 ])
+p('Les montants acceptent les <b>centimes</b> : tapez-les avec une virgule, par '
+  'exemple « 12,50 ».')
 image('membre-paiement-detail', 7.5,
       'Le détail d’un paiement : un billet de 10 €, une pièce de 2 €, un chèque de 15 € '
       'et 12 € par carte')
@@ -813,7 +815,10 @@ p('En bas, le tableau <b>Historique par tournée</b> se remplit d’année en an
   'vous pourrez comparer les campagnes entre elles. Le bouton <b>Exporter tout en '
   'Excel</b> produit un classeur avec cinq feuilles (tournées, adresses, décomptes, '
   'lots, campagne) — idéal pour la comptabilité de l’amicale. La première fois, le '
-  'bouton indique « Préparation du fichier… » pendant une seconde ou deux.')
+  'bouton indique « Préparation du fichier… » pendant une seconde ou deux. La feuille '
+  'des décomptes commence par une colonne <b>Campagne</b> (l’année en cours d’abord, '
+  'les années archivées ensuite) et ne liste que les décomptes qui contiennent '
+  'quelque chose.')
 p('Juste en dessous, <b>💾 Sauvegarde complète (fichier de secours)</b> enregistre '
   'tout l’avancement dans un seul fichier, sur l’appareil. Ce n’est pas un document à '
   'lire : c’est la copie qui permettrait de <b>tout remettre en place</b> si la base '
@@ -901,6 +906,16 @@ etapes([
     'total se calcule tout seul</b>, et vous corrigez librement ce qui ne colle pas.',
     'Cliquez sur <b>Valider la fin de tournée</b> : un numéro de reçu est attribué.',
 ])
+p('Il n’y a <b>rien à enregistrer case par case</b> : ce que vous tapez est pris en '
+  'compte quand vous validez, quand vous fermez la fenêtre et même si le téléphone se '
+  'verrouille. Et si un collègue remplit le même décompte depuis un autre appareil, '
+  'ses chiffres apparaissent dans vos cases.')
+encadre('Vérifiez le total avant de valider',
+        'Un reçu validé reprend exactement le <b>TOTAL</b> affiché en bas de la '
+        'fenêtre. Si une tournée apparaît « Terminée » avec un reçu à <b>0,00 €</b> '
+        'alors que de l’argent a été compté, ouvrez son décompte, appuyez sur '
+        '<b>Rouvrir</b>, saisissez les montants et validez de nouveau : le numéro de '
+        'reçu reste le même.')
 image('admin-decompte', 14, 'La fenêtre de fin de tournée, avec le total automatique')
 encadre('Le comptage réel fait toujours foi',
         'Le pré-remplissage ne s’applique jamais tout seul : il faut appuyer sur le '

@@ -2,14 +2,16 @@
 // demi-journées (avec la voiture utilisée), décompte espèces / chèques / CB
 // avec total automatique, validation avec numéro de reçu.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { peutVoirRecette, useAppStore } from '../store/useAppStore';
 import RecuImprimable from './RecuImprimable';
 import {
   COUPURES,
   LIBELLE_MOMENT,
+  aujourdHui,
   formatEuros,
   paiementVide,
+  type Decompte,
   type PaiementAdresse,
   type Seance,
 } from '../types';
@@ -57,23 +59,54 @@ export default function DecompteFenetre({
   const [cb, setCb] = useState('');
   const [calendriers, setCalendriers] = useState('');
 
+  // Groupes de cases touchés depuis le dernier enregistrement.
+  const sale = useRef({ especes: false, cheques: false, cb: false, calendriers: false });
+  // (toujours la version à jour de la fonction définie plus bas)
+  const enregistrerSaisies = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    sale.current = { especes: false, cheques: false, cb: false, calendriers: false };
+  }, [decompte?.id]);
+
+  // Les cases suivent le décompte : si un collègue le remplit depuis un autre
+  // appareil pendant que la fenêtre est ouverte, elles se mettent à jour —
+  // sauf celles où l'on est en train d'écrire. Avant, elles gardaient
+  // l'ancienne valeur et la réenregistraient par-dessus en sortant de la case.
   useEffect(() => {
     if (!decompte) return;
-    const e: Record<string, string> = {};
-    for (const c of COUPURES) {
-      e[c.cle] = decompte.especes[c.cle] != null ? String(decompte.especes[c.cle]) : '';
+    if (!sale.current.especes) {
+      const e: Record<string, string> = {};
+      for (const c of COUPURES) {
+        e[c.cle] = decompte.especes[c.cle] != null ? String(decompte.especes[c.cle]) : '';
+      }
+      setEspeces(e);
     }
-    setEspeces(e);
-    setCheques(
-      decompte.cheques.map((l) => ({
-        nombre: l.nombre != null ? String(l.nombre) : '',
-        montant: l.montant != null ? String(l.montant) : '',
-      })),
-    );
-    setCb(decompte.cb != null ? String(decompte.cb) : '');
-    setCalendriers(decompte.calendriersDistribues != null ? String(decompte.calendriersDistribues) : '');
+    if (!sale.current.cheques) {
+      setCheques(
+        decompte.cheques.map((l) => ({
+          nombre: l.nombre != null ? String(l.nombre) : '',
+          montant: l.montant != null ? String(l.montant) : '',
+        })),
+      );
+    }
+    if (!sale.current.cb) setCb(decompte.cb != null ? String(decompte.cb) : '');
+    if (!sale.current.calendriers) {
+      setCalendriers(
+        decompte.calendriersDistribues != null ? String(decompte.calendriersDistribues) : '',
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decompte?.id]);
+  }, [decompte?.id, decompte?.modifieLe]);
+
+  // Téléphone verrouillé, ou autre application au premier plan : on enregistre
+  // ce qui est en cours de saisie.
+  useEffect(() => {
+    const surMasquage = () => {
+      if (document.hidden) enregistrerSaisies.current();
+    };
+    document.addEventListener('visibilitychange', surMasquage);
+    return () => document.removeEventListener('visibilitychange', surMasquage);
+  }, []);
 
   if (!autorise) {
     return (
@@ -171,6 +204,9 @@ export default function DecompteFenetre({
     setEspeces(e);
     setCheques(cumulMaisons.cheques.map((l) => ({ nombre: String(l.nombre), montant: String(l.montant) })));
     setCb(cumulMaisons.cb ? String(cumulMaisons.cb) : '');
+    sale.current.especes = false;
+    sale.current.cheques = false;
+    sale.current.cb = false;
     const resultat: Record<string, number | null> = {};
     for (const c of COUPURES) resultat[c.cle] = cumulMaisons.especes[c.cle] ?? null;
     void s().majDecompte(decompte.id, {
@@ -185,25 +221,54 @@ export default function DecompteFenetre({
   const totCb = decimal(cb);
   const total = Math.round((totEspeces + totCheques + totCb) * 100) / 100;
 
-  const commitEspeces = () => {
-    const resultat: Record<string, number | null> = {};
-    for (const c of COUPURES) {
-      const brut = (especes[c.cle] ?? '').trim();
-      resultat[c.cle] = brut === '' ? null : entier(brut);
+  const lignesDeCheques = (lignes: { nombre: string; montant: string }[]) =>
+    lignes
+      .filter((l) => l.nombre.trim() !== '' || l.montant.trim() !== '')
+      .map((l) => ({
+        nombre: l.nombre.trim() === '' ? null : entier(l.nombre),
+        montant: l.montant.trim() === '' ? null : decimal(l.montant),
+      }));
+
+  // Enregistre ce qui a été tapé et pas encore envoyé — sans effet sinon.
+  //
+  // Appelé en sortant d'une case, mais aussi AVANT de valider la fin de
+  // tournée, avant de fermer la fenêtre et quand le téléphone se verrouille :
+  // sur iPhone, toucher un bouton ne fait pas sortir de la case, et le dernier
+  // montant tapé manquait alors au décompte validé.
+  enregistrerSaisies.current = () => {
+    const touche = sale.current;
+    sale.current = { especes: false, cheques: false, cb: false, calendriers: false };
+    const courant = s().decomptes.find((d) => d.id === decompte.id);
+    // validé entre-temps (par un collègue, par exemple) : on n'y touche plus
+    if (!courant || courant.termine) return;
+    const patch: Partial<Decompte> = {};
+    if (touche.especes) {
+      const resultat: Record<string, number | null> = {};
+      for (const c of COUPURES) {
+        const brut = (especes[c.cle] ?? '').trim();
+        resultat[c.cle] = brut === '' ? null : entier(brut);
+      }
+      patch.especes = resultat;
     }
-    void s().majDecompte(decompte.id, { especes: resultat });
+    if (touche.cheques) patch.cheques = lignesDeCheques(cheques);
+    if (touche.cb) patch.cb = cb.trim() === '' ? null : decimal(cb);
+    if (touche.calendriers) {
+      patch.calendriersDistribues = calendriers.trim() === '' ? null : entier(calendriers);
+    }
+    if (Object.keys(patch).length > 0) void s().majDecompte(decompte.id, patch);
+  };
+  const enregistrer = () => enregistrerSaisies.current();
+
+  const fermer = () => {
+    enregistrer();
+    onFermer();
   };
 
-  const commitCheques = (lignes: { nombre: string; montant: string }[]) => {
+  const retirerCheques = (index: number) => {
+    const lignes = cheques.filter((_, j) => j !== index);
     setCheques(lignes);
-    void s().majDecompte(decompte.id, {
-      cheques: lignes
-        .filter((l) => l.nombre.trim() !== '' || l.montant.trim() !== '')
-        .map((l) => ({
-          nombre: l.nombre.trim() === '' ? null : entier(l.nombre),
-          montant: l.montant.trim() === '' ? null : decimal(l.montant),
-        })),
-    });
+    sale.current.cheques = false;
+    void s().majDecompte(decompte.id, { cheques: lignesDeCheques(lignes) });
   };
 
   const majSeance = (index: number, patch: Partial<Seance>) => {
@@ -217,6 +282,8 @@ export default function DecompteFenetre({
   const disponibles = annuaire.filter((p) => !decompte.participants.includes(p.id));
 
   const valider = () => {
+    // d'abord ce qui est encore dans les cases : c'est ce décompte-là qu'on valide
+    enregistrer();
     const message =
       restantsAFaire + aRepasser > 0
         ? `⚠️ Il reste ${restantsAFaire} adresse(s) à faire et ${aRepasser} à repasser.\n\nTerminer la tournée quand même ?`
@@ -225,11 +292,11 @@ export default function DecompteFenetre({
   };
 
   return (
-    <div className="fenetre-voile" onClick={onFermer}>
+    <div className="fenetre-voile" onClick={fermer}>
       <div className="fenetre" onClick={(e) => e.stopPropagation()}>
         <div className="fenetre-entete">
           <h2>🏁 Fin de tournée — {tournee.nom}</h2>
-          <button className="panneau-fermer" onClick={onFermer}>
+          <button className="panneau-fermer" onClick={fermer}>
             ✕
           </button>
         </div>
@@ -354,7 +421,7 @@ export default function DecompteFenetre({
                   seances: [
                     ...decompte.seances,
                     {
-                      date: new Date().toISOString().slice(0, 10),
+                      date: aujourdHui(),
                       moment: 'apres_midi',
                       voitureProfilId: null,
                     },
@@ -376,12 +443,11 @@ export default function DecompteFenetre({
               placeholder={String(distribuesAuto)}
               value={calendriers}
               disabled={fige}
-              onChange={(e) => setCalendriers(e.target.value)}
-              onBlur={() =>
-                void s().majDecompte(decompte.id, {
-                  calendriersDistribues: calendriers.trim() === '' ? null : entier(calendriers),
-                })
-              }
+              onChange={(e) => {
+                sale.current.calendriers = true;
+                setCalendriers(e.target.value);
+              }}
+              onBlur={enregistrer}
             />
             <span className="decompte-reference">compté automatiquement : {distribuesAuto}</span>
           </div>
@@ -418,8 +484,11 @@ export default function DecompteFenetre({
                   placeholder="0"
                   value={especes[c.cle] ?? ''}
                   disabled={fige}
-                  onChange={(e) => setEspeces({ ...especes, [c.cle]: e.target.value })}
-                  onBlur={commitEspeces}
+                  onChange={(e) => {
+                    sale.current.especes = true;
+                    setEspeces({ ...especes, [c.cle]: e.target.value });
+                  }}
+                  onBlur={enregistrer}
                 />
                 <span className="espece-sous-total">
                   {formatEuros(entier(especes[c.cle] ?? '') * c.valeur)}
@@ -439,10 +508,11 @@ export default function DecompteFenetre({
                 placeholder="Nombre"
                 value={ligne.nombre}
                 disabled={fige}
-                onChange={(e) =>
-                  setCheques(cheques.map((l, j) => (j === i ? { ...l, nombre: e.target.value } : l)))
-                }
-                onBlur={() => commitCheques(cheques)}
+                onChange={(e) => {
+                  sale.current.cheques = true;
+                  setCheques(cheques.map((l, j) => (j === i ? { ...l, nombre: e.target.value } : l)));
+                }}
+                onBlur={enregistrer}
               />
               <span>chèque(s) de</span>
               <input
@@ -451,14 +521,15 @@ export default function DecompteFenetre({
                 placeholder="Montant"
                 value={ligne.montant}
                 disabled={fige}
-                onChange={(e) =>
-                  setCheques(cheques.map((l, j) => (j === i ? { ...l, montant: e.target.value } : l)))
-                }
-                onBlur={() => commitCheques(cheques)}
+                onChange={(e) => {
+                  sale.current.cheques = true;
+                  setCheques(cheques.map((l, j) => (j === i ? { ...l, montant: e.target.value } : l)));
+                }}
+                onBlur={enregistrer}
               />
               <span>€ = {formatEuros(entier(ligne.nombre) * decimal(ligne.montant))}</span>
               {!fige && (
-                <button className="danger" onClick={() => commitCheques(cheques.filter((_, j) => j !== i))}>
+                <button className="danger" onClick={() => retirerCheques(i)}>
                   ✕
                 </button>
               )}
@@ -467,7 +538,12 @@ export default function DecompteFenetre({
           {!fige && (
             <button
               className="btn-ajout-ligne"
-              onClick={() => setCheques([...cheques, { nombre: '', montant: '' }])}
+              onClick={() => {
+                // (ligne « en cours » : elle ne doit pas disparaître si le
+                //  décompte se rafraîchit avant qu'on l'ait remplie)
+                sale.current.cheques = true;
+                setCheques([...cheques, { nombre: '', montant: '' }]);
+              }}
             >
               ➕ Ajouter des chèques
             </button>
@@ -483,10 +559,11 @@ export default function DecompteFenetre({
               placeholder="Montant total CB (€)"
               value={cb}
               disabled={fige}
-              onChange={(e) => setCb(e.target.value)}
-              onBlur={() =>
-                void s().majDecompte(decompte.id, { cb: cb.trim() === '' ? null : decimal(cb) })
-              }
+              onChange={(e) => {
+                sale.current.cb = true;
+                setCb(e.target.value);
+              }}
+              onBlur={enregistrer}
             />
           </div>
         </div>

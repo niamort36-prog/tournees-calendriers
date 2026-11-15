@@ -1,14 +1,64 @@
 // Fenêtre « Campagne » : création, calendriers commandés, taille des paquets,
 // compteurs de distribution et archivage de fin de campagne.
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { estAdminEffectif, useAppStore } from '../store/useAppStore';
 import {
+  aujourdHui,
   formatEuros,
   totalCalendriersLots,
   totalMontantLots,
   type LotCalendriers,
 } from '../types';
+
+/**
+ * Case de nombre entier, enregistrée en SORTANT de la case (ou par Entrée).
+ *
+ * Avant, chaque chiffre tapé partait aussitôt vers le serveur et vers tous les
+ * téléphones : en tapant « 25 » pour la taille des paquets, tout le monde
+ * voyait passer des paquets de 2.
+ */
+function ChampEntier({
+  valeur,
+  onValeur,
+  min,
+  disabled,
+}: {
+  valeur: number | null;
+  onValeur: (v: number | null) => void;
+  min: number;
+  disabled: boolean;
+}) {
+  const [texte, setTexte] = useState(valeur != null ? String(valeur) : '');
+  const champ = useRef<HTMLInputElement>(null);
+  // la valeur a changé ailleurs : la case suit, sauf si l'on est en train d'y écrire
+  useEffect(() => {
+    if (document.activeElement !== champ.current) setTexte(valeur != null ? String(valeur) : '');
+  }, [valeur]);
+  const valider = () => {
+    const brut = texte.trim();
+    const suite = brut === '' ? null : Math.max(min, Math.trunc(Number(brut)));
+    if (suite !== null && Number.isNaN(suite)) {
+      setTexte(valeur != null ? String(valeur) : '');
+      return;
+    }
+    if (suite !== valeur) onValeur(suite);
+  };
+  return (
+    <input
+      ref={champ}
+      type="number"
+      min={min}
+      disabled={disabled}
+      value={texte}
+      onChange={(e) => setTexte(e.target.value)}
+      onBlur={valider}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
 
 export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) {
   const profil = useAppStore((s) => s.profil);
@@ -75,30 +125,20 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
             <div className="campagne-champs">
               <label>
                 Calendriers commandés
-                <input
-                  type="number"
+                <ChampEntier
                   min={0}
                   disabled={!estAdmin}
-                  value={active.calendriersCommandes ?? ''}
-                  onChange={(e) =>
-                    void s().majCampagne(active.id, {
-                      calendriersCommandes: e.target.value === '' ? null : Number(e.target.value),
-                    })
-                  }
+                  valeur={active.calendriersCommandes}
+                  onValeur={(v) => void s().majCampagne(active.id, { calendriersCommandes: v })}
                 />
               </label>
               <label>
                 Livrés par paquets de
-                <input
-                  type="number"
+                <ChampEntier
                   min={1}
                   disabled={!estAdmin}
-                  value={active.taillePaquet ?? ''}
-                  onChange={(e) =>
-                    void s().majCampagne(active.id, {
-                      taillePaquet: e.target.value === '' ? null : Number(e.target.value),
-                    })
-                  }
+                  valeur={active.taillePaquet}
+                  onValeur={(v) => void s().majCampagne(active.id, { taillePaquet: v })}
                 />
               </label>
             </div>
@@ -220,7 +260,7 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
                         libelle: '',
                         nombre: null,
                         montant: null,
-                        date: new Date().toISOString().slice(0, 10),
+                        date: aujourdHui(),
                       },
                     ])
                   }
