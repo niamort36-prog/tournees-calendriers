@@ -154,11 +154,18 @@ export default function DecompteFenetre({
       cbCumul += p.cb ?? 0;
     };
     for (const a of adressesTournee) {
-      // une maison : son propre détail ; un immeuble : celui de ses appartements
+      // Une maison : son propre détail ; un immeuble : celui de ses
+      // appartements. Seul compte l'argent d'une maison ou d'un appartement
+      // marqué « distribué » : un détail resté sur une adresse qui ne l'est
+      // pas (ou plus) ne doit jamais se glisser dans le décompte.
       const details: PaiementAdresse[] = [];
-      if (!paiementVide(a.paiement)) details.push(a.paiement as PaiementAdresse);
+      if (a.typeBatiment !== 'immeuble' && a.statut === 'distribue' && !paiementVide(a.paiement)) {
+        details.push(a.paiement as PaiementAdresse);
+      }
       for (const app of a.appartements) {
-        if (!paiementVide(app.paiement ?? null)) details.push(app.paiement as PaiementAdresse);
+        if (app.statut === 'distribue' && !paiementVide(app.paiement ?? null)) {
+          details.push(app.paiement as PaiementAdresse);
+        }
       }
       if (details.length === 0) continue;
       nbMaisons += 1;

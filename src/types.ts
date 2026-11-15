@@ -127,13 +127,20 @@ export interface Appartement {
   paiement?: PaiementAdresse | null;
 }
 
-/** Total des calendriers laissés dans un immeuble (1 par défaut si non précisé). */
-/** Somme détaillée reçue dans un immeuble (cumul des appartements). */
+/**
+ * Somme détaillée reçue dans un immeuble : cumul des appartements marqués
+ * « distribué » (le détail d'un appartement n'est saisissable, et visible,
+ * que dans ce cas).
+ */
 export function sommeImmeuble(appartements: Appartement[]): number {
   let total = 0;
-  for (const a of appartements) total += totalPaiement(a.paiement ?? null);
+  for (const a of appartements) {
+    if (a.statut === 'distribue') total += totalPaiement(a.paiement ?? null);
+  }
   return Math.round(total * 100) / 100;
 }
+
+/** Total des calendriers laissés dans un immeuble (1 par défaut si non précisé). */
 
 export function calendriersImmeuble(appartements: Appartement[]): number {
   return appartements

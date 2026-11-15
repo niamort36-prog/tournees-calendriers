@@ -100,8 +100,12 @@ export default function CampagneFenetre({ onFermer }: { onFermer: () => void }) 
       `Archiver la campagne « ${active.nom} » ?\n\n` +
         `• Les statuts et sommes de toutes les adresses sont photographiés dans les archives\n` +
         `• « Distribués l'an dernier » est mis à jour sur chaque tournée\n` +
-        `• Tous les pings repassent en gris « à faire » (le statut de cette année reste visible dans chaque adresse)\n\n` +
-        `Cette action prépare la campagne suivante.`,
+        `• Tous les pings repassent en gris « à faire » (le statut de cette année reste visible dans chaque adresse ; ` +
+        `« inhabité » et « maison secondaire » sont gardés)\n` +
+        `• Tous les appartements des immeubles repassent « à faire »\n` +
+        `• Sommes, détail des paiements, calendriers laissés et rappels sont effacés : aucune trace de l'argent de cette année ne reste sur les fiches\n` +
+        `• Positions, noms, adresses ajoutées ou supprimées, immeubles et commentaires sont gardés\n\n` +
+        `Faites-le quand toutes les équipes ont terminé et que les téléphones sont synchronisés.`,
     );
     if (ok) void s().archiverCampagne(active.id);
   };

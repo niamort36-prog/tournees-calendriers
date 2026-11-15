@@ -472,7 +472,10 @@ p('La case <b>Somme</b> se remplit alors toute seule avec le total et devient no
 encadre('Ce n’est qu’une aide à la saisie',
         'Ces chiffres <b>ne remplacent jamais</b> le comptage de fin de tournée. Au '
         'moment du décompte, l’équipe compte l’argent réel et peut corriger librement '
-        'chaque case : c’est ce décompte, et lui seul, qui part sur le reçu.')
+        'chaque case : c’est ce décompte, et lui seul, qui part sur le reçu. Seul '
+        'l’argent des maisons marquées <b>Distribué</b> est repris. À la clôture de la '
+        'campagne, tout ce détail est <b>effacé</b> : l’année suivante, aucune fiche ne '
+        'garde trace de ce qui a été reçu.')
 encadre('Qui voit les sommes ?',
         'La case <b>Somme</b> et le <b>détail du paiement</b> ne s’affichent que pour '
         'les personnes <b>associées à cette tournée</b> par leur équipe, et pour les '
@@ -514,7 +517,9 @@ encadre('L’application calcule toute seule',
         'rouge tant qu’un appartement est « à repasser », gris s’il reste du travail, '
         'et passe au vert quand l’immeuble est terminé. Le <b>total des calendriers</b> '
         'de l’immeuble s’affiche en haut de la liste et part directement dans le '
-        'décompte de fin de tournée.')
+        'décompte de fin de tournée. À la clôture de la campagne, <b>tous les '
+        'appartements repassent « à faire »</b>, sans calendriers ni paiement : seuls '
+        'l’étage et le numéro sont gardés pour l’année suivante.')
 
 p('2.5 — La liste des adresses les plus proches', 'h1')
 p('Le bouton <b>Liste</b> (le bloc-notes) affiche les adresses <b>classées par '
@@ -957,8 +962,28 @@ puces([
     'chaque tournée ;',
     'la remise à zéro de toutes les maisons (en gris), <b>en gardant la mémoire</b> '
     'des refus et des résultats de l’année ;',
+    'la remise « à faire » de <b>tous les appartements</b> des immeubles ;',
+    'l’effacement de <b>toutes les sommes</b>, du <b>détail des paiements</b>, des '
+    'calendriers laissés et des rappels — maisons et appartements ;',
     'l’ajout d’une colonne dans l’historique de la synthèse.',
 ])
+tableau(['Gardé d’une année sur l’autre', 'Remis à zéro'], [
+    ['Position des maisons déplacées, noms corrigés',
+     'Statut (sauf « inhabité » et « maison secondaire » des maisons)'],
+    ['Adresses ajoutées à la main, adresses supprimées',
+     'Sommes et détail des paiements'],
+    ['Maison ou immeuble, étage et numéro des appartements',
+     'Statut, calendriers et paiement de chaque appartement'],
+    ['Commentaires (avec leur date)', 'Calendriers laissés, rappels'],
+    ['Contour, nom et couleur des tournées ; équipes', 'Lots de calendriers (propres à '
+     'chaque campagne)'],
+], [8.2 * cm, 8.2 * cm])
+encadre('Avant la toute première clôture : la mise à jour n°16',
+        'L’effacement des paiements et la remise à zéro des appartements demandent la '
+        'mise à jour n°16 de la base (fichier <b>docs/supabase-mise-a-jour-16.sql</b>, à '
+        'coller dans Supabase → SQL Editor → Run). Elle peut être collée à tout moment, '
+        'même en pleine campagne : elle ne touche à aucune adresse. Tant qu’elle '
+        'manque, le bouton <b>Archiver la campagne</b> refuse de fonctionner et le dit.')
 p('Il ne reste plus qu’à créer la campagne de l’année suivante : les tournées, les '
   'adresses et les équipes sont déjà prêtes.')
 

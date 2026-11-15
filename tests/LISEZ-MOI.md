@@ -46,3 +46,12 @@ Marche à suivre, à défaire entièrement après les essais :
 4. à la fin : `git checkout -- src/config.ts`, supprimer la copie dans
    `public/`, vider IndexedDB et le stockage du navigateur, et vérifier que
    `src/config.ts` pointe de nouveau sur le vrai projet.
+
+## Archivage de campagne (SQL)
+
+`sql/test-archivage.mjs` essaie la fonction d'archivage sur un PostgreSQL
+d'essai en mémoire (PGlite), avec les mêmes colonnes que la base réelle : il
+vérifie qu'après l'archivage il ne reste **aucune trace de paiement** (sommes,
+détail, appartements), que **tous les appartements repassent « à faire »**, et
+que positions, noms, ajouts et suppressions manuels, immeubles et commentaires
+sont **gardés**. Mode d'emploi en tête du fichier.

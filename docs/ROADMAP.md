@@ -144,6 +144,13 @@
       - outils de dessin chargés pour les seuls administrateurs : fichier
         principal 1 129 → 849 Ko (1 407 Ko avant l'audit) ;
       - recherche d'adresse et « ➕ Adresse » : plus de blocage sans réseau.
+- [x] Clôture de campagne (15/11/2026, décision de l'utilisateur) : d'une année
+      sur l'autre, aucune trace des paiements (détail effacé, maisons et
+      appartements) et tous les appartements repassent « à faire ».
+      Mise à jour SQL n°16 (`docs/supabase-mise-a-jour-16.sql`, testée sur une
+      base d'essai PGlite : `tests/sql/`) ; l'appli refuse d'archiver tant
+      qu'elle n'est pas passée. Pré-remplissage du décompte et total d'un
+      immeuble : seul l'argent des maisons / appartements « distribué » compte.
 
 ## Limites connues (v1)
 - Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une

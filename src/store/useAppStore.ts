@@ -1277,6 +1277,27 @@ export const useAppStore = create<EtatApp>((set, get) => {
         return;
       }
       set({ chargement: { actif: true, message: 'Archivage de la campagne…', progression: null } });
+      // Une campagne neuve doit repartir de zéro : aucune trace des paiements de
+      // l'année, tous les appartements « à faire ». C'est la mise à jour n°16
+      // de la base qui le fait (docs/supabase-mise-a-jour-16.sql). Tant qu'elle
+      // n'est pas passée, l'archivage laisserait ces traces : on refuse.
+      const { data: version, error: errVersion } = await supabase.rpc('version_archivage');
+      if (errVersion || typeof version !== 'number' || version < 16) {
+        const absente =
+          (!errVersion && (typeof version !== 'number' || version < 16)) ||
+          errVersion?.code === 'PGRST202' ||
+          /version_archivage/.test(errVersion?.message ?? '');
+        set({
+          chargement: CHARGEMENT_INACTIF,
+          erreur: absente
+            ? "Archivage bloqué : la mise à jour n°16 de la base n'est pas encore passée. Sans elle, " +
+              'le détail des paiements et les appartements des immeubles ne seraient pas remis à zéro. ' +
+              'Collez le fichier docs/supabase-mise-a-jour-16.sql dans Supabase (SQL Editor → Run), puis recommencez. ' +
+              "Rien n'a été modifié."
+            : "Archivage impossible pour le moment (connexion ?). Rien n'a été modifié.",
+        });
+        return;
+      }
       const { error } = await supabase.rpc('archiver_campagne', { campagne: id });
       if (error) {
         set({ chargement: CHARGEMENT_INACTIF, erreur: 'Archivage impossible : ' + error.message });
