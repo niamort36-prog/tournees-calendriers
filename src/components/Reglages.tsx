@@ -1,6 +1,26 @@
 import { useAppStore } from '../store/useAppStore';
 import { GROUPES_ICONES, ICONES_POSITION, type IconePosition } from '../lib/iconesPosition';
 
+// Mode d'emploi PDF : toujours celui de la version en ligne de l'appli (voir
+// outils/mode-emploi.mjs). L'empreinte dans l'adresse évite qu'un téléphone
+// garde une ancienne version en mémoire.
+const MODE_EMPLOI = __MODE_EMPLOI__;
+const ADRESSE_MODE_EMPLOI = `${import.meta.env.BASE_URL}${MODE_EMPLOI.fichier}?v=${MODE_EMPLOI.version}`;
+
+function poids(octets: number): string {
+  const mo = octets / (1024 * 1024);
+  if (mo >= 1) return `${mo.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo`;
+  return `${Math.max(1, Math.round(octets / 1024))} Ko`;
+}
+
+const INFOS_MODE_EMPLOI = [
+  MODE_EMPLOI.date ? `Version du ${MODE_EMPLOI.date}` : null,
+  MODE_EMPLOI.pages ? `${MODE_EMPLOI.pages} pages` : null,
+  poids(MODE_EMPLOI.octets),
+]
+  .filter(Boolean)
+  .join(' · ');
+
 /** Petit aperçu d'une icône, tel qu'elle apparaîtra sur la carte. */
 function Apercu({ icone }: { icone: IconePosition }) {
   if (icone.svg) {
@@ -35,6 +55,28 @@ export default function Reglages({ onFermer }: { onFermer: () => void }) {
             ✕
           </button>
         </div>
+
+        <section className="reglage-bloc">
+          <h3>📖 Mode d'emploi</h3>
+          <p className="equipe-note">
+            Le guide complet et illustré de l'application, pour les sapeurs-pompiers comme pour les
+            administrateurs. C'est toujours la dernière version : il est mis à jour en même temps que
+            l'application.
+          </p>
+          <p className="mode-emploi-infos">{INFOS_MODE_EMPLOI}</p>
+          <div className="mode-emploi-boutons">
+            <a className="reglage-lien principal" href={ADRESSE_MODE_EMPLOI} target="_blank" rel="noopener">
+              📖 Ouvrir
+            </a>
+            <a
+              className="reglage-lien"
+              href={ADRESSE_MODE_EMPLOI}
+              download="Mode-d-emploi-Tournees-Calendriers.pdf"
+            >
+              ⬇️ Télécharger
+            </a>
+          </div>
+        </section>
 
         <section className="reglage-bloc">
           <h3>Icône de ma position</h3>

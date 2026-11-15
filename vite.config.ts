@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import modeEmploi from './outils/mode-emploi.mjs';
 
 // (déclaration minimale : évite d'ajouter les types Node pour cette seule ligne)
 declare const process: { env: Record<string, string | undefined> };
@@ -9,6 +10,7 @@ declare const process: { env: Record<string, string | undefined> };
 export default defineConfig({
   plugins: [
     react(),
+    modeEmploi(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
@@ -32,7 +34,25 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
         importScripts: ['sw-notifications.js'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Le mode d'emploi s'ouvre dans un nouvel onglet : sans cette
+        // exception, le service worker répondrait par l'application au lieu
+        // du PDF (il renvoie index.html pour toute page ouverte).
+        navigateFallbackDenylist: [/\.pdf(\?|$)/i],
         runtimeCaching: [
+          {
+            // Mode d'emploi : jamais téléchargé d'avance (plusieurs Mo), mais
+            // gardé une fois ouvert. Le réseau d'abord, pour avoir toujours la
+            // dernière version ; sans réseau, la dernière ouverte.
+            urlPattern: /\/mode-emploi\.pdf/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'mode-emploi',
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 2 },
+              matchOptions: { ignoreSearch: true },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             // fond de carte : les zones déjà vues restent disponibles hors ligne
             urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/i,

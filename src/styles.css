@@ -3092,6 +3092,47 @@ body {
   font-size: 15px;
 }
 
+.reglage-bloc + .reglage-bloc {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bordure);
+}
+
+.mode-emploi-infos {
+  margin: 6px 0 10px;
+  font-size: 12.5px;
+  color: var(--texte);
+}
+
+.mode-emploi-boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reglage-lien {
+  flex: 1;
+  min-width: 130px;
+  padding: 11px;
+  border: 1px solid var(--bordure);
+  border-radius: 9px;
+  background: var(--fond);
+  color: var(--texte);
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.reglage-lien.principal {
+  border-color: var(--marine);
+  background: var(--marine);
+  color: #fff;
+}
+
+.reglage-lien:hover {
+  filter: brightness(1.08);
+}
+
 .icones-groupe h4 {
   margin: 14px 0 6px;
   font-size: 12px;

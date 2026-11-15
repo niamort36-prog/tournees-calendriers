@@ -99,6 +99,86 @@ const SVG_BONHOMME_NEIGE =
   casque(16.5, 4, 0.78) +
   '</svg>';
 
+/** Roue vue de profil (pneu, jante claire, moyeu). */
+function roue(cx: number, cy: number, r: number): string {
+  return (
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1f2937"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="${(r * 0.5).toFixed(2)}" fill="#eef2f6"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="${(r * 0.18).toFixed(2)}" fill="#9ca3af"/>`
+  );
+}
+
+/** Passage de roue noir (élargisseur d'aile), posé au ras du bas de caisse. */
+function passageRoue(cx: number, bas: number, r: number): string {
+  return `<path d="M${cx - r} ${bas} A${r} ${r} 0 0 1 ${cx + r} ${bas} Z" fill="#2b2f36"/>`;
+}
+
+// DEF : 4×4 de type Defender des feux tactiques — caisse rouge, toit blanc,
+// arceau jaune, gyrophare bleu, bande jaune, coffre jaune à l'arrière.
+const SVG_DEF =
+  debutSvg +
+  '<g transform="translate(0 3)">' +
+  // caisse
+  '<path d="M4 19.5 Q4 17 6.5 17 L42.5 17 L46.5 29.5 L58.5 30.3 Q61.5 30.6 61.5 33.5 L61.5 43 L4 43 Z" fill="#d62828" stroke="#8f1717" stroke-width="0.8"/>' +
+  // toit blanc
+  '<path d="M4.4 21 L4.4 19.5 Q4.4 17.4 6.5 17.4 L42.2 17.4 L43.3 21 Z" fill="#f8fafc"/>' +
+  // coffre jaune « feux tactiques »
+  '<rect x="6.5" y="22.5" width="11" height="8.5" rx="0.8" fill="#ffd200" stroke="#b38f00" stroke-width="0.6"/>' +
+  // vitres
+  '<rect x="20" y="22.5" width="9" height="6.5" rx="0.6" fill="#bfe0f5" stroke="#4b5563" stroke-width="0.6"/>' +
+  '<rect x="31" y="22.5" width="9.5" height="6.5" rx="0.6" fill="#bfe0f5" stroke="#4b5563" stroke-width="0.6"/>' +
+  '<path d="M42.2 22.5 L43.9 22.5 L45.8 28.8 L43.6 28.8 Z" fill="#bfe0f5" stroke="#4b5563" stroke-width="0.5"/>' +
+  // portière, rétroviseur
+  '<path d="M30 21.5 L30 42.5" stroke="#8f1717" stroke-width="0.6"/>' +
+  '<rect x="44.6" y="23.2" width="1.7" height="2.8" rx="0.4" fill="#1f2937"/>' +
+  // bande jaune
+  '<rect x="4.4" y="33" width="56.7" height="3" fill="#ffd200"/>' +
+  // phare, pare-buffle
+  '<circle cx="60" cy="31.6" r="1.3" fill="#fff7c2" stroke="#6b7280" stroke-width="0.5"/>' +
+  '<rect x="57.8" y="38.6" width="5.2" height="5.4" rx="0.6" fill="#1f2937"/>' +
+  // arceau jaune (il descend le long du pare-brise)
+  '<path d="M6.5 17.2 L6.5 11.5 L39.5 11.5 L42.5 17.2 L46.5 29.5 M23 11.5 L23 17.2" fill="none" stroke="#f5c400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  // gyrophare bleu
+  '<rect x="35" y="7.6" width="4.6" height="3.8" rx="1" fill="#2563eb"/>' +
+  '<rect x="36" y="8.3" width="1.2" height="2.3" rx="0.5" fill="#93c5fd"/>' +
+  passageRoue(15, 43, 8.6) +
+  passageRoue(50, 43, 8.6) +
+  roue(15, 44.5, 6.8) +
+  roue(50, 44.5, 6.8) +
+  '</g></svg>';
+
+// CCF : camion-citerne feux de forêt — cabine avancée, grosses roues tout
+// terrain, canon à eau et gyrophares sur la cabine.
+const SVG_CCF =
+  debutSvg +
+  '<g transform="translate(0 1.5)">' +
+  // châssis
+  '<rect x="6" y="38.5" width="54" height="3.5" fill="#2b2f36"/>' +
+  // caisse (citerne et coffres)
+  '<rect x="4" y="13" width="37.2" height="26.5" rx="1.5" fill="#d62828" stroke="#8f1717" stroke-width="0.8"/>' +
+  '<text x="22.6" y="28.6" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="900" fill="#ffffff" letter-spacing="0.4">CCF</text>' +
+  // galerie sur le toit de la caisse
+  '<path d="M6 13 L6 10.6 L39 10.6 L39 13 M17 10.6 L17 13 M28 10.6 L28 13" fill="none" stroke="#9ca3af" stroke-width="1.1"/>' +
+  // cabine
+  '<path d="M42.5 14 L56.5 14 Q60 14 60.6 17.5 L61.8 38.5 L42.5 38.5 Z" fill="#d62828" stroke="#8f1717" stroke-width="0.8"/>' +
+  '<path d="M49 17 L58.4 17 Q59.5 17 59.7 18.2 L60.4 25.5 L49 25.5 Z" fill="#bfe0f5" stroke="#4b5563" stroke-width="0.6"/>' +
+  '<path d="M47.4 16 L47.4 38" stroke="#8f1717" stroke-width="0.6"/>' +
+  // bande jaune
+  '<rect x="4.4" y="32" width="57.2" height="3" fill="#ffd200"/>' +
+  // gyrophares, canon à eau
+  '<rect x="43.4" y="10.4" width="3.8" height="3.6" rx="0.9" fill="#2563eb"/>' +
+  '<rect x="56" y="10.4" width="3.8" height="3.6" rx="0.9" fill="#2563eb"/>' +
+  '<rect x="49.4" y="11" width="4.2" height="3" rx="0.6" fill="#6b7280"/>' +
+  '<path d="M52.4 11.8 L58.6 9.4" stroke="#9ca3af" stroke-width="1.6" stroke-linecap="round"/>' +
+  // phare, pare-chocs
+  '<circle cx="60.9" cy="29.6" r="1.2" fill="#fff7c2" stroke="#6b7280" stroke-width="0.5"/>' +
+  '<rect x="58" y="36" width="5" height="5.2" rx="0.6" fill="#1f2937"/>' +
+  passageRoue(15, 40, 8.8) +
+  passageRoue(51, 40, 8.8) +
+  roue(15, 45, 7.6) +
+  roue(51, 45, 7.6) +
+  '</g></svg>';
+
 export const ICONES_POSITION: IconePosition[] = [
   { id: ICONE_PAR_DEFAUT, nom: 'Rond bleu', groupe: 'Par défaut' },
 
@@ -112,6 +192,8 @@ export const ICONES_POSITION: IconePosition[] = [
   { id: 'gyrophare', nom: 'Gyrophare', groupe: 'Pompiers', emoji: '🚨' },
 
   { id: 'camion-pompiers', nom: 'Camion de pompiers', groupe: 'Véhicules', emoji: '🚒' },
+  { id: 'def', nom: 'DEF pompiers', groupe: 'Véhicules', svg: SVG_DEF },
+  { id: 'ccf', nom: 'CCF', groupe: 'Véhicules', svg: SVG_CCF },
   { id: 'ambulance', nom: 'Ambulance', groupe: 'Véhicules', emoji: '🚑' },
   { id: 'fourgon', nom: 'Fourgon', groupe: 'Véhicules', emoji: '🚐' },
   { id: 'vehicule-leger', nom: 'Véhicule léger', groupe: 'Véhicules', emoji: '🚙' },

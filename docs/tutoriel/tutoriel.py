@@ -4,6 +4,8 @@
 # Dépendances  :  pip install reportlab pillow
 # Les captures d'écran vivent dans docs/tutoriel/captures/.
 import os
+import shutil
+import tempfile
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
@@ -113,8 +115,28 @@ def titre_partie(numero, texte):
     espace(14)
 
 
+ALLEGEES = tempfile.mkdtemp(prefix='tutoriel-')
+
+
+def version_legere(chemin, nom):
+    """Le PDF s'ouvre aussi sur les téléphones (bouton Réglages) : une capture
+    qui contient surtout de la carte (photo) pèse bien moins en JPEG. On ne la
+    convertit que si elle y gagne plus de moitié (et plus de 100 Ko) ; les
+    captures d'écran ordinaires restent en PNG, plus nettes pour le texte."""
+    with PILImage.open(chemin) as im:
+        rgba = im.convert('RGBA')
+    fond = PILImage.new('RGB', rgba.size, (255, 255, 255))
+    fond.paste(rgba, mask=rgba.split()[3])
+    cible = os.path.join(ALLEGEES, nom + '.jpg')
+    fond.save(cible, 'JPEG', quality=85, optimize=True, progressive=True)
+    png, jpg = os.path.getsize(chemin), os.path.getsize(cible)
+    if jpg < png * 0.5 and png - jpg > 100 * 1024:
+        return cible
+    return chemin
+
+
 def image(nom, largeur_cm, legende=None):
-    chemin = os.path.join(CAPTURES, nom + '.png')
+    chemin = version_legere(os.path.join(CAPTURES, nom + '.png'), nom)
     with PILImage.open(chemin) as im:
         l, h = im.size
     largeur = largeur_cm * cm
@@ -125,7 +147,7 @@ def image(nom, largeur_cm, legende=None):
     histoire.append(KeepTogether(bloc))
 
 
-def etapes(liste):
+def etapes(liste, largeur=16.4 * cm, ajouter=True):
     """Liste numérotée avec pastilles rondes."""
     lignes = []
     for i, texte in enumerate(liste, 1):
@@ -142,22 +164,24 @@ def etapes(liste):
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
         lignes.append([pastille, Paragraph(texte, S['etape'])])
-    t = Table(lignes, colWidths=[10 * mm, 15.4 * cm])
+    t = Table(lignes, colWidths=[10 * mm, largeur - 10 * mm])
     t.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (0, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
     ]))
+    if not ajouter:
+        return t
     histoire.append(t)
     espace(4)
 
 
-def encadre(titre, texte, couleur=MARINE, fond=FOND):
+def encadre(titre, texte, couleur=MARINE, fond=FOND, largeur=16.4 * cm, ajouter=True):
     contenu = [Paragraph(f'<b>{titre}</b>', ParagraphStyle(
         'et', fontName=FB, fontSize=10.5, textColor=couleur, spaceAfter=3)),
         Paragraph(texte, S['astuce'])]
-    t = Table([[contenu]], colWidths=[16.4 * cm])
+    t = Table([[contenu]], colWidths=[largeur])
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), fond),
         ('LINEBEFORE', (0, 0), (0, -1), 3, couleur),
@@ -166,7 +190,30 @@ def encadre(titre, texte, couleur=MARINE, fond=FOND):
         ('TOPPADDING', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
     ]))
+    if not ajouter:
+        return t
     histoire.append(KeepTogether([t, Spacer(1, 9)]))
+
+
+def cote_a_cote(gauche, nom, largeur_cm, legende):
+    """Texte à gauche, capture (haute et étroite) à droite, sur la même page."""
+    chemin = version_legere(os.path.join(CAPTURES, nom + '.png'), nom)
+    with PILImage.open(chemin) as im:
+        l, h = im.size
+    largeur = largeur_cm * cm
+    droite = [Image(chemin, width=largeur, height=largeur * h / l),
+              Paragraph(legende, S['legende'])]
+    colonne_droite = largeur + 0.6 * cm
+    t = Table([[gauche, droite]], colWidths=[16.4 * cm - colonne_droite, colonne_droite])
+    t.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (0, -1), 0.5 * cm),
+        ('RIGHTPADDING', (1, 0), (1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    histoire.append(KeepTogether([t, Spacer(1, 6)]))
 
 
 def tableau(entetes, lignes, largeurs):
@@ -186,7 +233,12 @@ def tableau(entetes, lignes, largeurs):
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
-    histoire.append(KeepTogether([t, Spacer(1, 10)]))
+    if len(lignes) <= 8:
+        histoire.append(KeepTogether([t, Spacer(1, 10)]))
+    else:
+        # un long tableau se coupe d'une page à l'autre (l'en-tête se répète)
+        # au lieu de sauter en entier à la page suivante en laissant un trou
+        histoire.extend([t, Spacer(1, 10)])
 
 
 def pastille_couleur(couleur, texte):
@@ -277,7 +329,9 @@ etapes([
 encadre('Bon à savoir',
         'Il n’y a rien à installer obligatoirement et rien à payer. L’application '
         'fonctionne dans le navigateur internet, sur ordinateur comme sur téléphone, '
-        'et vos données sont partagées en direct entre tous les appareils.')
+        'et vos données sont partagées en direct entre tous les appareils. Ce mode '
+        'd’emploi se trouve aussi <b>dans l’application</b>, bouton <b>Réglages</b> : '
+        'c’est toujours sa dernière version (voir 2.12).')
 
 # ============================== PARTIE 1 ==============================
 titre_partie(1, 'Pour commencer')
@@ -626,26 +680,38 @@ p('Si plus de trois rappels tombent en même temps, l’application n’envoie '
   'qu’une seule notification de résumé (« ⏰ 6 adresses à repasser ») au lieu '
   'de faire sonner le téléphone six fois de suite.')
 
-p('2.12 — Les réglages : choisir l’icône de sa position', 'h1')
+p('2.12 — Les réglages : mode d’emploi et icône de sa position', 'h1')
 p('Le bouton <b>Réglages</b> (la roue dentée), en haut de l’écran, regroupe vos '
   'réglages personnels. Sur un téléphone, il est réduit à la <b>roue dentée seule</b>, '
   'juste à côté du nom de la campagne.')
-p('Pour commencer, il permet de choisir l’<b>icône qui marque votre position</b> sur '
-  'la carte, à la place du rond bleu habituel : un pompier, la tête casquée, le '
-  'camion, l’ambulance, le gyrophare, l’hélicoptère… et même une <b>citrouille</b> ou '
-  'un <b>bonhomme de neige</b> coiffés du casque de pompier.')
-etapes([
-    'Appuyez sur <b>Réglages</b> (la roue dentée) en haut de l’écran.',
-    'Touchez l’icône qui vous plaît : elle s’entoure de bleu et se coche.',
-    'Fermez la fenêtre, ou appuyez sur <b>Afficher ma position sur la carte</b>.',
-])
-image('membre-reglages', 5.4, 'La fenêtre Réglages : ici, la citrouille casquée est choisie')
-encadre('Bon à savoir',
-        'Le choix vaut pour <b>ce téléphone</b> seulement : chacun peut avoir la sienne. '
-        'Votre position, elle, n’est jamais envoyée aux collègues. L’icône reste droite '
-        'quand on tourne la carte, et elle ne gêne pas : toucher une maison juste '
-        'dessous ouvre bien sa fiche. Le dessin des emojis varie un peu selon la '
-        'marque du téléphone. Pour revenir au point habituel, choisissez <b>Rond bleu</b>.')
+p('<b>Le mode d’emploi.</b> En haut de la fenêtre, le bouton <b>Ouvrir</b> affiche ce '
+  'guide, et <b>Télécharger</b> l’enregistre sur l’appareil. C’est toujours la '
+  '<b>dernière version</b> : il est mis à jour en même temps que l’application, et sa '
+  'date est indiquée juste au-dessus des boutons. Une fois ouvert, il reste '
+  'consultable même sans réseau.')
+p('<b>L’icône de votre position.</b> Vous pouvez remplacer le rond bleu habituel par '
+  'l’icône de votre choix : un pompier, la tête casquée, le camion, le <b>DEF</b>, le '
+  '<b>CCF</b>, l’ambulance, le gyrophare, l’hélicoptère… et même une <b>citrouille</b> '
+  'ou un <b>bonhomme de neige</b> coiffés du casque de pompier.')
+LARGEUR_TEXTE_212 = 16.4 * cm - (5.6 + 0.6) * cm - 0.5 * cm
+cote_a_cote([
+    etapes([
+        'Appuyez sur <b>Réglages</b> (la roue dentée) en haut de l’écran.',
+        'Touchez l’icône qui vous plaît : elle s’entoure de bleu et se coche.',
+        'Fermez la fenêtre, ou appuyez sur <b>Afficher ma position sur la carte</b>.',
+    ], largeur=LARGEUR_TEXTE_212, ajouter=False),
+    Spacer(1, 6),
+    encadre('Bon à savoir',
+            'Le choix vaut pour <b>ce téléphone</b> seulement : chacun peut avoir la '
+            'sienne. Votre position, elle, n’est jamais envoyée aux collègues.<br/><br/>'
+            'L’icône reste droite quand on tourne la carte, et elle ne gêne pas : toucher '
+            'une maison juste dessous ouvre bien sa fiche.<br/><br/>'
+            'Le dessin des emojis varie un peu selon la marque du téléphone ; le DEF, le '
+            'CCF, la tête, la citrouille et le bonhomme de neige sont dessinés exprès et '
+            'sont identiques partout.<br/><br/>'
+            'Pour revenir au point habituel, choisissez <b>Rond bleu</b>.',
+            largeur=LARGEUR_TEXTE_212, ajouter=False),
+], 'membre-reglages', 5.6, 'La fenêtre Réglages : ici, la citrouille casquée est choisie')
 
 # ============================== PARTIE 3 ==============================
 titre_partie(3, 'Guide de l’administrateur')
@@ -1127,4 +1193,5 @@ doc = BaseDocTemplate(SORTIE, pagesize=A4,
 cadre = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='normal')
 doc.addPageTemplates([PageTemplate(id='page', frames=[cadre], onPage=pied_de_page)])
 doc.build(histoire)
+shutil.rmtree(ALLEGEES, ignore_errors=True)
 print('PDF généré :', SORTIE, os.path.getsize(SORTIE) // 1024, 'Ko')

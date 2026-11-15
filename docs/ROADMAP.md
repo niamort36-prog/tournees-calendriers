@@ -160,6 +160,15 @@
       Bandeau : « ⚙️ » seul sous 1100 px, sur la 1re ligne au téléphone ; entre
       721 et 1200 px le bandeau passe à la ligne (avant : « ☰ Tournées » sortait
       de l'écran sur tablette, recherche écrasée).
+- [x] Réglages, suite (15/11/2026) : icônes DEF pompiers (4×4 type Defender
+      des feux tactiques) et CCF, dessinées. Mode d'emploi PDF dans Réglages
+      (Ouvrir / Télécharger, date, pages, poids) : `outils/mode-emploi.mjs`
+      copie `docs/Tutoriel-Tournees-Calendriers.pdf` à chaque construction
+      (adresse avec empreinte du contenu → jamais d'ancienne version). Service
+      worker : les .pdf sont exclus du renvoi vers l'application, et le mode
+      d'emploi est gardé une fois ouvert (NetworkFirst, lisible hors ligne).
+      PDF allégé de 3,8 à 2,6 Mo (captures de carte en JPEG) ; la partie 4 ne
+      laisse plus son titre seul sur une page.
 
 ## Limites connues (v1)
 - Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une
