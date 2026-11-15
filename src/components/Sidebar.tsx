@@ -1,8 +1,9 @@
 // Panneau latéral : liste des tournées avec leurs infos et actions.
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   calculerTourneesVisibles,
+  decomptesVides,
   estAdminEffectif,
   peutVoirRecette,
   tourneesVides,
@@ -12,16 +13,24 @@ import DecompteFenetre from './DecompteFenetre';
 import { estEquipeVide } from '../lib/sync';
 import { formatEuros, totalDecompte, trierTournees, trouverDecompte, type Tournee } from '../types';
 
-function CarteTournee({
+// La carte d'une tournée ne se redessine que si SES chiffres changent. Avant,
+// chacune des trente cartes repassait en revue les six mille adresses à chaque
+// maison cochée — y compris panneau fermé.
+const CarteTournee = memo(function CarteTournee({
   tournee,
+  nbPoints,
+  nbCalendriers,
   onDecompte,
   peutMasquer,
 }: {
   tournee: Tournee;
-  onDecompte: () => void;
+  /** Nombre de points de la tournée (calculé une fois pour toutes par le panneau). */
+  nbPoints: number;
+  /** Nombre de calendriers à prévoir. */
+  nbCalendriers: number;
+  onDecompte: (tourneeId: string) => void;
   peutMasquer: boolean;
 }) {
-  const adresses = useAppStore((s) => s.adresses);
   const selectionTourneeId = useAppStore((s) => s.selectionTourneeId);
   const campagneActive = useAppStore((s) => s.campagnes.find((c) => c.statut === 'active'));
   const equipes = useAppStore((s) => s.equipes);
@@ -29,18 +38,19 @@ function CarteTournee({
   const profil = useAppStore((s) => s.profil);
   const [nom, setNom] = useState(tournee.nom);
   const [dispo, setDispo] = useState(tournee.dispoConseillee);
+  const [anDernier, setAnDernier] = useState(
+    tournee.calendriersAnneeDerniere != null ? String(tournee.calendriersAnneeDerniere) : '',
+  );
   useEffect(() => setNom(tournee.nom), [tournee.nom]);
   useEffect(() => setDispo(tournee.dispoConseillee), [tournee.dispoConseillee]);
-
-  const points = adresses.filter((a) => a.tourneeId === tournee.id);
-  const nbCalendriers = points.reduce(
-    (n, a) =>
-      n +
-      (a.typeBatiment === 'immeuble' && a.appartements.length > 0
-        ? a.appartements.length
-        : 1 + a.autresAdresses.length),
-    0,
+  useEffect(
+    () =>
+      setAnDernier(
+        tournee.calendriersAnneeDerniere != null ? String(tournee.calendriersAnneeDerniere) : '',
+      ),
+    [tournee.calendriersAnneeDerniere],
   );
+
   const selectionnee = selectionTourneeId === tournee.id;
   const s = useAppStore.getState;
   const vueMembre = useAppStore((st) => st.vueMembre);
@@ -85,7 +95,7 @@ function CarteTournee({
         />
       </div>
       <div className="tournee-stats">
-        📍 {points.length} point{points.length > 1 ? 's' : ''} · ≈ {nbCalendriers} calendrier
+        📍 {nbPoints} point{nbPoints > 1 ? 's' : ''} · ≈ {nbCalendriers} calendrier
         {nbCalendriers > 1 ? 's' : ''}
       </div>
       {paquets !== null && taille && (
@@ -136,12 +146,19 @@ function CarteTournee({
             <input
               type="number"
               min={0}
-              value={tournee.calendriersAnneeDerniere ?? ''}
-              onChange={(e) =>
-                void s().majTournee(tournee.id, {
-                  calendriersAnneeDerniere: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
+              value={anDernier}
+              onChange={(e) => setAnDernier(e.target.value)}
+              onBlur={() => {
+                // enregistré en quittant la case (avant : un envoi par chiffre tapé)
+                const valeur = anDernier.trim() === '' ? null : Math.max(0, Math.trunc(Number(anDernier)));
+                if (valeur !== null && Number.isNaN(valeur)) return;
+                if (valeur !== (tournee.calendriersAnneeDerniere ?? null)) {
+                  void s().majTournee(tournee.id, { calendriersAnneeDerniere: valeur });
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
             />
           </label>
         </>
@@ -179,7 +196,7 @@ function CarteTournee({
             title="Fin de tournée / décompte"
             onClick={(e) => {
               e.stopPropagation();
-              onDecompte();
+              onDecompte(tournee.id);
             }}
           >
             {decompteIci?.termine ? '💶' : '🏁'}
@@ -223,7 +240,7 @@ function CarteTournee({
       </div>
     </div>
   );
-}
+});
 
 export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFermer: () => void }) {
   const tournees = useAppStore((s) => s.tournees);
@@ -241,6 +258,27 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
     [tournees, adresses, equipes, decomptes],
   );
   const idsVides = useMemo(() => new Set(vides.map((t) => t.id)), [vides]);
+  // Décomptes créés par erreur : sans campagne et entièrement vides.
+  const decomptesAVider = useMemo(() => decomptesVides(decomptes), [decomptes]);
+  // Un seul passage sur les adresses pour toutes les tournées à la fois.
+  const chiffres = useMemo(() => {
+    const parTournee = new Map<string, { points: number; calendriers: number }>();
+    for (const a of adresses) {
+      let c = parTournee.get(a.tourneeId);
+      if (!c) {
+        c = { points: 0, calendriers: 0 };
+        parTournee.set(a.tourneeId, c);
+      }
+      c.points += 1;
+      c.calendriers +=
+        a.typeBatiment === 'immeuble' && a.appartements.length > 0
+          ? a.appartements.length
+          : 1 + a.autresAdresses.length;
+    }
+    return parTournee;
+  }, [adresses]);
+  const triees = useMemo(() => trierTournees(tournees), [tournees]);
+  const ouvrirDecompte = useCallback((id: string) => setDecompteTourneeId(id), []);
   const visibles = useMemo(
     () => calculerTourneesVisibles(profil, equipes, tourneesAffichees, vueMembre),
     [profil, equipes, tourneesAffichees, vueMembre],
@@ -279,6 +317,30 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
             </button>
           </div>
         )}
+        {estAdmin && decomptesAVider.length > 0 && (
+          <div className="menage-vides">
+            <div>
+              🧹 <strong>
+                {decomptesAVider.length} décompte{decomptesAVider.length > 1 ? 's' : ''} vide
+                {decomptesAVider.length > 1 ? 's' : ''}
+              </strong>{' '}
+              : sans campagne, sans participant et sans aucun montant. Créés par erreur par une
+              version précédente — invisibles à l'écran, mais chaque téléphone les télécharge à
+              chaque synchronisation. Les supprimer ne fait perdre aucun chiffre.
+            </div>
+            <button
+              onClick={() => {
+                const message =
+                  decomptesAVider.length > 1
+                    ? `Supprimer ces ${decomptesAVider.length} décomptes vides ?`
+                    : 'Supprimer ce décompte vide ?';
+                if (window.confirm(message)) void useAppStore.getState().supprimerDecomptesVides();
+              }}
+            >
+              🗑️ Supprimer
+            </button>
+          </div>
+        )}
         {tournees.length === 0 ? (
           <div className="panneau-vide">
             <p>🗺️ Aucune tournée pour l'instant.</p>
@@ -295,7 +357,7 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
             )}
           </div>
         ) : (
-          trierTournees(tournees).map((t) => {
+          triees.map((t) => {
             // une coquille vide n'intéresse que l'administrateur, qui la supprime
             if (idsVides.has(t.id) && !estAdmin) return null;
             const cachee = visibles !== null && !visibles.has(t.id);
@@ -314,7 +376,9 @@ export default function Sidebar({ ouvert, onFermer }: { ouvert: boolean; onFerme
               <CarteTournee
                 key={t.id}
                 tournee={t}
-                onDecompte={() => setDecompteTourneeId(t.id)}
+                nbPoints={chiffres.get(t.id)?.points ?? 0}
+                nbCalendriers={chiffres.get(t.id)?.calendriers ?? 0}
+                onDecompte={ouvrirDecompte}
                 peutMasquer={visibles !== null && !estMienne(t)}
               />
             );

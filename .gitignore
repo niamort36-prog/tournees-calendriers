@@ -7,3 +7,6 @@ dist/
 
 # Jamais de cle de base dans le depot (il est public).
 cle.txt
+
+# Assemblage temporaire des tests de synchronisation
+tests/sync/sync.bundle.mjs

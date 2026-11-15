@@ -95,7 +95,7 @@
       individuellement, statut d'ensemble et calendriers laissés automatiques
 - [x] Fiabilité : compte supprimé → purge locale + déconnexion en ≤ 1 min
       (rôle rafraîchi aussi) ; resynchronisation au premier plan / retour
-      réseau / toutes les 3 min et reconnexion auto du temps réel
+      réseau / toutes les 3 min (5 min depuis le 15/11/2026) et reconnexion auto du temps réel
 - [x] Tri alphabétique des tournées partout (numérique : 2 avant 10)
 - [x] Immeubles : nombre de calendriers pris par appartement (1 par défaut),
       total affiché et repris dans le décompte
@@ -110,8 +110,32 @@
 - [x] Appui long sur la carte (ou clic droit sur PC) → menu « 🧭 S'y rendre » :
       Plans sur iPhone, Google Maps, Waze, chooser Android (geo:), adresse
       retrouvée par géocodage inverse, copie des coordonnées
+- [x] Audit complet du 15/11/2026 (fiabilité, vitesse, fluidité) :
+      - temps réel : la table est lue dans le message et chaque abonnement a
+        son propre canal — cause prouvée des tournées, équipes et décomptes
+        « fantômes » (des adresses remises au mauvais abonnement) ;
+      - synchronisation : fusion avec l'état du moment (une saisie faite
+        pendant la lecture n'est plus écrasée), lecture par pages triées,
+        écriture du seul écart dans le téléphone, rattrapage à chaque
+        reconnexion du temps réel ;
+      - lancement : affichage immédiat des données de l'appareil, profil gardé
+        en mémoire (fonctionne sans réseau), carte rouverte au même endroit ;
+      - fluidité : seuls les points modifiés sont redessinés, cartes de
+        tournée mémoïsées, liste limitée aux 150 adresses les plus proches ;
+      - fiche : saisies enregistrées à la fermeture (iPhone), plus d'écriture
+        sans changement ;
+      - export Excel chargé à la demande, mise à jour automatique de
+        l'application, ménage des décomptes vides ;
+      - tests automatiques : `npm test` (voir tests/LISEZ-MOI.md).
 
 ## Limites connues (v1)
+- Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une
+  lecture « seulement ce qui a changé » demande une colonne d'horodatage posée
+  par le serveur : à faire après l'archivage de la campagne.
+- Deux personnes qui modifient la MÊME adresse à la même seconde : la dernière
+  écriture gagne pour toute la fiche (sensible surtout dans un immeuble).
+- Le numéro de reçu est attribué par le téléphone (plus grand numéro connu + 1) :
+  deux clôtures strictement simultanées pourraient recevoir le même numéro.
 - ~~Résurrection des suppressions par les caches~~ → réglé par les pierres
   tombales (table suppressions).
 - Une zone à cheval sur deux départements ne charge que le département du centre

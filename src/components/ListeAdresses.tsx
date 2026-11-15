@@ -1,7 +1,7 @@
 // Vue liste des adresses, triée par proximité (position GPS, sinon centre de
 // la carte). Périmètre : tournée sélectionnée, sinon « ma tournée », sinon tout.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   calculerTourneesVisibles,
   tourneesDontOnVoitLaRecette,
@@ -10,6 +10,9 @@ import {
 import { COULEUR_STATUT, STATUTS_TERMINES, trierTournees } from '../types';
 import { distanceMetres } from '../lib/geo';
 import type { AdressePoint } from '../types';
+
+/** Nombre de lignes affichées d'emblée (les plus proches), puis par tranche. */
+const TRANCHE = 150;
 
 function formatDistance(d: number | null): string {
   if (d === null) return '';
@@ -44,23 +47,45 @@ export default function ListeAdresses() {
     ? (equipes.find((e) => e.tourneeId && e.membres.includes(profil.id))?.tourneeId ?? null)
     : null;
   const tourneeId = selectionTourneeId ?? maTourneeId;
-  const liste = adresses.filter((a) =>
-    tourneeId ? a.tourneeId === tourneeId : visibles === null || visibles.has(a.tourneeId),
+  const liste = useMemo(
+    () =>
+      adresses.filter((a) =>
+        tourneeId ? a.tourneeId === tourneeId : visibles === null || visibles.has(a.tourneeId),
+      ),
+    [adresses, tourneeId, visibles],
   );
 
+  // Le tri par distance n'est refait que si l'on a bougé d'une dizaine de
+  // mètres. Avant, chaque nouvelle position du GPS (une par seconde) retriait
+  // et redessinait toute la liste — jusqu'à six mille lignes.
   const reference = positionGPS ?? centreCarte;
-  const lignes = liste
-    .map((a) => ({
-      adresse: a,
-      distance: reference ? distanceMetres(reference.lat, reference.lng, a.lat, a.lng) : null,
-    }))
-    .sort(
-      (x, y) =>
-        (x.distance ?? Number.MAX_VALUE) - (y.distance ?? Number.MAX_VALUE) ||
-        x.adresse.libelle.localeCompare(y.adresse.libelle),
-    );
+  const latRef = reference ? Math.round(reference.lat * 10000) / 10000 : null;
+  const lngRef = reference ? Math.round(reference.lng * 10000) / 10000 : null;
+  const lignes = useMemo(
+    () =>
+      liste
+        .map((a) => ({
+          adresse: a,
+          distance:
+            latRef !== null && lngRef !== null ? distanceMetres(latRef, lngRef, a.lat, a.lng) : null,
+        }))
+        .sort(
+          (x, y) =>
+            (x.distance ?? Number.MAX_VALUE) - (y.distance ?? Number.MAX_VALUE) ||
+            x.adresse.libelle.localeCompare(y.adresse.libelle),
+        ),
+    [liste, latRef, lngRef],
+  );
 
-  const faites = liste.filter((a) => STATUTS_TERMINES.includes(a.statut)).length;
+  // On n'affiche d'abord que les plus proches : c'est elles que l'on cherche.
+  const [limite, setLimite] = useState(TRANCHE);
+  useEffect(() => setLimite(TRANCHE), [tourneeId]);
+  const affichees = lignes.length > limite ? lignes.slice(0, limite) : lignes;
+
+  const faites = useMemo(
+    () => liste.filter((a) => STATUTS_TERMINES.includes(a.statut)).length,
+    [liste],
+  );
 
   const choisir = (a: AdressePoint) => {
     s().cadrerSur({ type: 'point', lat: a.lat, lng: a.lng, zoom: 18 });
@@ -95,7 +120,7 @@ export default function ListeAdresses() {
 
         <div className="liste-corps">
           {lignes.length === 0 && <p className="campagne-vide">Aucune adresse dans ce périmètre.</p>}
-          {lignes.map(({ adresse, distance }) => (
+          {affichees.map(({ adresse, distance }) => (
             <button key={adresse.id} className="liste-ligne" onClick={() => choisir(adresse)}>
               <span className="liste-pastille" style={{ background: COULEUR_STATUT[adresse.statut] }} />
               <span className="liste-libelle">
@@ -114,6 +139,12 @@ export default function ListeAdresses() {
               <span className="liste-distance">{formatDistance(distance)}</span>
             </button>
           ))}
+          {lignes.length > limite && (
+            <button className="liste-suite" onClick={() => setLimite((n) => n + TRANCHE)}>
+              Afficher les {Math.min(TRANCHE, lignes.length - limite)} suivantes (
+              {lignes.length - limite} plus loin)
+            </button>
+          )}
         </div>
       </div>
     </div>

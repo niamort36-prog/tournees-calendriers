@@ -355,6 +355,11 @@ p('Cette partie s’adresse à tous les sapeurs-pompiers qui font une tournée. 
 p('2.1 — L’écran principal', 'h1')
 p('Une fois connecté, vous arrivez sur la carte de votre secteur. Chaque point est '
   'une maison à visiter.')
+p('L’application <b>s’ouvre tout de suite</b>, avec ce qu’elle avait en mémoire, et '
+  'la carte se rouvre <b>là où vous l’aviez laissée</b>. Pendant quelques secondes, '
+  'une petite pastille « Mise à jour des données… » en haut de la carte signale '
+  'qu’elle récupère le travail des collègues : inutile d’attendre, vous pouvez déjà '
+  'vous en servir.')
 image('membre-carte', 6.8, 'La carte : les points de couleur sont les maisons de votre tournée')
 p('<b>Les boutons ronds, en bas à droite :</b>')
 tableau(['Bouton', 'À quoi il sert'], [
@@ -430,6 +435,11 @@ p('Si vous choisissez <b>Absent, à repasser</b>, vous pouvez programmer un '
   '<b>rappel</b> avec une date et une heure : le téléphone vous préviendra le moment '
   'venu. La case <b>Note</b> sert à tout le reste : « sonnette cassée », « chien '
   'méchant », « repasser après 18 h »…')
+encadre('Rien à valider',
+        'La somme, le nombre de calendriers et la note sont enregistrés dès que vous '
+        '<b>fermez la fiche</b> — par la croix, en touchant le fond gris, ou '
+        'simplement en verrouillant le téléphone. Il n’y a pas de bouton « OK » à '
+        'chercher.')
 encadre('Les commentaires sont gardés d’une année sur l’autre',
         'Une note n’est jamais effacée par le passage à la campagne suivante : '
         '« chien méchant » reste vrai l’an prochain. La <b>date d’écriture</b> '
@@ -505,9 +515,12 @@ encadre('L’application calcule toute seule',
         'décompte de fin de tournée.')
 
 p('2.5 — La liste des adresses les plus proches', 'h1')
-p('Le bouton <b>Liste</b> (le bloc-notes) affiche toutes les adresses <b>classées '
-  'par distance</b>, de la plus proche à la plus éloignée. Très pratique pour ne '
-  'rien oublier dans une rue.')
+p('Le bouton <b>Liste</b> (le bloc-notes) affiche les adresses <b>classées par '
+  'distance</b>, de la plus proche à la plus éloignée. Très pratique pour ne rien '
+  'oublier dans une rue.')
+p('Pour rester rapide, la liste montre d’abord les <b>150 adresses les plus '
+  'proches</b> — celles que l’on cherche. Tout en bas, le bouton <b>« Afficher les '
+  'suivantes »</b> déroule la suite.')
 image('membre-liste', 7.2, 'Les adresses triées par proximité, avec le compteur '
       'd’avancement en haut')
 p('Le compteur en haut (« 52/136 faites ») vous indique où vous en êtes. Appuyez sur '
@@ -577,9 +590,11 @@ p('Aucun problème : un bandeau orange « Hors ligne » apparaît, et vous pouve
   'portions de carte déjà consultées restent affichées.')
 p('Vous n’avez rien à surveiller ni aucun bouton à appuyer : les saisies repartent '
   'toutes seules dès que le réseau revient, à chaque ouverture de l’application et '
-  'automatiquement toutes les trois minutes. Les indicateurs d’envoi et les messages '
+  'à chaque fois que vous rallumez l’écran. Les indicateurs d’envoi et les messages '
   'techniques de synchronisation sont réservés à l’administrateur, pour ne pas vous '
   'encombrer l’écran en pleine tournée.')
+p('Même <b>lancée sans aucun réseau</b>, l’application s’ouvre normalement : elle se '
+  'souvient de votre compte, de votre tournée et de tout ce qui était déjà chargé.')
 encadre('Vos saisies ne sont jamais perdues',
         'Même si l’application est fermée ou le téléphone éteint, les modifications '
         'faites hors réseau restent en mémoire et repartent à la prochaine ouverture. '
@@ -797,7 +812,8 @@ image('admin-synthese', 15.5, 'La synthèse complète, réservée aux administra
 p('En bas, le tableau <b>Historique par tournée</b> se remplit d’année en année : '
   'vous pourrez comparer les campagnes entre elles. Le bouton <b>Exporter tout en '
   'Excel</b> produit un classeur avec cinq feuilles (tournées, adresses, décomptes, '
-  'lots, campagne) — idéal pour la comptabilité de l’amicale.')
+  'lots, campagne) — idéal pour la comptabilité de l’amicale. La première fois, le '
+  'bouton indique « Préparation du fichier… » pendant une seconde ou deux.')
 p('Juste en dessous, <b>💾 Sauvegarde complète (fichier de secours)</b> enregistre '
   'tout l’avancement dans un seul fichier, sur l’appareil. Ce n’est pas un document à '
   'lire : c’est la copie qui permettrait de <b>tout remettre en place</b> si la base '
@@ -940,13 +956,21 @@ tableau(['Situation', 'Que faire'], [
      'l’administrateur. Vous pouvez aussi appuyer sur « Afficher » à côté d’une '
      'tournée dans le panneau pour la faire apparaître.'],
     ['<b>Un collègue ne voit pas mes modifications</b>',
-     'Demandez-lui de fermer et rouvrir l’application. Elle se resynchronise à chaque '
-     'ouverture, au retour du réseau et automatiquement toutes les trois minutes.'],
+     'Normalement elles arrivent chez lui en une ou deux secondes. Sinon, demandez-lui '
+     'd’éteindre puis rallumer l’écran, ou de fermer et rouvrir l’application : elle '
+     'relit tout à chaque ouverture, à chaque réveil du téléphone, au retour du '
+     'réseau, et d’elle-même toutes les cinq minutes.'],
     ['<b>Un point est repassé gris tout seul</b>',
-     'Fermez et rouvrez l’application : les envois restés en attente repartent à '
-     'l’ouverture. Vérifiez aussi que l’<b>heure du téléphone est réglée '
-     'automatiquement</b> (Réglages → Date et heure) : une horloge décalée peut faire '
-     'croire à l’application qu’une vieille saisie est la plus récente.'],
+     'La cause principale a été corrigée en novembre 2026 (une saisie faite pendant '
+     'une synchronisation pouvait être écrasée). Si cela se reproduit, fermez et '
+     'rouvrez l’application, vérifiez que l’<b>heure du téléphone est réglée '
+     'automatiquement</b> (Réglages → Date et heure), et prévenez l’administrateur.'],
+    ['<b>Un bandeau orange « décomptes vides » apparaît</b> (administrateur)',
+     'En haut du panneau Tournées. Ce sont des décomptes créés par erreur par une '
+     'ancienne version : aucune campagne, aucun participant, aucun montant. Ils ne se '
+     'voient nulle part ailleurs mais alourdissent chaque synchronisation. Le bouton '
+     '<b>Supprimer</b> les retire tous ; les vrais décomptes et les reçus ne sont pas '
+     'concernés.'],
     ['<b>Où sont les sauvegardes ?</b>',
      'Dans le dossier <b>sauvegarde calendriers pompiers</b> : trois par jour, à 6 h, '
      '13 h et 23 h. Les fichiers <b>derniere-sauvegarde-...</b> s’ouvrent dans Excel. '
@@ -969,12 +993,16 @@ tableau(['Situation', 'Que faire'], [
      'L’administrateur en attribue un nouveau dans Membres (bouton clé, sur '
      'n’importe quel compte) et le communique à l’intéressé.'],
     ['<b>« Synchronisation impossible » s’affiche en rouge</b>',
-     'Vos saisies sont conservées sur l’appareil, rien n’est perdu. Si le message '
-     'persiste sur tous les appareils, l’administrateur doit redémarrer le projet '
-     'depuis le tableau de bord Supabase (Settings → General → Restart project).'],
+     'Ce message n’apparaît plus qu’à la toute première connexion d’un appareil, '
+     'quand il n’a encore rien en mémoire : il lui faut du réseau une première fois. '
+     'Si cela arrive sur tous les appareils, l’administrateur doit redémarrer le '
+     'projet depuis le tableau de bord Supabase (Settings → General → Restart project).'],
     ['<b>L’application ne semble pas à jour</b>',
-     'Sur ordinateur : Ctrl + F5. Sur téléphone : fermez complètement l’application '
-     'et rouvrez-la.'],
+     'Elle se met à jour <b>toute seule</b> : elle vérifie régulièrement s’il existe '
+     'une nouvelle version et se recharge à un moment où cela ne dérange pas (aucune '
+     'fiche ouverte, aucune saisie en cours). Pour forcer : sur ordinateur, '
+     'Ctrl + F5 ; sur téléphone, fermez complètement l’application et rouvrez-la '
+     '<b>deux fois</b>.'],
 ], [5.2 * cm, 11.2 * cm])
 
 espace(10)

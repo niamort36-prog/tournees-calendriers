@@ -28,6 +28,7 @@ export default function App() {
   const orientation = useAppStore((s) => s.orientation);
   const vueMembre = useAppStore((s) => s.vueMembre);
   const enAttente = useAppStore((s) => s.enAttente);
+  const synchroInitiale = useAppStore((s) => s.synchroInitiale);
   const [horsLigne, setHorsLigne] = useState(!navigator.onLine);
   const [proposerNotifs, setProposerNotifs] = useState(
     () => permissionADemander() && localStorage.getItem('notifs-proposees') !== '1',
@@ -59,6 +60,9 @@ export default function App() {
   useEffect(() => {
     const surTouche = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // quitter la case en cours l'enregistre avant que la fiche ne se ferme
+        const actif = document.activeElement;
+        if (actif instanceof HTMLElement && actif !== document.body) actif.blur();
         const s = useAppStore.getState();
         s.annulerModes();
         s.fermerAdresse();
@@ -281,6 +285,11 @@ export default function App() {
               >
                 ✕
               </button>
+            </div>
+          )}
+          {synchroInitiale && !chargement.actif && (
+            <div className="pastille-synchro" role="status">
+              <span className="spinner-mini" /> Mise à jour des données…
             </div>
           )}
           {vueListe && <ListeAdresses />}

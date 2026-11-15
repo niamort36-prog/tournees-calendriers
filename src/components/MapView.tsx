@@ -6,14 +6,52 @@ import '@geoman-io/leaflet-geoman-free';
 import 'leaflet-rotate';
 import { calculerTourneesVisibles, estAdminEffectif, useAppStore } from '../store/useAppStore';
 import MenuNavigation from './MenuNavigation';
-import { COULEUR_STATUT } from '../types';
+import { COULEUR_STATUT, type AdressePoint } from '../types';
 import type { LatLng } from '../lib/geo';
+
+// ----- dernière vue de la carte, gardée sur l'appareil -----
+// L'application rouvre là où on l'a laissée, au lieu de montrer la France
+// entière à chaque lancement.
+const CLE_VUE = 'vue-carte';
+
+function lireVue(): { lat: number; lng: number; zoom: number } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLE_VUE) ?? 'null') as {
+      lat?: unknown;
+      lng?: unknown;
+      zoom?: unknown;
+    } | null;
+    if (
+      v &&
+      typeof v.lat === 'number' &&
+      typeof v.lng === 'number' &&
+      typeof v.zoom === 'number' &&
+      Number.isFinite(v.lat) &&
+      Number.isFinite(v.lng) &&
+      Number.isFinite(v.zoom)
+    ) {
+      return { lat: v.lat, lng: v.lng, zoom: v.zoom };
+    }
+  } catch {
+    /* mémoire illisible : on repart de la vue par défaut */
+  }
+  return null;
+}
+
+const texteInfobulle = (a: AdressePoint): string => {
+  const nb = 1 + a.autresAdresses.length;
+  return nb > 1 ? `${a.libelle} — ${nb} adresses` : a.libelle;
+};
 
 export default function MapView() {
   const divRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const polygonesRef = useRef<L.LayerGroup | null>(null);
   const marqueursRef = useRef<L.LayerGroup | null>(null);
+  // un point de la carte par adresse, pour ne retoucher que ceux qui changent
+  const marqueursParId = useRef(new Map<string, { marqueur: L.CircleMarker; adresse: AdressePoint }>());
+  // vrai une fois la carte placée (vue mémorisée, ou premier cadrage sur les tournées)
+  const cadrageInitialFait = useRef(false);
   const positionRef = useRef<L.LayerGroup | null>(null);
   const fondPlanRef = useRef<L.TileLayer | null>(null);
   const fondSatelliteRef = useRef<L.TileLayer | null>(null);
@@ -54,7 +92,14 @@ export default function MapView() {
       touchRotate: true,
       shiftKeyRotate: true,
       rotateControl: false,
-    }).setView([46.6, 2.4], 6);
+    });
+    const vue = lireVue();
+    if (vue) map.setView([vue.lat, vue.lng], vue.zoom);
+    else map.setView([46.6, 2.4], 6);
+    cadrageInitialFait.current = vue !== null;
+    // la liste « par proximité » a besoin du centre dès le lancement, sans
+    // attendre que l'on déplace la carte
+    if (vue) useAppStore.getState().setCentreCarte({ lat: vue.lat, lng: vue.lng });
     fondPlanRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
@@ -123,6 +168,14 @@ export default function MapView() {
     map.on('moveend', () => {
       const centre = map.getCenter();
       useAppStore.getState().setCentreCarte({ lat: centre.lat, lng: centre.lng });
+      try {
+        localStorage.setItem(
+          CLE_VUE,
+          JSON.stringify({ lat: centre.lat, lng: centre.lng, zoom: map.getZoom() }),
+        );
+      } catch {
+        /* stockage indisponible : la vue ne sera pas retrouvée au prochain lancement */
+      }
     });
 
     polygonesRef.current = L.layerGroup().addTo(map);
@@ -133,8 +186,24 @@ export default function MapView() {
     return () => {
       map.remove();
       mapRef.current = null;
+      marqueursParId.current = new Map();
     };
   }, []);
+
+  // Tout premier lancement sur cet appareil (aucune vue mémorisée) : on cadre
+  // d'emblée sur les tournées visibles au lieu de laisser la France entière.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || cadrageInitialFait.current) return;
+    const points: LatLng[] = [];
+    for (const t of tournees) {
+      if (visibles !== null && !visibles.has(t.id)) continue;
+      for (const p of t.polygone) points.push(p);
+    }
+    if (points.length < 2) return;
+    cadrageInitialFait.current = true;
+    map.fitBounds(L.latLngBounds(points), { padding: [30, 30], animate: false });
+  }, [tournees, visibles]);
 
   // Orientation demandée par la boussole : on la reporte sur la carte.
   // (le sens inverse — gestes deux doigts, Maj + glisser — passe par
@@ -286,17 +355,39 @@ export default function MapView() {
     }
   }, [tournees, selectionTourneeId, versionEdition, visibles]);
 
-  // Pings d'adresses (canvas : supporte plusieurs milliers de points)
+  // Pings d'adresses (canvas : supporte plusieurs milliers de points).
+  //
+  // On ne retouche que les points qui ont changé. Avant, cocher UNE maison
+  // effaçait puis recréait TOUS les points de la carte (plus de six mille pour
+  // un administrateur) : c'était la principale cause de saccade au toucher,
+  // et à chaque synchronisation.
   useEffect(() => {
     const groupe = marqueursRef.current;
     const map = mapRef.current;
     if (!groupe || !map) return;
-    groupe.clearLayers();
+    const index = marqueursParId.current;
+    const vus = new Set<string>();
     for (const a of adresses) {
       if (visibles !== null && !visibles.has(a.tourneeId)) continue;
-      const nb = 1 + a.autresAdresses.length;
+      vus.add(a.id);
+      const existant = index.get(a.id);
+      if (existant) {
+        const avant = existant.adresse;
+        if (avant === a) continue; // strictement la même : rien à faire
+        const m = existant.marqueur;
+        if (avant.lat !== a.lat || avant.lng !== a.lng) m.setLatLng([a.lat, a.lng]);
+        if (avant.statut !== a.statut) m.setStyle({ fillColor: COULEUR_STATUT[a.statut] });
+        const groupeAvant = avant.autresAdresses.length > 0;
+        const groupeApres = a.autresAdresses.length > 0;
+        if (groupeAvant !== groupeApres) m.setRadius(groupeApres ? 11 : 8);
+        if (avant.libelle !== a.libelle || avant.autresAdresses.length !== a.autresAdresses.length) {
+          m.setTooltipContent(texteInfobulle(a));
+        }
+        existant.adresse = a;
+        continue;
+      }
       const marqueur = L.circleMarker([a.lat, a.lng], {
-        radius: nb > 1 ? 11 : 8,
+        radius: a.autresAdresses.length > 0 ? 11 : 8,
         color: '#ffffff',
         weight: 2,
         fillColor: COULEUR_STATUT[a.statut],
@@ -304,7 +395,8 @@ export default function MapView() {
         bubblingMouseEvents: false,
         pmIgnore: true,
       } as L.CircleMarkerOptions).addTo(groupe);
-      marqueur.bindTooltip(nb > 1 ? `${a.libelle} — ${nb} adresses` : a.libelle);
+      marqueur.bindTooltip(texteInfobulle(a));
+      const id = a.id;
       marqueur.on('click', () => {
         if (appuiLongRef.current) {
           appuiLongRef.current = false;
@@ -312,8 +404,15 @@ export default function MapView() {
         }
         const s = useAppStore.getState();
         if (s.modeAjout || s.deplacementAdresseId) return;
-        s.ouvrirAdresse(a.id);
+        s.ouvrirAdresse(id);
       });
+      index.set(id, { marqueur, adresse: a });
+    }
+    // adresses supprimées, ou tournée masquée
+    for (const [id, entree] of index) {
+      if (vus.has(id)) continue;
+      groupe.removeLayer(entree.marqueur);
+      index.delete(id);
     }
   }, [adresses, visibles]);
 

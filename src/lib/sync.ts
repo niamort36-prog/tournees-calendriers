@@ -7,7 +7,8 @@
 import { supabase } from './supabase';
 import { maintenantISO } from './horloge';
 import { colonneDisponible, signalerColonnes } from './capacites';
-import { db, type EnAttente } from '../store/db';
+import type { Table } from 'dexie';
+import { db } from '../store/db';
 import type {
   AdressePoint,
   Appartement,
@@ -246,6 +247,18 @@ function estFantome(x: { id?: unknown; modifieLe?: unknown }): boolean {
 }
 
 /**
+ * Même idée pour les tournées, campagnes, équipes et décomptes : la base leur
+ * donne TOUJOURS une date de création. Une ligne qui n'en a pas ne vient donc
+ * ni de la base ni d'un formulaire — c'est une ligne d'une AUTRE table arrivée
+ * au mauvais endroit (une adresse prise pour un décompte, par exemple : c'est
+ * ainsi que sont nés les 859 décomptes vides de novembre 2026). On ne
+ * l'envoie jamais et on ne la garde pas.
+ */
+function estIncomplete(x: { id?: unknown; modifieLe?: unknown; creeLe?: unknown }): boolean {
+  return estFantome(x) || typeof x.creeLe !== 'string';
+}
+
+/**
  * Une tournée sans nom ET sans contour n'a jamais été dessinée par un
  * administrateur : c'est un reste d'évènement temps réel incomplet.
  *
@@ -299,12 +312,19 @@ export async function purgerFantomes(
     retires += liste.length - bons.length;
     return bons;
   };
+  const garderDatees = <T extends { id?: unknown; modifieLe?: unknown; creeLe?: unknown }>(
+    liste: T[],
+  ): T[] => {
+    const bons = liste.filter((x) => !estIncomplete(x));
+    retires += liste.length - bons.length;
+    return bons;
+  };
   const propre: ResultatFusion = {
-    tournees: garder(listes.tournees),
+    tournees: garderDatees(listes.tournees),
     adresses: garder(listes.adresses),
-    campagnes: garder(listes.campagnes),
-    equipes: garder(listes.equipes),
-    decomptes: garder(listes.decomptes),
+    campagnes: garderDatees(listes.campagnes),
+    equipes: garderDatees(listes.equipes),
+    decomptes: garderDatees(listes.decomptes),
   };
   if (retires > 0) {
     // La clé d'un fantôme est inutilisable : on réécrit les tables sans lui.
@@ -340,6 +360,7 @@ type Operation =
   | { table: 'journal'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'decomptes'; op: 'upsert'; donnees: Record<string, unknown> }
   | { table: 'decomptes'; op: 'delete'; id: string }
+  | { table: 'decomptes'; op: 'delete_lot'; ids: string[] }
   | { table: 'adresses'; op: 'upsert'; donnees: Record<string, unknown> | Record<string, unknown>[] }
   | { table: 'adresses'; op: 'delete'; id: string }
   | {
@@ -354,9 +375,18 @@ type Operation =
 // donnée pourrait réapparaître via un vieux cache, comme avant).
 async function poserTombes(tableNom: string, ids: string[]): Promise<void> {
   if (!supabase || ids.length === 0) return;
-  await supabase
-    .from('suppressions')
-    .upsert(ids.map((id) => ({ id, table_nom: tableNom })));
+  // « ignoreDuplicates » : une pierre déjà posée pour cet identifiant est
+  // laissée telle quelle. Sans cela, un seul identifiant déjà connu faisait
+  // échouer TOUT le paquet (la table n'accepte que des ajouts, pas de
+  // modification) et aucune pierre n'était posée.
+  for (let i = 0; i < ids.length; i += 500) {
+    await supabase
+      .from('suppressions')
+      .upsert(
+        ids.slice(i, i + 500).map((id) => ({ id, table_nom: tableNom })),
+        { onConflict: 'id', ignoreDuplicates: true },
+      );
+  }
 }
 
 async function executer(opr: Operation): Promise<void> {
@@ -368,6 +398,13 @@ async function executer(opr: Operation): Promise<void> {
     const { error } = await supabase.from(opr.table).delete().eq('id', opr.id);
     if (error) throw error;
     await poserTombes(opr.table, [opr.id]);
+  } else if (opr.op === 'delete_lot') {
+    for (let i = 0; i < opr.ids.length; i += 100) {
+      const lot = opr.ids.slice(i, i + 100);
+      const { error } = await supabase.from(opr.table).delete().in('id', lot);
+      if (error) throw error;
+    }
+    await poserTombes(opr.table, opr.ids);
   } else {
     // Remplacement NON destructif. On écrit ce que cet appareil connaît et on
     // ne supprime QUE ce qui a été explicitement retiré. Auparavant toutes les
@@ -477,6 +514,7 @@ function refusDefinitif(e: unknown): boolean {
 function cleOperation(opr: Operation): string | null {
   if (opr.op === 'remplacer') return 'remplacer|' + opr.tourneeId;
   if (opr.op === 'delete') return opr.table + '|' + opr.id;
+  if (opr.op === 'delete_lot') return null;
   if (Array.isArray(opr.donnees)) return null; // paquet : on ne touche pas
   const id = (opr.donnees as { id?: unknown }).id;
   return typeof id === 'string' ? opr.table + '|' + id : null;
@@ -538,6 +576,8 @@ if (import.meta.env.DEV) {
   expose.estTourneeVide = estTourneeVide;
   expose.estEquipeVide = estEquipeVide;
   expose.ligneVersTournee = ligneVersTournee;
+  expose.fusionner = fusionner;
+  expose.interpreterEvenement = interpreterEvenement;
 }
 
 /** Nombre d'écritures encore en attente d'envoi. */
@@ -546,16 +586,16 @@ export async function nombreEnAttente(): Promise<number> {
 }
 
 export const syncTournee = (t: Tournee) =>
-  estFantome(t) || estTourneeVide(t)
+  estIncomplete(t) || estTourneeVide(t)
     ? Promise.resolve()
     : pousser({ table: 'tournees', op: 'upsert', donnees: tourneeVersLigne(t) });
 export const syncSupprimerTournee = (id: string) => pousser({ table: 'tournees', op: 'delete', id });
 export const syncCampagne = (c: Campagne) =>
-  estFantome(c)
+  estIncomplete(c)
     ? Promise.resolve()
     : pousser({ table: 'campagnes', op: 'upsert', donnees: campagneVersLigne(c) });
 export const syncEquipe = (e: Equipe) =>
-  estFantome(e) || estEquipeVide(e)
+  estIncomplete(e) || estEquipeVide(e)
     ? Promise.resolve()
     : pousser({ table: 'equipes', op: 'upsert', donnees: equipeVersLigne(e) });
 export const syncSupprimerEquipe = (id: string) => pousser({ table: 'equipes', op: 'delete', id });
@@ -610,9 +650,12 @@ export async function chargerJournal(limite = 300): Promise<EntreeJournal[]> {
 }
 
 export const syncDecompte = (d: Decompte) =>
-  estFantome(d)
+  estIncomplete(d)
     ? Promise.resolve()
     : pousser({ table: 'decomptes', op: 'upsert', donnees: decompteVersLigne(d) });
+/** Supprime plusieurs décomptes d'un coup (ménage des décomptes vides). */
+export const syncSupprimerDecomptes = (ids: string[]) =>
+  ids.length > 0 ? pousser({ table: 'decomptes', op: 'delete_lot', ids }) : Promise.resolve();
 export const syncAdresse = (a: AdressePoint) =>
   estFantome(a)
     ? Promise.resolve()
@@ -637,49 +680,49 @@ export const syncRemplacerAdresses = (
     suppressionsIds,
   });
 
-// ---------- lecture complète (avec pagination PostgREST) ----------
+// ---------- lecture complète (par pages) ----------
 
-async function chargerTable(
-  table: 'tournees' | 'adresses' | 'campagnes' | 'equipes' | 'decomptes' | 'suppressions',
-): Promise<Record<string, unknown>[]> {
+type TableLue = 'tournees' | 'adresses' | 'campagnes' | 'equipes' | 'decomptes' | 'suppressions';
+
+/**
+ * Lit toute une table, mille lignes à la fois.
+ *
+ * Les pages se suivent PAR IDENTIFIANT (« donne-moi les mille suivantes après
+ * celle-ci »), et non par numéro de ligne. Avant, rien n'était trié : entre
+ * deux pages, PostgreSQL pouvait déplacer une ligne qu'un collègue venait de
+ * modifier, et elle était alors sautée ou lue deux fois. Une adresse sautée
+ * passait pour « connue de ce seul téléphone » : sa vieille copie repartait
+ * vers le serveur et effaçait la modification du collègue.
+ */
+async function chargerTable(table: TableLue): Promise<Record<string, unknown>[]> {
   if (!supabase) return [];
   const lignes: Record<string, unknown>[] = [];
   const parPage = 1000;
-  for (let debut = 0; ; debut += parPage) {
-    const { data, error } = await supabase.from(table).select('*').range(debut, debut + parPage - 1);
+  let dernier: string | null = null;
+  for (;;) {
+    let requete = supabase.from(table).select('*');
+    if (dernier !== null) requete = requete.gt('id', dernier);
+    const { data, error } = await requete.order('id', { ascending: true }).limit(parPage);
     if (error) throw error;
-    lignes.push(...(data ?? []));
-    if (!data || data.length < parPage) break;
+    const page = (data ?? []) as Record<string, unknown>[];
+    lignes.push(...page);
+    if (page.length < parPage) break;
+    const suivant = page[page.length - 1].id;
+    // ne devrait jamais arriver ; évite de tourner en rond si le tri se perdait
+    if (typeof suivant !== 'string' || suivant === dernier) break;
+    dernier = suivant;
   }
   return lignes;
 }
 
-const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
-
-/**
- * Vrai si les deux versions ont exactement le même contenu (horodatage ignoré).
- * Garde-fou : un appareil dont l'horloge avance verrait toutes ses lignes
- * comme « plus récentes » et renverrait son ancienne copie par-dessus le
- * travail des autres. On ne pousse donc que ce qui a réellement changé.
- */
-function memeContenu<T>(a: T, b: T, vers: (x: T) => Record<string, unknown>): boolean {
-  return (
-    JSON.stringify({ ...vers(a), modifie_le: '' }) === JSON.stringify({ ...vers(b), modifie_le: '' })
-  );
+/** Le contenu de la base partagée, tel que lu à l'instant. */
+export interface Distant extends ResultatFusion {
+  /** Identifiants de tout ce qui a été supprimé (pierres tombales). */
+  tombes: Set<string>;
 }
 
-/**
- * Récupère tout le contenu distant et le fusionne avec le contenu local :
- * la version la plus récente gagne ; ce qui n'existe que d'un côté est
- * conservé (et poussé si c'est local).
- */
-export async function tirerEtFusionner(
-  tourneesLocales: Tournee[],
-  adressesLocales: AdressePoint[],
-  campagnesLocales: Campagne[],
-  equipesLocales: Equipe[],
-  decomptesLocaux: Decompte[],
-): Promise<ResultatFusion> {
+/** Lit toute la base partagée. Aucune décision n'est prise ici. */
+export async function lireDistant(): Promise<Distant> {
   const [lignesT, lignesA, lignesC, lignesE, lignesD, lignesS] = await Promise.all([
     chargerTable('tournees'),
     chargerTable('adresses'),
@@ -688,136 +731,349 @@ export async function tirerEtFusionner(
     chargerTable('decomptes'),
     chargerTable('suppressions'),
   ]);
-  const distantesT = lignesT.map(ligneVersTournee);
-  const distantesA = lignesA.map(ligneVersAdresse);
-  const distantesC = lignesC.map(ligneVersCampagne);
-  const distantesE = lignesE.map(ligneVersEquipe);
-  const distantsD = lignesD.map(ligneVersDecompte);
-  // pierres tombales : une donnée supprimée ne doit pas être repoussée par un
-  // appareil qui en gardait une vieille copie
-  const tombes = new Set(lignesS.map((l) => l.id as string));
-
-  const resultatT = new Map<string, Tournee>(distantesT.map((t) => [t.id, t]));
-  const aPousserT: Tournee[] = [];
-  for (const locale of tourneesLocales) {
-    // fantôme d'un évènement temps réel incomplet : on l'oublie
-    if (estFantome(locale)) continue;
-    if (tombes.has(locale.id)) continue;
-    const distante = resultatT.get(locale.id);
-    if (!distante) {
-      resultatT.set(locale.id, locale);
-      aPousserT.push(locale);
-    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
-      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
-      if (memeContenu(locale, distante, tourneeVersLigne)) resultatT.set(locale.id, distante);
-      else {
-        resultatT.set(locale.id, locale);
-        aPousserT.push(locale);
-      }
-    }
-  }
-
-  const resultatA = new Map<string, AdressePoint>(distantesA.map((a) => [a.id, a]));
-  const aPousserA: AdressePoint[] = [];
-  for (const locale of adressesLocales) {
-    // fantôme d'un évènement temps réel incomplet : on l'oublie
-    if (estFantome(locale)) continue;
-    if (tombes.has(locale.id)) continue;
-    const distante = resultatA.get(locale.id);
-    if (!distante) {
-      resultatA.set(locale.id, locale);
-      aPousserA.push(locale);
-    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
-      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
-      if (memeContenu(locale, distante, adresseVersLigne)) resultatA.set(locale.id, distante);
-      else {
-        resultatA.set(locale.id, locale);
-        aPousserA.push(locale);
-      }
-    }
-  }
-
-  const resultatC = new Map<string, Campagne>(distantesC.map((c) => [c.id, c]));
-  const aPousserC: Campagne[] = [];
-  for (const locale of campagnesLocales) {
-    // fantôme d'un évènement temps réel incomplet : on l'oublie
-    if (estFantome(locale)) continue;
-    if (tombes.has(locale.id)) continue;
-    const distante = resultatC.get(locale.id);
-    if (!distante) {
-      resultatC.set(locale.id, locale);
-      aPousserC.push(locale);
-    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
-      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
-      if (memeContenu(locale, distante, campagneVersLigne)) resultatC.set(locale.id, distante);
-      else {
-        resultatC.set(locale.id, locale);
-        aPousserC.push(locale);
-      }
-    }
-  }
-
-  const resultatE = new Map<string, Equipe>(distantesE.map((e) => [e.id, e]));
-  const aPousserE: Equipe[] = [];
-  for (const locale of equipesLocales) {
-    // fantôme d'un évènement temps réel incomplet : on l'oublie
-    if (estFantome(locale)) continue;
-    if (tombes.has(locale.id)) continue;
-    const distante = resultatE.get(locale.id);
-    if (!distante) {
-      resultatE.set(locale.id, locale);
-      aPousserE.push(locale);
-    } else if (plusRecent(locale.modifieLe, distante.modifieLe)) {
-      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
-      if (memeContenu(locale, distante, equipeVersLigne)) resultatE.set(locale.id, distante);
-      else {
-        resultatE.set(locale.id, locale);
-        aPousserE.push(locale);
-      }
-    }
-  }
-
-  const resultatD = new Map<string, Decompte>(distantsD.map((d) => [d.id, d]));
-  const aPousserD: Decompte[] = [];
-  for (const local of decomptesLocaux) {
-    // fantôme d'un évènement temps réel incomplet : on l'oublie
-    if (estFantome(local)) continue;
-    if (tombes.has(local.id)) continue;
-    const distant = resultatD.get(local.id);
-    if (!distant) {
-      resultatD.set(local.id, local);
-      aPousserD.push(local);
-    } else if (plusRecent(local.modifieLe, distant.modifieLe)) {
-      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
-      if (memeContenu(local, distant, decompteVersLigne)) resultatD.set(local.id, distant);
-      else {
-        resultatD.set(local.id, local);
-        aPousserD.push(local);
-      }
-    }
-  }
-
-  // pousse d'abord les tournées (adresses, équipes et décomptes y font référence)
-  for (const t of aPousserT) await syncTournee(t);
-  await syncAdresses(aPousserA);
-  for (const c of aPousserC) await syncCampagne(c);
-  for (const e of aPousserE) await syncEquipe(e);
-  for (const d of aPousserD) await syncDecompte(d);
-
-  // ne garde que les adresses dont la tournée existe encore ; une équipe dont
-  // la tournée a disparu redevient « sans tournée »
-  const adresses = [...resultatA.values()].filter((a) => resultatT.has(a.tourneeId));
-  const equipes = [...resultatE.values()].map((e) =>
-    e.tourneeId && !resultatT.has(e.tourneeId) ? { ...e, tourneeId: null } : e,
-  );
-  const decomptes = [...resultatD.values()].filter((d) => resultatT.has(d.tourneeId));
   return {
-    tournees: [...resultatT.values()],
-    adresses,
-    campagnes: [...resultatC.values()],
-    equipes,
-    decomptes,
+    tournees: lignesT.map(ligneVersTournee),
+    adresses: lignesA.map(ligneVersAdresse),
+    campagnes: lignesC.map(ligneVersCampagne),
+    equipes: lignesE.map(ligneVersEquipe),
+    decomptes: lignesD.map(ligneVersDecompte),
+    tombes: new Set(lignesS.map((l) => l.id as string)),
   };
+}
+
+// ---------- fusion (aucun accès réseau ni disque : calcul pur) ----------
+
+type Ligne = { id: string; modifieLe: string };
+
+const temps = (iso: string): number => Date.parse(iso);
+
+/**
+ * Vrai si les deux versions ont exactement le même contenu (horodatage ignoré).
+ * Garde-fou : un appareil dont l'horloge avance verrait toutes ses lignes
+ * comme « plus récentes » et renverrait son ancienne copie par-dessus le
+ * travail des autres. On ne pousse donc que ce qui a réellement changé.
+ */
+function memeContenu<T>(a: T, b: T, vers: (x: T) => Record<string, unknown>): boolean {
+  // Une même date s'écrit « …Z » sur le téléphone et « …+00:00 » en revenant
+  // du serveur : on compare l'instant, pas l'écriture. Sinon chaque ligne
+  // créée ici passait pour « différente » de sa propre copie sur le serveur.
+  const texte = (x: T) =>
+    JSON.stringify({ ...vers(x), modifie_le: '' }, (cle, valeur) =>
+      cle.endsWith('_le') && typeof valeur === 'string' ? Date.parse(valeur) : valeur,
+    );
+  return texte(a) === texte(b);
+}
+
+const memeDate = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  if (!a || !b) return !a && !b;
+  return a === b || temps(a) === temps(b);
+};
+
+const memeJson = (a: unknown, b: unknown): boolean =>
+  a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/**
+ * Même question que memeContenu, pour les adresses — mais sans tout convertir
+ * en texte : il y en a plus de six mille à comparer à chaque synchronisation,
+ * et la grande majorité n'a ni appartement ni détail de paiement.
+ */
+function memeAdresse(a: AdressePoint, b: AdressePoint): boolean {
+  if (
+    a.statut !== b.statut ||
+    (a.somme ?? null) !== (b.somme ?? null) ||
+    (a.note ?? null) !== (b.note ?? null) ||
+    a.libelle !== b.libelle ||
+    a.lat !== b.lat ||
+    a.lng !== b.lng ||
+    a.tourneeId !== b.tourneeId ||
+    (a.calendriersLaisses ?? null) !== (b.calendriersLaisses ?? null) ||
+    a.typeBatiment !== b.typeBatiment ||
+    a.manuelle !== b.manuelle ||
+    (a.banId ?? null) !== (b.banId ?? null) ||
+    a.commune !== b.commune ||
+    a.codePostal !== b.codePostal ||
+    (a.statutPrecedent ?? null) !== (b.statutPrecedent ?? null)
+  ) {
+    return false;
+  }
+  if (!memeDate(a.rappelLe, b.rappelLe) || !memeDate(a.noteLe, b.noteLe)) return false;
+  // (« ?? [] » : une très vieille ligne du téléphone peut ne pas avoir ces listes)
+  const autresA = a.autresAdresses ?? [];
+  const autresB = b.autresAdresses ?? [];
+  if (autresA.length !== autresB.length) return false;
+  if (autresA.length > 0 && !memeJson(autresA, autresB)) return false;
+  const appartsA = a.appartements ?? [];
+  const appartsB = b.appartements ?? [];
+  if (appartsA.length !== appartsB.length) return false;
+  if (appartsA.length > 0 && !memeJson(appartsA, appartsB)) return false;
+  // tant que la base n'a pas la colonne « paiement », elle ne peut pas différer
+  if (colonneDisponible('paiement') && !memeJson(a.paiement, b.paiement)) return false;
+  return true;
+}
+
+/**
+ * Fusionne une liste locale et la liste lue sur le serveur.
+ *
+ *  - la version la plus récente gagne ;
+ *  - une ligne inchangée garde le MÊME objet qu'avant : l'écran sait ainsi
+ *    qu'il n'a rien à redessiner ;
+ *  - une ligne connue de ce seul appareil est gardée et renvoyée, sauf si une
+ *    pierre tombale dit qu'elle a été supprimée ailleurs.
+ *
+ * Les pierres tombales ne servent QUE pour les lignes absentes du serveur.
+ * Avant, une pierre masquait aussi la ligne vivante portant le même
+ * identifiant — or 857 vraies adresses partagent le leur avec une tournée
+ * fantôme supprimée : leurs modifications locales étaient ignorées.
+ */
+function fusionnerTable<T extends Ligne>(
+  locales: T[],
+  distantes: T[],
+  tombes: Set<string>,
+  egal: (a: T, b: T) => boolean,
+  valide: (x: T) => boolean,
+): { liste: T[]; aPousser: T[] } {
+  const parId = new Map<string, T>();
+  for (const d of distantes) parId.set(d.id, d);
+  const vus = new Set<string>();
+  const liste: T[] = [];
+  const aPousser: T[] = [];
+  // Une ligne mal formée ne doit jamais faire échouer toute la synchronisation :
+  // dans le doute, les deux versions sont jugées différentes et la règle
+  // habituelle s'applique (la plus récente gagne).
+  const pareilles = (a: T, b: T): boolean => {
+    try {
+      return egal(a, b);
+    } catch {
+      return false;
+    }
+  };
+  for (const locale of locales) {
+    if (!valide(locale) || vus.has(locale.id)) continue;
+    const distante = parId.get(locale.id);
+    if (!distante) {
+      if (tombes.has(locale.id)) continue; // supprimée ailleurs
+      vus.add(locale.id);
+      liste.push(locale);
+      aPousser.push(locale);
+      continue;
+    }
+    vus.add(locale.id);
+    const tl = temps(locale.modifieLe);
+    const td = temps(distante.modifieLe);
+    if (tl > td) {
+      // contenu identique : on adopte l'horodatage du serveur, rien à renvoyer
+      if (pareilles(locale, distante)) liste.push(distante);
+      else {
+        liste.push(locale);
+        aPousser.push(locale);
+      }
+    } else if (tl === td && pareilles(locale, distante)) {
+      liste.push(locale); // strictement la même : on garde l'objet en place
+    } else {
+      liste.push(distante);
+    }
+  }
+  for (const d of distantes) {
+    if (!vus.has(d.id)) {
+      vus.add(d.id);
+      liste.push(d);
+    }
+  }
+  return { liste, aPousser };
+}
+
+/** Rend la liste d'origine si rien n'a bougé (même contenu, même ordre). */
+function stable<T>(avant: T[], apres: T[]): T[] {
+  if (avant.length !== apres.length) return apres;
+  for (let i = 0; i < avant.length; i += 1) if (avant[i] !== apres[i]) return apres;
+  return avant;
+}
+
+/** Ce qu'il faut écrire dans la base du téléphone pour une table. */
+export interface Ecart<T> {
+  mettre: T[];
+  retirer: string[];
+}
+
+function ecart<T extends { id: string }>(avant: T[], apres: T[]): Ecart<T> {
+  if (avant === apres) return { mettre: [], retirer: [] };
+  const anciens = new Set<T>(avant);
+  const idsApres = new Set<string>();
+  const mettre: T[] = [];
+  for (const x of apres) {
+    idsApres.add(x.id);
+    if (!anciens.has(x)) mettre.push(x);
+  }
+  const retirer: string[] = [];
+  for (const x of avant) {
+    if (typeof x.id === 'string' && x.id !== '' && !idsApres.has(x.id)) retirer.push(x.id);
+  }
+  return { mettre, retirer };
+}
+
+export interface Ecritures {
+  tournees: Ecart<Tournee>;
+  adresses: Ecart<AdressePoint>;
+  campagnes: Ecart<Campagne>;
+  equipes: Ecart<Equipe>;
+  decomptes: Ecart<Decompte>;
+}
+
+export interface Fusion {
+  /** Les cinq listes après fusion (la liste d'origine si rien n'a changé). */
+  listes: ResultatFusion;
+  /** Ce que cet appareil est seul à avoir, à envoyer au serveur. */
+  aPousser: ResultatFusion;
+  /** Ce qu'il faut reporter dans la base du téléphone. */
+  ecritures: Ecritures;
+}
+
+/**
+ * Fusionne l'état de l'appareil avec ce qui vient d'être lu sur le serveur.
+ *
+ * Fonction PURE et immédiate : elle doit être appelée avec l'état du moment,
+ * APRÈS la lecture réseau. Avant, l'état était photographié avant la lecture
+ * (plusieurs secondes sur un téléphone) : une maison cochée pendant ce temps
+ * était écrasée par la photo et « repassait en gris ».
+ */
+export function fusionner(local: ResultatFusion, distant: Distant): Fusion {
+  const T = fusionnerTable(
+    local.tournees,
+    distant.tournees,
+    distant.tombes,
+    (a, b) => memeContenu(a, b, tourneeVersLigne),
+    (x) => !estIncomplete(x),
+  );
+  const A = fusionnerTable(
+    local.adresses,
+    distant.adresses,
+    distant.tombes,
+    memeAdresse,
+    (x) => !estFantome(x),
+  );
+  const C = fusionnerTable(
+    local.campagnes,
+    distant.campagnes,
+    distant.tombes,
+    (a, b) => memeContenu(a, b, campagneVersLigne),
+    (x) => !estIncomplete(x),
+  );
+  const E = fusionnerTable(
+    local.equipes,
+    distant.equipes,
+    distant.tombes,
+    (a, b) => memeContenu(a, b, equipeVersLigne),
+    (x) => !estIncomplete(x),
+  );
+  const D = fusionnerTable(
+    local.decomptes,
+    distant.decomptes,
+    distant.tombes,
+    (a, b) => memeContenu(a, b, decompteVersLigne),
+    (x) => !estIncomplete(x),
+  );
+
+  // Une adresse ou un décompte dont la tournée n'existe plus disparaît avec
+  // elle — et n'est surtout pas renvoyé : le serveur refuserait tout le paquet.
+  // Une équipe dont la tournée a disparu redevient « sans tournée ».
+  const idsT = new Set(T.liste.map((t) => t.id));
+  const rattaches = <X extends { tourneeId: string }>(l: X[]): X[] => {
+    const bons = l.filter((x) => idsT.has(x.tourneeId));
+    return bons.length === l.length ? l : bons;
+  };
+  const detacher = (l: Equipe[]): Equipe[] =>
+    l.map((e) => (e.tourneeId && !idsT.has(e.tourneeId) ? { ...e, tourneeId: null } : e));
+
+  const listes: ResultatFusion = {
+    tournees: stable(local.tournees, T.liste),
+    adresses: stable(local.adresses, rattaches(A.liste)),
+    campagnes: stable(local.campagnes, C.liste),
+    equipes: stable(local.equipes, detacher(E.liste)),
+    decomptes: stable(local.decomptes, rattaches(D.liste)),
+  };
+  return {
+    listes,
+    aPousser: {
+      tournees: T.aPousser,
+      adresses: rattaches(A.aPousser),
+      campagnes: C.aPousser,
+      equipes: detacher(E.aPousser),
+      decomptes: rattaches(D.aPousser),
+    },
+    ecritures: {
+      tournees: ecart(local.tournees, listes.tournees),
+      adresses: ecart(local.adresses, listes.adresses),
+      campagnes: ecart(local.campagnes, listes.campagnes),
+      equipes: ecart(local.equipes, listes.equipes),
+      decomptes: ecart(local.decomptes, listes.decomptes),
+    },
+  };
+}
+
+/** Aucune écriture à faire (point de départ pour accumuler des écarts). */
+export function ecrituresVides(): Ecritures {
+  return {
+    tournees: { mettre: [], retirer: [] },
+    adresses: { mettre: [], retirer: [] },
+    campagnes: { mettre: [], retirer: [] },
+    equipes: { mettre: [], retirer: [] },
+    decomptes: { mettre: [], retirer: [] },
+  };
+}
+
+async function ecrireTable<T extends Ligne>(table: Table<T, string>, e: Ecart<T>): Promise<void> {
+  if (e.retirer.length > 0) await table.bulkDelete(e.retirer);
+  if (e.mettre.length === 0) return;
+  // On ne remplace jamais une ligne du téléphone par une version plus
+  // ancienne : une saisie faite pendant la synchronisation reste en place.
+  const actuelles = await table.bulkGet(e.mettre.map((x) => x.id));
+  const bonnes = e.mettre.filter((x, i) => {
+    const actuelle = actuelles[i];
+    return !actuelle || !(temps(actuelle.modifieLe) > temps(x.modifieLe));
+  });
+  if (bonnes.length > 0) await table.bulkPut(bonnes);
+}
+
+/**
+ * Reporte dans la base du téléphone ce qui vient du serveur (fusion ou temps
+ * réel). Seules les lignes qui ont changé sont écrites : avant, les tables
+ * étaient vidées puis réécrites en entier — plus de six mille lignes — à
+ * chaque synchronisation.
+ */
+export async function enregistrerEcritures(e: Ecritures): Promise<void> {
+  const total =
+    e.tournees.mettre.length +
+    e.tournees.retirer.length +
+    e.adresses.mettre.length +
+    e.adresses.retirer.length +
+    e.campagnes.mettre.length +
+    e.campagnes.retirer.length +
+    e.equipes.mettre.length +
+    e.equipes.retirer.length +
+    e.decomptes.mettre.length +
+    e.decomptes.retirer.length;
+  if (total === 0) return;
+  await db.transaction(
+    'rw',
+    [db.tournees, db.adresses, db.campagnes, db.equipes, db.decomptes],
+    async () => {
+      await ecrireTable(db.tournees, e.tournees);
+      await ecrireTable(db.adresses, e.adresses);
+      await ecrireTable(db.campagnes, e.campagnes);
+      await ecrireTable(db.equipes, e.equipes);
+      await ecrireTable(db.decomptes, e.decomptes);
+    },
+  );
+}
+
+/** Envoie au serveur ce que cet appareil était seul à avoir. */
+export async function pousserFusion(p: ResultatFusion): Promise<void> {
+  // d'abord les tournées (adresses, équipes et décomptes y font référence)
+  for (const t of p.tournees) await syncTournee(t);
+  for (let i = 0; i < p.adresses.length; i += 500) await syncAdresses(p.adresses.slice(i, i + 500));
+  for (const c of p.campagnes) await syncCampagne(c);
+  for (const e of p.equipes) await syncEquipe(e);
+  for (const d of p.decomptes) await syncDecompte(d);
 }
 
 // ---------- temps réel ----------
@@ -834,78 +1090,143 @@ export type Changement =
   | { table: 'decomptes'; type: 'upsert'; decompte: Decompte }
   | { table: 'decomptes'; type: 'delete'; id: string };
 
+const TABLES_SYNCHRONISEES = Object.keys(COLONNES_OBLIGATOIRES) as TableSynchronisee[];
+
+/** Un évènement temps réel, tel que la bibliothèque nous le remet. */
+export interface EvenementBrut {
+  schema?: string;
+  table?: string;
+  eventType?: string;
+  commit_timestamp?: string;
+  new?: unknown;
+  old?: unknown;
+}
+
 /**
- * S'abonne aux changements des autres appareils. Renvoie la fonction d'arrêt.
- * `onPerte` est appelé si le flux tombe (veille, changement de réseau…) —
- * jamais lors d'un arrêt volontaire. `onIncomplet` est appelé quand un
- * évènement arrive sans son contenu : il faut alors relire la vraie ligne.
+ * Traduit un évènement temps réel en changement à appliquer.
+ *
+ * La table est lue DANS LE MESSAGE, jamais déduite de l'abonnement qui l'a
+ * reçu. C'est la correction de fond des « fantômes » de novembre 2026 : tant
+ * qu'un abonnement n'a pas reçu son identifiant du serveur, la bibliothèque
+ * lui remet TOUS les évènements du canal, quelle que soit la table. Une
+ * adresse modifiée par un collègue était alors prise pour une tournée, une
+ * équipe et un décompte — d'où les tournées sans nom, les équipes vides et
+ * les 859 décomptes vides, tous porteurs d'un identifiant d'adresse (vérifié
+ * dans la sauvegarde du 15/11/2026 : 856 sur 859).
+ *
+ * Renvoie 'incomplet' si la ligne est amputée (il faut alors relire la base),
+ * et null si l'évènement ne nous concerne pas.
+ */
+export function interpreterEvenement(p: EvenementBrut): Changement | 'incomplet' | null {
+  if (p.schema !== undefined && p.schema !== 'public') return null;
+  if (typeof p.table !== 'string' || !TABLES_SYNCHRONISEES.includes(p.table as TableSynchronisee)) {
+    return null;
+  }
+  const table = p.table as TableSynchronisee;
+  if (p.eventType === 'DELETE') {
+    const id = (p.old as { id?: unknown } | null | undefined)?.id;
+    return typeof id === 'string' && id !== '' ? { table, type: 'delete', id } : null;
+  }
+  if (p.eventType !== 'INSERT' && p.eventType !== 'UPDATE') return null;
+  if (!ligneComplete(table, p.new)) return 'incomplet';
+  switch (table) {
+    case 'tournees':
+      return { table, type: 'upsert', tournee: ligneVersTournee(p.new) };
+    case 'adresses':
+      return { table, type: 'upsert', adresse: ligneVersAdresse(p.new) };
+    case 'campagnes':
+      return { table, type: 'upsert', campagne: ligneVersCampagne(p.new) };
+    case 'equipes':
+      return { table, type: 'upsert', equipe: ligneVersEquipe(p.new) };
+    default:
+      return { table, type: 'upsert', decompte: ligneVersDecompte(p.new) };
+  }
+}
+
+/** Un abonnement au temps réel. */
+export interface AbonnementTempsReel {
+  /** Coupe l'abonnement (définitif : on en recrée un autre pour reprendre). */
+  arreter: () => void;
+  /** Vrai tant que le canal est bien branché. */
+  pret: () => boolean;
+}
+
+let numeroCanal = 0;
+
+/**
+ * S'abonne aux changements des autres appareils.
+ *
+ * `onEtat` reçoit 'pret' chaque fois que le canal est branché (y compris
+ * après une reconnexion automatique) et 'perdu' s'il tombe — jamais lors d'un
+ * arrêt volontaire. `onIncomplet` est appelé quand un évènement arrive sans
+ * son contenu : il faut alors relire la vraie ligne.
+ *
+ * Chaque abonnement porte un nom de canal UNIQUE. Avec un nom fixe, un canal
+ * recréé après une coupure recevait les évènements encore en route pour
+ * l'ancien canal du même nom, AVANT d'avoir reçu ses identifiants du serveur :
+ * pendant ce laps de temps, chaque évènement était remis aux cinq abonnements
+ * à la fois (voir interpreterEvenement). Avec un nom neuf, rien ne peut
+ * arriver sur le canal avant que le serveur ne l'ait enregistré.
  */
 export function abonnerTempsReel(
   onChangement: (c: Changement) => void,
-  onPerte?: () => void,
+  onEtat?: (etat: 'pret' | 'perdu') => void,
   onIncomplet?: () => void,
-): () => void {
-  if (!supabase) return () => undefined;
+): AbonnementTempsReel {
+  if (!supabase) return { arreter: () => undefined, pret: () => false };
   const client = supabase;
-  let arretVolontaire = false;
-  const canal = client
-    .channel('sync-donnees')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournees' }, (p) => {
-      if (p.eventType === 'DELETE') {
-        const id = (p.old as { id?: string }).id;
-        if (id) onChangement({ table: 'tournees', type: 'delete', id });
-      } else if (!ligneComplete('tournees', p.new)) {
-        onIncomplet?.();
-      } else {
-        onChangement({ table: 'tournees', type: 'upsert', tournee: ligneVersTournee(p.new) });
-      }
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'adresses' }, (p) => {
-      if (p.eventType === 'DELETE') {
-        const id = (p.old as { id?: string }).id;
-        if (id) onChangement({ table: 'adresses', type: 'delete', id });
-      } else if (!ligneComplete('adresses', p.new)) {
-        onIncomplet?.();
-      } else {
-        onChangement({ table: 'adresses', type: 'upsert', adresse: ligneVersAdresse(p.new) });
-      }
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'campagnes' }, (p) => {
-      if (p.eventType === 'DELETE') {
-        const id = (p.old as { id?: string }).id;
-        if (id) onChangement({ table: 'campagnes', type: 'delete', id });
-      } else if (!ligneComplete('campagnes', p.new)) {
-        onIncomplet?.();
-      } else {
-        onChangement({ table: 'campagnes', type: 'upsert', campagne: ligneVersCampagne(p.new) });
-      }
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'equipes' }, (p) => {
-      if (p.eventType === 'DELETE') {
-        const id = (p.old as { id?: string }).id;
-        if (id) onChangement({ table: 'equipes', type: 'delete', id });
-      } else if (!ligneComplete('equipes', p.new)) {
-        onIncomplet?.();
-      } else {
-        onChangement({ table: 'equipes', type: 'upsert', equipe: ligneVersEquipe(p.new) });
-      }
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'decomptes' }, (p) => {
-      if (p.eventType === 'DELETE') {
-        const id = (p.old as { id?: string }).id;
-        if (id) onChangement({ table: 'decomptes', type: 'delete', id });
-      } else if (!ligneComplete('decomptes', p.new)) {
-        onIncomplet?.();
-      } else {
-        onChangement({ table: 'decomptes', type: 'upsert', decompte: ligneVersDecompte(p.new) });
-      }
-    })
-    .subscribe((etat) => {
-      if (arretVolontaire) return;
-      if (etat === 'CHANNEL_ERROR' || etat === 'TIMED_OUT' || etat === 'CLOSED') onPerte?.();
-    });
-  return () => {
-    arretVolontaire = true;
-    void client.removeChannel(canal);
+  let arrete = false;
+  numeroCanal += 1;
+  const nom = `sync-donnees-${Date.now().toString(36)}-${numeroCanal}`;
+
+  // Filet supplémentaire : un même évènement remis plusieurs fois n'est
+  // traité qu'une fois.
+  const dejaVus = new Set<string>();
+  const ordre: string[] = [];
+  const recevoir = (p: EvenementBrut) => {
+    if (arrete) return;
+    const ligne = (p.eventType === 'DELETE' ? p.old : p.new) as { id?: unknown } | null | undefined;
+    const cle = `${p.table}|${p.eventType}|${p.commit_timestamp}|${String(ligne?.id)}`;
+    if (dejaVus.has(cle)) return;
+    dejaVus.add(cle);
+    ordre.push(cle);
+    if (ordre.length > 500) dejaVus.delete(ordre.shift() as string);
+    const changement = interpreterEvenement(p);
+    if (changement === 'incomplet') onIncomplet?.();
+    else if (changement) onChangement(changement);
   };
+
+  let canal = client.channel(nom);
+  for (const table of TABLES_SYNCHRONISEES) {
+    canal = canal.on('postgres_changes', { event: '*', schema: 'public', table }, recevoir);
+  }
+  canal.subscribe((etat) => {
+    if (arrete) return;
+    if (etat === 'SUBSCRIBED') onEtat?.('pret');
+    else if (etat === 'CHANNEL_ERROR' || etat === 'TIMED_OUT' || etat === 'CLOSED') onEtat?.('perdu');
+  });
+  return {
+    arreter: () => {
+      if (arrete) return;
+      arrete = true;
+      void client.removeChannel(canal).catch(() => undefined);
+    },
+    pret: () => !arrete && (canal.state as string) === 'joined',
+  };
+}
+
+/**
+ * Au réveil du téléphone, la liaison temps réel est souvent morte sans que
+ * personne ne le sache encore. On la sonde tout de suite au lieu d'attendre
+ * la vérification périodique de la bibliothèque (jusqu'à une minute).
+ */
+export function reveillerTempsReel(): void {
+  if (!supabase) return;
+  try {
+    const liaison = supabase.realtime;
+    if (!liaison.isConnected()) liaison.connect();
+    else void liaison.sendHeartbeat().catch(() => undefined);
+  } catch {
+    // la bibliothèque se reconnectera d'elle-même
+  }
 }

@@ -2997,3 +2997,48 @@ body {
     box-shadow: 6px 0 24px rgba(0, 0, 0, 0.25);
   }
 }
+
+/* ---------- mise à jour discrète au lancement ---------- */
+/* Les données déjà sur l'appareil sont utilisables tout de suite : on signale
+   seulement, sans bloquer l'écran, que la mise à jour est en cours. */
+.pastille-synchro {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(29, 53, 87, 0.92);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.spinner-mini {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: tourne 0.9s linear infinite;
+}
+
+/* ---------- liste des adresses : suite de la liste ---------- */
+.liste-suite {
+  display: block;
+  width: 100%;
+  margin: 8px 0 4px;
+  padding: 12px 8px;
+  border: 1px dashed var(--bordure);
+  border-radius: 9px;
+  background: var(--fond);
+  color: var(--texte);
+  font-size: 14px;
+  cursor: pointer;
+}

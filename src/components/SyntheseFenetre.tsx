@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { estAdminEffectif, useAppStore } from '../store/useAppStore';
 import RecapModifications from './RecapModifications';
-import { construireFeuilles, exporterExcel, type DonneesExport } from '../lib/exportExcel';
+import type { DonneesExport } from '../lib/exportExcel';
 import { telechargerSauvegarde } from '../lib/sauvegarde';
 import {
   COULEUR_STATUT,
@@ -169,12 +169,27 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
   });
   const maxCollecte = Math.max(1, ...barres.map((b) => b.collecte));
 
-  const exporter = () => {
+  // Le module Excel est gros (un tiers de l'application) et ne sert qu'ici : il
+  // n'est chargé qu'au moment de l'export, ce qui allège le lancement de tous
+  // les téléphones.
+  const [exportEnCours, setExportEnCours] = useState(false);
+  const exporter = async () => {
     const donnees: DonneesExport = { tournees, adresses, equipes, decomptes, campagnes, annuaire };
-    if (import.meta.env.DEV) {
-      (window as unknown as Record<string, unknown>).dernierExport = construireFeuilles(donnees);
+    setExportEnCours(true);
+    try {
+      const { construireFeuilles, exporterExcel } = await import('../lib/exportExcel');
+      if (import.meta.env.DEV) {
+        (window as unknown as Record<string, unknown>).dernierExport = construireFeuilles(donnees);
+      }
+      exporterExcel(donnees);
+    } catch {
+      useAppStore.setState({
+        erreur:
+          "L'export Excel n'a pas pu se charger. Fermez puis rouvrez l'application (une mise à jour vient peut-être d'arriver), puis réessayez.",
+      });
+    } finally {
+      setExportEnCours(false);
     }
-    exporterExcel(donnees);
   };
 
   // Sauvegarde complete : tout l'avancement dans un seul fichier, au meme
@@ -466,8 +481,8 @@ export default function SyntheseFenetre({ onFermer }: { onFermer: () => void }) 
         )}
 
         {estAdmin && (
-          <button className="btn-export" onClick={exporter}>
-            📥 Exporter tout en Excel
+          <button className="btn-export" disabled={exportEnCours} onClick={() => void exporter()}>
+            {exportEnCours ? '⏳ Préparation du fichier…' : '📥 Exporter tout en Excel'}
           </button>
         )}
 

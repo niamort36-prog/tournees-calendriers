@@ -2,7 +2,7 @@
 // statut, saisie rapide somme / calendriers laissés, rappel, note, et petites
 // actions (renommer, déplacer, supprimer).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { peutVoirRecette, useAppStore } from '../store/useAppStore';
 import {
   COULEUR_STATUT,
@@ -46,6 +46,19 @@ function isoVersLocal(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * Fait quitter la case en cours de saisie, ce qui l'enregistre.
+ *
+ * Les cases « Somme », « Calendriers », « Note », étage et numéro
+ * s'enregistrent quand on en sort. Or sur iPhone, toucher ✕ ou le fond gris
+ * ne fait PAS sortir de la case : la fiche se fermait et ce qui venait d'être
+ * tapé était perdu. On en sort donc nous-mêmes avant de fermer.
+ */
+function quitterLaCase(): void {
+  const actif = document.activeElement;
+  if (actif instanceof HTMLElement && actif !== document.body) actif.blur();
+}
+
 function localVersIso(local: string): string | null {
   if (!local) return null;
   const d = new Date(local);
@@ -67,17 +80,61 @@ export default function FicheAdresse() {
   const [appartOuvert, setAppartOuvert] = useState<string | null>(null);
   const [nouveauNom, setNouveauNom] = useState('');
 
+  const champSomme = useRef<HTMLInputElement>(null);
+  const champCalendriers = useRef<HTMLInputElement>(null);
+  const champNote = useRef<HTMLTextAreaElement>(null);
+  const enSaisie = (champ: { current: HTMLElement | null }) =>
+    champ.current !== null && document.activeElement === champ.current;
+
   useEffect(() => {
     if (!adresse) return;
-    setSomme(adresse.somme != null ? String(adresse.somme) : '');
-    setCalendriers(adresse.calendriersLaisses != null ? String(adresse.calendriersLaisses) : '');
-    setNote(adresse.note ?? '');
-    setRappel(isoVersLocal(adresse.rappelLe));
     setRenommage(false);
     setDetailOuvert(!paiementVide(adresse.paiement));
     setAppartOuvert(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adresse?.id]);
+
+  // Les cases suivent la fiche. Si un collègue modifie la somme ou la note
+  // pendant que la fiche est ouverte, ou si le détail du paiement / les
+  // appartements recalculent la somme, la case se met à jour — sauf celle où
+  // l'on est en train d'écrire. Avant, la case gardait l'ancienne valeur et
+  // la réenregistrait par-dessus celle du collègue en la quittant.
+  useEffect(() => {
+    if (!adresse || enSaisie(champSomme)) return;
+    setSomme(adresse.somme != null ? String(adresse.somme) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adresse?.id, adresse?.somme]);
+  useEffect(() => {
+    if (!adresse || enSaisie(champCalendriers)) return;
+    setCalendriers(adresse.calendriersLaisses != null ? String(adresse.calendriersLaisses) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adresse?.id, adresse?.calendriersLaisses]);
+  useEffect(() => {
+    if (!adresse || enSaisie(champNote)) return;
+    setNote(adresse.note ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adresse?.id, adresse?.note]);
+  useEffect(() => {
+    if (!adresse) return;
+    setRappel(isoVersLocal(adresse.rappelLe));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adresse?.id, adresse?.rappelLe]);
+
+  // Téléphone verrouillé ou autre application au premier plan : on enregistre
+  // la case en cours, au cas où le système fermerait l'application derrière.
+  const ouverte = adresse !== undefined;
+  // (toujours la version à jour de la fonction définie plus bas)
+  const enregistrerCases = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (!ouverte) return;
+    const surMasquage = () => {
+      if (!document.hidden) return;
+      enregistrerCases.current();
+      quitterLaCase();
+    };
+    document.addEventListener('visibilitychange', surMasquage);
+    return () => document.removeEventListener('visibilitychange', surMasquage);
+  }, [ouverte]);
 
   if (!adresse) return null;
   const s = useAppStore.getState;
@@ -109,10 +166,18 @@ export default function FicheAdresse() {
     void s().majAdresse(adresse.id, patch);
   };
 
+  // La fiche telle qu'elle est À L'INSTANT dans l'application (et non telle
+  // qu'elle était au dernier affichage) : c'est à elle que l'on compare avant
+  // d'écrire.
+  const courante = () => s().adresses.find((a) => a.id === adresse.id) ?? adresse;
+
+  // (on n'écrit que si la valeur a réellement changé : entrer puis sortir
+  //  d'une case ne doit pas dater la fiche d'« à l'instant » et écraser ce
+  //  qu'un collègue vient de noter sur la même adresse)
   const validerSomme = () => {
     const brut = somme.trim().replace(',', '.');
     const valeur = brut === '' ? null : Number(brut);
-    if (valeur === null || !Number.isNaN(valeur)) {
+    if ((valeur === null || !Number.isNaN(valeur)) && valeur !== (courante().somme ?? null)) {
       void s().majAdresse(adresse.id, { somme: valeur });
     }
   };
@@ -124,14 +189,33 @@ export default function FicheAdresse() {
 
   const validerCalendriers = () => {
     const valeur = calendriers.trim() === '' ? null : Math.max(0, Math.trunc(Number(calendriers)));
-    if (valeur === null || !Number.isNaN(valeur)) {
+    if (
+      (valeur === null || !Number.isNaN(valeur)) &&
+      valeur !== (courante().calendriersLaisses ?? null)
+    ) {
       void s().majAdresse(adresse.id, { calendriersLaisses: valeur });
     }
   };
 
   const validerNote = () => {
     const valeur = note.trim() === '' ? null : note.trim();
-    if (valeur !== (adresse.note ?? null)) void s().majAdresse(adresse.id, { note: valeur });
+    if (valeur !== (courante().note ?? null)) void s().majAdresse(adresse.id, { note: valeur });
+  };
+
+  // Enregistre ce qui a été tapé dans les trois cases sans attendre qu'on en
+  // sorte. Sans effet si rien n'a changé.
+  enregistrerCases.current = () => {
+    if (adresse.statut === 'distribue') {
+      if (voitSommes && champSomme.current && !champSomme.current.readOnly) validerSomme();
+      if (champCalendriers.current) validerCalendriers();
+    }
+    validerNote();
+  };
+
+  const fermer = () => {
+    enregistrerCases.current();
+    quitterLaCase(); // étage et numéro d'un appartement
+    s().fermerAdresse();
   };
 
   const validerRappel = (valeur: string) => {
@@ -140,7 +224,7 @@ export default function FicheAdresse() {
   };
 
   return (
-    <div className="fiche-voile" onClick={() => s().fermerAdresse()}>
+    <div className="fiche-voile" onClick={fermer}>
       <div className="fiche" onClick={(e) => e.stopPropagation()}>
         <div className="fiche-poignee" />
 
@@ -170,7 +254,7 @@ export default function FicheAdresse() {
           ) : (
             <div className="fiche-titre">{adresse.libelle}</div>
           )}
-          <button className="fiche-fermer" onClick={() => s().fermerAdresse()}>
+          <button className="fiche-fermer" onClick={fermer}>
             ✕
           </button>
         </div>
@@ -371,6 +455,7 @@ export default function FicheAdresse() {
                   type="text"
                   inputMode="decimal"
                   placeholder="ex. 10"
+                  ref={champSomme}
                   value={somme}
                   readOnly={
                     (detailDisponible && detailOuvert && !paiementVide(adresse.paiement)) ||
@@ -388,6 +473,7 @@ export default function FicheAdresse() {
                 type="number"
                 min={0}
                 placeholder="1"
+                ref={champCalendriers}
                 value={calendriers}
                 onChange={(e) => setCalendriers(e.target.value)}
                 onBlur={validerCalendriers}
@@ -437,6 +523,7 @@ export default function FicheAdresse() {
           <textarea
             rows={2}
             placeholder="ex. sonnette cassée, passer après 18 h, motif du refus…"
+            ref={champNote}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             onBlur={validerNote}
@@ -454,7 +541,7 @@ export default function FicheAdresse() {
           </button>
           <button
             onClick={() => {
-              s().fermerAdresse();
+              fermer();
               s().commencerDeplacement(adresse.id);
             }}
           >

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/sync/construire.mjs . && node tests/sync/test-sync.mjs"
   },
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.18.3",

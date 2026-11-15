@@ -138,6 +138,31 @@ export function equipesVides(equipes: Equipe[]): Equipe[] {
   return equipes.filter(estEquipeVide);
 }
 
+/**
+ * Décomptes manifestement créés par erreur : rattachés à aucune campagne et
+ * entièrement vides — aucun participant, aucune demi-journée, aucun montant,
+ * pas terminés, pas de numéro de reçu. Les supprimer ne fait perdre aucun
+ * chiffre : il n'y en a pas.
+ *
+ * Ce sont des adresses que le temps réel avait remises au mauvais endroit
+ * (voir interpreterEvenement dans lib/sync.ts). Ils sont invisibles à
+ * l'écran, mais chaque téléphone les télécharge à chaque synchronisation.
+ */
+export function decomptesVides(decomptes: Decompte[]): Decompte[] {
+  return decomptes.filter(
+    (d) =>
+      d.campagneId === null &&
+      (d.participants ?? []).length === 0 &&
+      (d.seances ?? []).length === 0 &&
+      Object.values(d.especes ?? {}).every((n) => !n) &&
+      (d.cheques ?? []).length === 0 &&
+      d.cb == null &&
+      d.calendriersDistribues == null &&
+      !d.termine &&
+      d.numeroRecu == null,
+  );
+}
+
 // ----- réglage « me notifier de tout » (administrateurs) -----
 // Propre à l'appareil : un administrateur peut vouloir tout suivre depuis son
 // téléphone sans encombrer celui des autres. Rien n'est synchronisé.
@@ -183,6 +208,33 @@ function chargerTourneesAffichees(): string[] {
     return [];
   }
 }
+
+// ----- profil et annuaire gardés sur l'appareil -----
+// Sans réseau au lancement (cave, campagne, tunnel), l'application ne savait
+// plus QUI était connecté : plus d'étoile « ma tournée », plus de case
+// « Somme », toutes les tournées affichées. On garde donc la dernière réponse
+// du serveur. Ce n'est qu'un confort d'affichage : les droits réels restent
+// ceux du serveur.
+const CLE_PROFIL = 'profil-connu';
+const CLE_ANNUAIRE = 'annuaire-connu';
+
+function lireMemoire<T>(cle: string): T | null {
+  try {
+    const brut = localStorage.getItem(cle);
+    return brut ? (JSON.parse(brut) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function ecrireMemoire(cle: string, valeur: unknown): void {
+  try {
+    if (valeur === null) localStorage.removeItem(cle);
+    else localStorage.setItem(cle, JSON.stringify(valeur));
+  } catch {
+    /* stockage indisponible : on redemandera au serveur */
+  }
+}
 import { adressesDansPolygone, geocodageInverse, type PingGroupe } from '../lib/ban';
 import { supabase, supabaseActif } from '../lib/supabase';
 import {
@@ -190,21 +242,28 @@ import {
   syncAdresse,
   syncAdresses,
   chargerJournal,
+  ecrituresVides,
+  enregistrerEcritures,
   estEquipeVide,
   estTourneeVide,
+  fusionner,
+  lireDistant,
   nombreEnAttente,
+  pousserFusion,
   purgerFantomes,
+  reveillerTempsReel,
   syncCampagne,
   syncDecompte,
   syncJournal,
   syncEquipe,
+  syncSupprimerDecomptes,
   syncSupprimerEquipe,
   syncRemplacerAdresses,
   syncSupprimerAdresse,
   syncSupprimerTournee,
   syncTournee,
-  tirerEtFusionner,
   viderFileAttente,
+  type AbonnementTempsReel,
   type Changement,
 } from '../lib/sync';
 import type { LatLng } from '../lib/geo';
@@ -272,6 +331,8 @@ interface EtatApp {
   journal: EntreeJournal[];
   /** Nombre de modifications pas encore envoyées au serveur. */
   enAttente: number;
+  /** Mise à jour des données en cours au lancement (discrète, non bloquante). */
+  synchroInitiale: boolean;
   /** Tournées supplémentaires que l'utilisateur a choisi d'afficher. */
   tourneesAffichees: string[];
   /** Fond de carte satellite (photos aériennes IGN) au lieu du plan. */
@@ -329,6 +390,8 @@ interface EtatApp {
   supprimerEquipe: (id: string) => Promise<void>;
   /** Supprime d'un coup les équipes vides créées par erreur. Renvoie le nombre retiré. */
   supprimerEquipesVides: () => Promise<number>;
+  /** Supprime d'un coup les décomptes vides créés par erreur. Renvoie le nombre retiré. */
+  supprimerDecomptesVides: () => Promise<number>;
   rafraichirAnnuaire: () => Promise<void>;
   rafraichirJournal: () => Promise<void>;
   /** Relance tout de suite l'envoi des modifications en attente. */
@@ -371,47 +434,65 @@ export const useAppStore = create<EtatApp>((set, get) => {
   // avant de les appliquer, pour éviter des centaines de rafraîchissements.
   let tampon: Changement[] = [];
   let minuterieTampon: number | null = null;
-  let desabonner: (() => void) | null = null;
-
-  const appliquerTampon = async () => {
+  // Tout le calcul est fait d'une traite, SANS attendre le disque : l'état lu
+  // au début est donc bien celui que l'on remplace à la fin. Avant, on
+  // attendait IndexedDB à chaque évènement puis on réécrivait les cinq listes :
+  // une maison cochée entre-temps était écrasée par l'ancienne photo, et tout
+  // l'écran se redessinait pour une seule adresse modifiée.
+  const appliquerTampon = () => {
     minuterieTampon = null;
     const lots = tampon;
     tampon = [];
+    if (lots.length === 0) return;
     const plusRecent = (a: string, b: string) => Date.parse(a) > Date.parse(b);
-    const tournees = new Map(get().tournees.map((t) => [t.id, t]));
-    const adresses = new Map(get().adresses.map((a) => [a.id, a]));
-    const campagnes = new Map(get().campagnes.map((c) => [c.id, c]));
-    const equipes = new Map(get().equipes.map((e) => [e.id, e]));
-    const decomptes = new Map(get().decomptes.map((d) => [d.id, d]));
-    const monId = get().profil?.id ?? null;
+    const s = get();
+    const tournees = new Map(s.tournees.map((t) => [t.id, t] as const));
+    const adresses = new Map(s.adresses.map((a) => [a.id, a] as const));
+    const campagnes = new Map(s.campagnes.map((c) => [c.id, c] as const));
+    const equipes = new Map(s.equipes.map((e) => [e.id, e] as const));
+    const decomptes = new Map(s.decomptes.map((d) => [d.id, d] as const));
+    const modifie = {
+      tournees: false,
+      adresses: false,
+      campagnes: false,
+      equipes: false,
+      decomptes: false,
+    };
+    // ce qu'il faudra reporter dans la base du téléphone, une fois l'écran à jour
+    const ecritures = ecrituresVides();
+    const oublier = <X extends { id: string }>(e: { mettre: X[]; retirer: string[] }, id: string) => {
+      if (e.mettre.length > 0) e.mettre = e.mettre.filter((x) => x.id !== id);
+      e.retirer.push(id);
+    };
+    const monId = s.profil?.id ?? null;
     let notification: string | null = null;
-    let change = false;
+    let incomplet = false;
     for (const c of lots) {
       if (c.table === 'decomptes') {
         if (c.type === 'delete') {
           if (decomptes.delete(c.id)) {
-            change = true;
-            await db.decomptes.delete(c.id);
+            modifie.decomptes = true;
+            oublier(ecritures.decomptes, c.id);
           }
         } else {
           const local = decomptes.get(c.decompte.id);
           if (!local || plusRecent(c.decompte.modifieLe, local.modifieLe)) {
             // prévient les admins quand une tournée vient d'être terminée ailleurs
-            if (c.decompte.termine && !local?.termine && get().profil?.role === 'admin') {
+            if (c.decompte.termine && !local?.termine && s.profil?.role === 'admin') {
               const t = tournees.get(c.decompte.tourneeId);
               notification = `🏁 Tournée « ${t?.nom ?? '?'} » terminée — total ${formatEuros(totalDecompte(c.decompte).total)}`;
             }
             decomptes.set(c.decompte.id, c.decompte);
-            await db.decomptes.put(c.decompte);
-            change = true;
+            ecritures.decomptes.mettre.push(c.decompte);
+            modifie.decomptes = true;
           }
         }
       } else if (c.table === 'equipes') {
         if (c.type === 'delete') {
           const avant = equipes.get(c.id);
           if (equipes.delete(c.id)) {
-            change = true;
-            await db.equipes.delete(c.id);
+            modifie.equipes = true;
+            oublier(ecritures.equipes, c.id);
             if (monId && avant?.membres.includes(monId)) {
               notification = `📣 L'équipe « ${avant.nom} » a été dissoute.`;
             }
@@ -420,7 +501,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
           // Une équipe sans nom et sans membre n'a jamais été créée par le
           // formulaire. L'évènement est défectueux : l'appliquer effacerait le
           // nom et les membres d'une équipe bien réelle. On relit la vraie ligne.
-          surEvenementIncomplet();
+          incomplet = true;
         } else {
           const locale = equipes.get(c.equipe.id);
           if (!locale || plusRecent(c.equipe.modifieLe, locale.modifieLe)) {
@@ -438,71 +519,93 @@ export const useAppStore = create<EtatApp>((set, get) => {
               }
             }
             equipes.set(c.equipe.id, c.equipe);
-            await db.equipes.put(c.equipe);
-            change = true;
+            ecritures.equipes.mettre.push(c.equipe);
+            modifie.equipes = true;
           }
         }
       } else if (c.table === 'campagnes') {
         if (c.type === 'delete') {
           if (campagnes.delete(c.id)) {
-            change = true;
-            await db.campagnes.delete(c.id);
+            modifie.campagnes = true;
+            oublier(ecritures.campagnes, c.id);
           }
         } else {
           const locale = campagnes.get(c.campagne.id);
           if (!locale || plusRecent(c.campagne.modifieLe, locale.modifieLe)) {
             campagnes.set(c.campagne.id, c.campagne);
-            await db.campagnes.put(c.campagne);
-            change = true;
+            ecritures.campagnes.mettre.push(c.campagne);
+            modifie.campagnes = true;
           }
         }
       } else if (c.table === 'tournees') {
         if (c.type === 'delete') {
           if (tournees.delete(c.id)) {
-            change = true;
-            await db.tournees.delete(c.id);
-            await db.adresses.where('tourneeId').equals(c.id).delete();
-            for (const a of [...adresses.values()]) if (a.tourneeId === c.id) adresses.delete(a.id);
+            modifie.tournees = true;
+            oublier(ecritures.tournees, c.id);
+            // ce qui était accroché à la tournée part avec elle
+            for (const a of [...adresses.values()]) {
+              if (a.tourneeId !== c.id) continue;
+              adresses.delete(a.id);
+              oublier(ecritures.adresses, a.id);
+              modifie.adresses = true;
+            }
+            for (const d of [...decomptes.values()]) {
+              if (d.tourneeId !== c.id) continue;
+              decomptes.delete(d.id);
+              oublier(ecritures.decomptes, d.id);
+              modifie.decomptes = true;
+            }
+            // ... et ses équipes redeviennent « sans tournée »
+            for (const e of [...equipes.values()]) {
+              if (e.tourneeId !== c.id) continue;
+              const libre = { ...e, tourneeId: null };
+              equipes.set(e.id, libre);
+              ecritures.equipes.mettre.push(libre);
+              modifie.equipes = true;
+            }
           }
         } else if (estTourneeVide(c.tournee)) {
           // Même garde-fou : une tournée sans nom ni contour n'a été dessinée
           // par personne. On ne l'enregistre pas et on relit la vraie ligne.
-          surEvenementIncomplet();
+          incomplet = true;
         } else {
           const locale = tournees.get(c.tournee.id);
           if (!locale || plusRecent(c.tournee.modifieLe, locale.modifieLe)) {
             tournees.set(c.tournee.id, c.tournee);
-            await db.tournees.put(c.tournee);
-            change = true;
+            ecritures.tournees.mettre.push(c.tournee);
+            modifie.tournees = true;
           }
         }
       } else {
         if (c.type === 'delete') {
           if (adresses.delete(c.id)) {
-            change = true;
-            await db.adresses.delete(c.id);
+            modifie.adresses = true;
+            oublier(ecritures.adresses, c.id);
           }
         } else {
           const locale = adresses.get(c.adresse.id);
           if (!locale || plusRecent(c.adresse.modifieLe, locale.modifieLe)) {
             adresses.set(c.adresse.id, c.adresse);
-            await db.adresses.put(c.adresse);
-            change = true;
+            ecritures.adresses.mettre.push(c.adresse);
+            modifie.adresses = true;
           }
         }
       }
     }
-    if (change) {
-      set({
-        tournees: [...tournees.values()],
-        adresses: [...adresses.values()],
-        campagnes: [...campagnes.values()],
-        equipes: [...equipes.values()],
-        decomptes: [...decomptes.values()],
-        ...(notification ? { notification } : {}),
-      });
-      if (notification) void notifier('🚒 Tournées Calendriers', notification);
-    }
+    if (incomplet) surEvenementIncomplet();
+    // Seules les listes réellement touchées sont remplacées : une adresse
+    // modifiée ne fait plus redessiner les tournées, les équipes, etc.
+    const maj: Partial<EtatApp> = {};
+    if (modifie.tournees) maj.tournees = [...tournees.values()];
+    if (modifie.adresses) maj.adresses = [...adresses.values()];
+    if (modifie.campagnes) maj.campagnes = [...campagnes.values()];
+    if (modifie.equipes) maj.equipes = [...equipes.values()];
+    if (modifie.decomptes) maj.decomptes = [...decomptes.values()];
+    if (Object.keys(maj).length === 0) return;
+    if (notification) maj.notification = notification;
+    set(maj);
+    if (notification) void notifier('🚒 Tournées Calendriers', notification);
+    void enregistrerEcritures(ecritures).catch(() => undefined);
   };
 
   // ----- rappels « à repasser » : notification à l'heure dite -----
@@ -562,11 +665,20 @@ export const useAppStore = create<EtatApp>((set, get) => {
 
   const surChangementDistant = (c: Changement) => {
     tampon.push(c);
-    if (minuterieTampon === null) minuterieTampon = window.setTimeout(() => void appliquerTampon(), 250);
+    if (minuterieTampon === null) minuterieTampon = window.setTimeout(appliquerTampon, 250);
   };
 
   // ----- resynchronisation complète (connexion, retour réseau, archivage) -----
+  /** Change à chaque déconnexion : une synchro lancée avant ne doit plus rien écrire. */
+  let generation = 0;
+  /** Vrai dès que la synchro en cours a commencé à lire le serveur. */
+  let lectureCommencee = false;
+  /** Au lancement : la lecture attend (brièvement) que le temps réel soit branché. */
+  let attenteAvantLecture: Promise<void> | null = null;
+
   const resynchroniser = async () => {
+    const maGeneration = generation;
+    lectureCommencee = false;
     await synchroniserHorloge();
     const abandonnees = await viderFileAttente();
     // Message de plomberie : seul un administrateur peut y faire quelque chose.
@@ -578,60 +690,111 @@ export const useAppStore = create<EtatApp>((set, get) => {
           `(adresse ou tournée supprimée entre-temps, le plus souvent). Le reste est bien parti.`,
       });
     }
-    const fusion = await tirerEtFusionner(
-      get().tournees,
-      get().adresses,
-      get().campagnes,
-      get().equipes,
-      get().decomptes,
-    );
-    await db.transaction(
-      'rw',
-      [db.tournees, db.adresses, db.campagnes, db.equipes, db.decomptes],
-      async () => {
-        await db.tournees.clear();
-        await db.tournees.bulkPut(fusion.tournees);
-        await db.adresses.clear();
-        await db.adresses.bulkPut(fusion.adresses);
-        await db.campagnes.clear();
-        await db.campagnes.bulkPut(fusion.campagnes);
-        await db.equipes.clear();
-        await db.equipes.bulkPut(fusion.equipes);
-        await db.decomptes.clear();
-        await db.decomptes.bulkPut(fusion.decomptes);
+    if (attenteAvantLecture) {
+      const attente = attenteAvantLecture;
+      attenteAvantLecture = null;
+      await attente;
+    }
+    lectureCommencee = true;
+    const distant = await lireDistant();
+    // déconnecté (ou compte supprimé) pendant la lecture : on ne recharge rien
+    if (maGeneration !== generation || !get().session) return;
+    // Le serveur ne renvoie RIEN alors que l'appareil a des données : c'est ce
+    // qu'il répond à un compte suspendu. On revérifie le compte avant de
+    // conclure, au lieu de prendre ce vide pour la réalité.
+    if (distant.tournees.length === 0 && distant.adresses.length === 0 && get().adresses.length > 0) {
+      await verifierCompte();
+      if (maGeneration !== generation || !get().session) return;
+    }
+    const compte = get().profil;
+    if (compte && !compte.approuve) return;
+
+    // À partir d'ici et jusqu'au set(), AUCUNE attente : on fusionne avec
+    // l'état du moment, pas avec une photo prise avant la lecture. C'était la
+    // cause des maisons qui « repassaient en gris » : la lecture prend
+    // plusieurs secondes sur un téléphone, et tout ce qui était coché pendant
+    // ce temps était écrasé par la photo.
+    const s = get();
+    const fusion = fusionner(
+      {
+        tournees: s.tournees,
+        adresses: s.adresses,
+        campagnes: s.campagnes,
+        equipes: s.equipes,
+        decomptes: s.decomptes,
       },
+      distant,
     );
-    set({
-      tournees: fusion.tournees,
-      adresses: fusion.adresses,
-      campagnes: fusion.campagnes,
-      equipes: fusion.equipes,
-      decomptes: fusion.decomptes,
-      enAttente: await nombreEnAttente(),
-    });
+    // Une liste inchangée garde la même référence : l'écran ne redessine rien.
+    const maj: Partial<EtatApp> = {};
+    if (fusion.listes.tournees !== s.tournees) maj.tournees = fusion.listes.tournees;
+    if (fusion.listes.adresses !== s.adresses) maj.adresses = fusion.listes.adresses;
+    if (fusion.listes.campagnes !== s.campagnes) maj.campagnes = fusion.listes.campagnes;
+    if (fusion.listes.equipes !== s.equipes) maj.equipes = fusion.listes.equipes;
+    if (fusion.listes.decomptes !== s.decomptes) maj.decomptes = fusion.listes.decomptes;
+    if (Object.keys(maj).length > 0) set(maj);
+
+    await enregistrerEcritures(fusion.ecritures);
+    await pousserFusion(fusion.aPousser);
+    // Une saisie faite hors réseau pendant cette synchro a pu rejoindre la file
+    // après son vidage : on la fait partir maintenant plutôt qu'au tour suivant.
+    let restant = await nombreEnAttente();
+    if (restant > 0) {
+      await viderFileAttente();
+      restant = await nombreEnAttente();
+    }
+    if (restant !== get().enAttente) set({ enAttente: restant });
+    // lancement sans réseau : les noms des collègues n'avaient pas pu être lus
+    if (get().annuaire.length === 0) void get().rafraichirAnnuaire();
   };
 
   // ----- resynchronisation encadrée (anti-rafales) -----
   let derniereSynchro = 0;
-  let resyncEnCours = false;
+  let resyncEnCours: Promise<void> | null = null;
+  /** Une nouvelle lecture est demandée dès que celle en cours sera finie. */
+  let resyncEncore = false;
+
+  /** Lance une synchro, ou rejoint celle qui tourne déjà. */
+  const lancerResync = (): Promise<void> => {
+    if (resyncEnCours) return resyncEnCours;
+    const course = (async () => {
+      do {
+        resyncEncore = false;
+        await resynchroniser();
+        derniereSynchro = Date.now();
+      } while (resyncEncore && get().session);
+    })();
+    const suivie = course.finally(() => {
+      if (resyncEnCours === suivie) resyncEnCours = null;
+      resyncEncore = false;
+    });
+    resyncEnCours = suivie;
+    return suivie;
+  };
+
+  /** Une synchro qui lit le serveur À PARTIR DE MAINTENANT (après un archivage). */
+  const resyncComplete = (): Promise<void> => {
+    if (resyncEnCours) resyncEncore = true;
+    return lancerResync();
+  };
+
   const resynchroniserSiPossible = async (force = false) => {
-    if (!supabase || !get().session || resyncEnCours) return;
-    if (!force && Date.now() - derniereSynchro < 30000) return;
-    resyncEnCours = true;
+    const s = get();
+    if (!supabase || !s.session) return;
+    // compte en attente de validation : le serveur ne lui donne rien
+    if (s.profil && !s.profil.approuve) return;
+    if (!force && (resyncEnCours || Date.now() - derniereSynchro < 30000)) return;
     try {
-      await resynchroniser();
-      derniereSynchro = Date.now();
+      await lancerResync();
     } catch {
       // hors ligne ou erreur passagère : on retentera
-    } finally {
-      resyncEnCours = false;
     }
   };
 
   // ----- compte supprimé : purge locale et déconnexion -----
   const purgerEtDeconnecter = async (message: string) => {
-    desabonner?.();
-    desabonner = null;
+    arreterTempsReel();
+    oublierProfil();
     try {
       await Promise.all([
         db.tournees.clear(),
@@ -685,20 +848,36 @@ export const useAppStore = create<EtatApp>((set, get) => {
       const frais = versProfil(data);
       const profil = get().profil;
       const etaitEnAttente = profil ? !profil.approuve : false;
+      // (profil absent : l'application a été lancée sans réseau et sans
+      //  mémoire du compte — on le renseigne dès que le serveur répond)
       if (
-        profil &&
-        (profil.role !== frais.role ||
-          profil.nom !== frais.nom ||
-          profil.centre !== frais.centre ||
-          profil.approuve !== frais.approuve)
+        !profil ||
+        profil.role !== frais.role ||
+        profil.nom !== frais.nom ||
+        profil.centre !== frais.centre ||
+        profil.approuve !== frais.approuve
       ) {
-        set({ profil: frais });
+        definirProfil(frais);
         // le compte vient d'être validé : on charge enfin les données
         if (etaitEnAttente && frais.approuve) void apresConnexion();
       }
     } catch {
       // réseau : on réessaiera
     }
+  };
+
+  // ----- profil et annuaire : à l'écran ET en mémoire de l'appareil -----
+  const definirProfil = (profil: Profil) => {
+    set({ profil });
+    ecrireMemoire(CLE_PROFIL, profil);
+  };
+  const definirAnnuaire = (annuaire: Profil[]) => {
+    set({ annuaire });
+    ecrireMemoire(CLE_ANNUAIRE, annuaire);
+  };
+  const oublierProfil = () => {
+    ecrireMemoire(CLE_PROFIL, null);
+    ecrireMemoire(CLE_ANNUAIRE, null);
   };
 
   // ----- évènement temps réel arrivé sans son contenu -----
@@ -709,57 +888,176 @@ export const useAppStore = create<EtatApp>((set, get) => {
     void resynchroniserSiPossible();
   };
 
-  // ----- reconnexion du temps réel s'il tombe (veille, réseau…) -----
-  let reabonnementPrevu = false;
-  const surPerteTempsReel = () => {
-    if (reabonnementPrevu) return;
-    reabonnementPrevu = true;
-    window.setTimeout(() => {
-      reabonnementPrevu = false;
-      if (!get().session) return;
-      desabonner?.();
-      desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel, surEvenementIncomplet);
+  // ----- temps réel : branchement, surveillance et reprise -----
+  let canalTempsReel: AbonnementTempsReel | null = null;
+  let tempsReelPret = false;
+  let tentativesTempsReel = 0;
+  let minuterieReprise: number | null = null;
+  let minuterieRattrapage: number | null = null;
+  /** Au lancement : prévient apresConnexion que le canal est branché. */
+  let surPremierPret: (() => void) | null = null;
+
+  // Le canal vient d'être (re)branché : tout ce qui a changé pendant la
+  // coupure nous a échappé. On relit le serveur — une seule fois, même si la
+  // liaison clignote.
+  const rattraper = () => {
+    if (resyncEnCours) {
+      // la synchro en cours n'a pas encore lu le serveur : elle verra tout
+      if (lectureCommencee) resyncEncore = true;
+      return;
+    }
+    if (minuterieRattrapage !== null) return;
+    const attente = Math.max(0, 20000 - (Date.now() - derniereSynchro));
+    minuterieRattrapage = window.setTimeout(() => {
+      minuterieRattrapage = null;
       void resynchroniserSiPossible(true);
-    }, 10000);
+    }, attente);
   };
 
-  // ----- après connexion : profil, rattrapage, fusion, temps réel -----
+  const surEtatTempsReel = (etat: 'pret' | 'perdu') => {
+    if (etat === 'pret') {
+      tempsReelPret = true;
+      tentativesTempsReel = 0;
+      if (surPremierPret) {
+        // lancement : apresConnexion attendait ce signal pour lire le serveur
+        const prevenir = surPremierPret;
+        surPremierPret = null;
+        prevenir();
+        return;
+      }
+      rattraper();
+    } else {
+      tempsReelPret = false;
+      programmerReprise();
+    }
+  };
+
+  const brancherTempsReel = () => {
+    canalTempsReel?.arreter();
+    tempsReelPret = false;
+    canalTempsReel = abonnerTempsReel(surChangementDistant, surEtatTempsReel, surEvenementIncomplet);
+  };
+
+  const arreterTempsReel = () => {
+    generation += 1;
+    canalTempsReel?.arreter();
+    canalTempsReel = null;
+    tempsReelPret = false;
+    tentativesTempsReel = 0;
+    surPremierPret = null;
+    if (minuterieReprise !== null) window.clearTimeout(minuterieReprise);
+    if (minuterieRattrapage !== null) window.clearTimeout(minuterieRattrapage);
+    minuterieReprise = null;
+    minuterieRattrapage = null;
+  };
+
+  // La bibliothèque se reconnecte d'elle-même dans la plupart des cas. Si le
+  // canal n'est toujours pas rétabli au bout d'un moment, on en crée un neuf
+  // (8 s, puis 16, 32 et 64 s : inutile de s'acharner sans réseau).
+  const programmerReprise = () => {
+    if (minuterieReprise !== null) return;
+    const delai = 8000 * 2 ** Math.min(tentativesTempsReel, 3);
+    minuterieReprise = window.setTimeout(() => {
+      minuterieReprise = null;
+      if (!get().session || !canalTempsReel) return;
+      if (canalTempsReel.pret()) {
+        // rétabli tout seul — si personne ne nous l'a signalé, on rattrape ici
+        if (!tempsReelPret) {
+          tempsReelPret = true;
+          tentativesTempsReel = 0;
+          rattraper();
+        }
+        return;
+      }
+      tentativesTempsReel += 1;
+      // sans réseau, un nouveau canal n'y changerait rien : on attend
+      if (navigator.onLine) brancherTempsReel();
+      programmerReprise();
+    }, delai);
+  };
+
+  const attendrePremierPret = (delai: number): Promise<void> =>
+    new Promise((resolve) => {
+      if (tempsReelPret) {
+        resolve();
+        return;
+      }
+      const minuterie = window.setTimeout(() => {
+        surPremierPret = null;
+        resolve();
+      }, delai);
+      surPremierPret = () => {
+        window.clearTimeout(minuterie);
+        resolve();
+      };
+    });
+
+  // ----- après connexion : profil, temps réel, rattrapage, fusion -----
   const apresConnexion = async () => {
     const session = get().session;
     if (!supabase || !session) return;
+    // Si l'appareil a déjà des données, on les montre tout de suite et la mise
+    // à jour se fait derrière, sans bloquer l'écran. Le voile d'attente ne
+    // sert plus qu'à la toute première connexion, quand il n'y a rien à voir.
+    const premiereFois = get().tournees.length === 0;
     try {
-      const { data, error } = await supabase
-        .from('profils')
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      if (!error && !data) {
-        await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
-        return;
+      const connu = get().profil;
+      if (connu && connu.id === session.user.id && connu.approuve) {
+        // Compte déjà connu de cet appareil et validé : on n'attend pas la
+        // réponse du serveur pour lancer la mise à jour, le compte est
+        // revérifié en parallèle. Sur un réseau faible, cette seule question
+        // retenait tout le lancement pendant plusieurs secondes.
+        void verifierCompte();
+      } else {
+        const { data, error } = await supabase
+          .from('profils')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (!error && !data) {
+          await purgerEtDeconnecter('Ce compte a été supprimé par un administrateur.');
+          return;
+        }
+        if (data) definirProfil(versProfil(data));
+        // Compte en attente de validation : aucune donnée de l'amicale n'est
+        // chargée (le serveur les refuse de toute façon depuis la mise à jour n°14).
+        if (data && !versProfil(data).approuve) {
+          set({ chargement: CHARGEMENT_INACTIF });
+          return;
+        }
       }
-      if (data) set({ profil: versProfil(data) });
-      // Compte en attente de validation : aucune donnée de l'amicale n'est
-      // chargée (le serveur les refuse de toute façon depuis la mise à jour n°14).
-      if (data && !versProfil(data).approuve) {
-        set({ chargement: CHARGEMENT_INACTIF });
-        return;
-      }
-      const annuaire = await supabase.from('profils').select('*').order('nom');
+      if (premiereFois) onEtat('Synchronisation des tournées…', null);
+      // (sans réseau, rien ne se met à jour : le bandeau « Hors ligne » le dit déjà)
+      else if (navigator.onLine) set({ synchroInitiale: true });
+      // Le temps réel D'ABORD, la lecture ENSUITE : ce qui change pendant la
+      // lecture arrive par le canal, rien ne peut passer entre les deux. On
+      // n'attend pas plus de trois secondes, et ce temps n'est pas perdu :
+      // l'horloge et les envois en attente se règlent pendant ce délai.
+      brancherTempsReel();
+      attenteAvantLecture = attendrePremierPret(3000);
+      const [annuaire] = await Promise.all([
+        supabase.from('profils').select('*').order('nom'),
+        lancerResync(),
+      ]);
       if (annuaire.data) {
-        set({ annuaire: (annuaire.data as Record<string, unknown>[]).map(versProfil) });
+        definirAnnuaire((annuaire.data as Record<string, unknown>[]).map(versProfil));
       }
-      onEtat('Synchronisation des tournées…', null);
-      await resynchroniser();
-      derniereSynchro = Date.now();
-      set({ chargement: CHARGEMENT_INACTIF });
+      set({ chargement: CHARGEMENT_INACTIF, synchroInitiale: false });
     } catch {
       set({
         chargement: CHARGEMENT_INACTIF,
-        erreur: 'Synchronisation impossible pour le moment (connexion ?). Vos saisies restent enregistrées sur cet appareil.',
+        synchroInitiale: false,
+        // À la première connexion il n'y a rien à montrer : on le dit. Sinon
+        // le bandeau « Hors ligne » suffit, inutile d'alarmer à chaque lancement.
+        ...(premiereFois
+          ? {
+              erreur:
+                'Synchronisation impossible pour le moment (connexion ?). Vos saisies restent enregistrées sur cet appareil.',
+            }
+          : {}),
       });
     }
-    desabonner?.();
-    desabonner = abonnerTempsReel(surChangementDistant, surPerteTempsReel, surEvenementIncomplet);
+    if (get().session && !canalTempsReel) brancherTempsReel();
   };
 
   if (typeof window !== 'undefined') {
@@ -769,26 +1067,50 @@ export const useAppStore = create<EtatApp>((set, get) => {
       void nombreEnAttente().then((n) => {
         if (n !== get().enAttente) set({ enAttente: n });
       });
+      if (!get().session) return;
+      // filet : le canal s'est éteint sans prévenir
+      if (canalTempsReel && tempsReelPret && !canalTempsReel.pret()) tempsReelPret = false;
+      if (canalTempsReel && !tempsReelPret) programmerReprise();
+      // Filet de rattrapage si le temps réel a raté des changements : toutes
+      // les 5 minutes quand il fonctionne, toutes les 2 minutes sinon.
+      const intervalle = tempsReelPret ? 300000 : 120000;
+      if (!document.hidden && Date.now() - derniereSynchro > intervalle) {
+        void resynchroniserSiPossible();
+      }
     }, 60000);
 
     // les envois en attente repartent dès que le réseau revient
     window.setInterval(() => {
       if (!document.hidden && get().enAttente > 0) void resynchroniserSiPossible(true);
     }, 45000);
-    // filets de rattrapage si le temps réel a raté des changements
-    window.setInterval(() => {
-      if (!document.hidden) void resynchroniserSiPossible();
-    }, 180000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) void resynchroniserSiPossible();
+      if (document.hidden) return;
+      // au réveil du téléphone, la liaison temps réel est souvent morte
+      reveillerTempsReel();
+      void resynchroniserSiPossible();
     });
-    window.addEventListener('online', () => void resynchroniserSiPossible(true));
+    window.addEventListener('online', () => {
+      reveillerTempsReel();
+      void resynchroniserSiPossible(true);
+    });
     if (import.meta.env.DEV) {
       const expose = window as unknown as Record<string, unknown>;
       expose.verifierRappels = verifierRappels;
       expose.verifierCompte = verifierCompte;
       expose.resynchroniserSiPossible = resynchroniserSiPossible;
       expose.surChangementDistant = surChangementDistant;
+      expose.appliquerTampon = appliquerTampon;
+      expose.lancerResync = lancerResync;
+      expose.brancherTempsReel = brancherTempsReel;
+      expose.surEtatTempsReel = surEtatTempsReel;
+      expose.etatTempsReel = () => ({
+        pret: tempsReelPret,
+        canal: canalTempsReel?.pret() ?? null,
+        tentatives: tentativesTempsReel,
+        repriseProgrammee: minuterieReprise !== null,
+        derniereSynchro,
+        resyncEnCours: resyncEnCours !== null,
+      });
       expose.store = { getState: get, setState: set };
     }
   }
@@ -831,6 +1153,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     annuaire: [],
     journal: [],
     enAttente: 0,
+    synchroInitiale: false,
     tourneesAffichees: chargerTourneesAffichees(),
     fondSatellite: localStorage.getItem('fond-satellite') === '1',
     vueMembre: localStorage.getItem('vue-membre') === '1',
@@ -874,16 +1197,27 @@ export const useAppStore = create<EtatApp>((set, get) => {
         return;
       }
       const { data } = await supabase.auth.getSession();
-      set({ session: data.session, pret: true });
+      // Le dernier profil connu est repris tout de suite : la bonne vue
+      // (admin ou membre, mes tournées) s'affiche dès la première image, même
+      // sans réseau. Le serveur confirme ou corrige juste après.
+      const profilConnu = lireMemoire<Profil>(CLE_PROFIL);
+      const memeCompte = !!data.session && profilConnu?.id === data.session.user.id;
+      set({
+        session: data.session,
+        pret: true,
+        ...(memeCompte && profilConnu
+          ? { profil: profilConnu, annuaire: lireMemoire<Profil[]>(CLE_ANNUAIRE) ?? [] }
+          : {}),
+      });
       if (data.session) void apresConnexion();
       supabase.auth.onAuthStateChange((_evenement, session) => {
         const avait = get().session;
         set({ session });
         if (session && !avait) void apresConnexion();
         if (!session) {
-          desabonner?.();
-          desabonner = null;
-          set({ profil: null });
+          arreterTempsReel();
+          oublierProfil();
+          set({ profil: null, synchroInitiale: false });
         }
       });
     },
@@ -957,7 +1291,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
         return;
       }
       try {
-        await resynchroniser();
+        await resyncComplete();
         set({ chargement: CHARGEMENT_INACTIF });
       } catch {
         set({
@@ -1089,6 +1423,21 @@ export const useAppStore = create<EtatApp>((set, get) => {
       return vides.length;
     },
 
+    supprimerDecomptesVides: async () => {
+      if (supabaseActif && get().profil?.role !== 'admin') {
+        set({ erreur: 'Seul un administrateur peut supprimer des décomptes.' });
+        return 0;
+      }
+      const ids = decomptesVides(get().decomptes).map((d) => d.id);
+      if (ids.length === 0) return 0;
+      const aRetirer = new Set(ids);
+      set((s) => ({ decomptes: s.decomptes.filter((d) => !aRetirer.has(d.id)) }));
+      await db.decomptes.bulkDelete(ids);
+      await syncSupprimerDecomptes(ids);
+      set({ enAttente: await nombreEnAttente() });
+      return ids.length;
+    },
+
     forcerSynchro: async () => {
       await resynchroniserSiPossible(true);
       set({ enAttente: await nombreEnAttente() });
@@ -1102,7 +1451,7 @@ export const useAppStore = create<EtatApp>((set, get) => {
     rafraichirAnnuaire: async () => {
       if (!supabase || !get().session) return;
       const { data } = await supabase.from('profils').select('*').order('nom');
-      if (data) set({ annuaire: (data as Record<string, unknown>[]).map(versProfil) });
+      if (data) definirAnnuaire((data as Record<string, unknown>[]).map(versProfil));
     },
 
     fermerNotification: () => set({ notification: null }),
@@ -1202,8 +1551,17 @@ export const useAppStore = create<EtatApp>((set, get) => {
         else delete poses[id];
         ecrireRappelsPoses(poses);
       }
-      await db.adresses.put(maj);
+      // L'écran d'abord : le point change de couleur à l'instant du toucher,
+      // sans attendre l'écriture sur le disque du téléphone.
       set((s) => ({ adresses: s.adresses.map((a) => (a.id === id ? maj : a)) }));
+      try {
+        await db.adresses.put(maj);
+      } catch {
+        set({
+          erreur:
+            "Cet appareil n'arrive pas à enregistrer (mémoire pleine ?). La modification part quand même vers le serveur.",
+        });
+      }
       if (noteChangee && maj.note) consigner('commentaire', maj, maj.note);
       await syncAdresse(maj);
     },
