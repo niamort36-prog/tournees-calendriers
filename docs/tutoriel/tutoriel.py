@@ -1065,12 +1065,13 @@ tableau(['Gardé d’une année sur l’autre', 'Remis à zéro'], [
     ['Contour, nom et couleur des tournées ; équipes', 'Lots de calendriers (propres à '
      'chaque campagne)'],
 ], [8.2 * cm, 8.2 * cm])
-encadre('Avant la toute première clôture : la mise à jour n°16',
-        'L’effacement des paiements et la remise à zéro des appartements demandent la '
-        'mise à jour n°16 de la base (fichier <b>docs/supabase-mise-a-jour-16.sql</b>, à '
-        'coller dans Supabase → SQL Editor → Run). Elle peut être collée à tout moment, '
-        'même en pleine campagne : elle ne touche à aucune adresse. Tant qu’elle '
-        'manque, le bouton <b>Archiver la campagne</b> refuse de fonctionner et le dit.')
+encadre('La mise à jour n°16 de la base : déjà en place',
+        'L’effacement des paiements et la remise à zéro des appartements reposent sur la '
+        'mise à jour n°16 de la base (fichier <b>docs/supabase-mise-a-jour-16.sql</b>). '
+        'Elle est en place depuis le 16/11/2026 : il n’y a rien à faire. Elle ne serait à '
+        'recoller (Supabase → SQL Editor → Run) que si la base devait être recréée un '
+        'jour ; tant qu’elle manque, le bouton <b>Archiver la campagne</b> refuse de '
+        'fonctionner et le dit.')
 p('Il ne reste plus qu’à créer la campagne de l’année suivante : les tournées, les '
   'adresses et les équipes sont déjà prêtes.')
 

@@ -148,8 +148,9 @@
       sur l'autre, aucune trace des paiements (détail effacé, maisons et
       appartements) et tous les appartements repassent « à faire ».
       Mise à jour SQL n°16 (`docs/supabase-mise-a-jour-16.sql`, testée sur une
-      base d'essai PGlite : `tests/sql/`) ; l'appli refuse d'archiver tant
-      qu'elle n'est pas passée. Pré-remplissage du décompte et total d'un
+      base d'essai PGlite : `tests/sql/`, passée en production le 16/11/2026,
+      vérifiée : `version_archivage()` répond 16) ; l'appli refuse d'archiver
+      tant qu'elle n'est pas passée. Pré-remplissage du décompte et total d'un
       immeuble : seul l'argent des maisons / appartements « distribué » compte.
 - [x] Onglet « ⚙️ Réglages » dans le bandeau (15/11/2026) : choix de l'icône
       de ma position (rond bleu par défaut ; pompiers, véhicules, gyrophare,
