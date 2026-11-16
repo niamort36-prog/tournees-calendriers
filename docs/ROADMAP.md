@@ -171,6 +171,22 @@
       PDF allégé de 3,8 à 2,6 Mo (captures de carte en JPEG) ; la partie 4 ne
       laisse plus son titre seul sur une page.
 
+## Après la campagne 2026 (mis de côté le 16/11/2026)
+- [ ] **Découper une tournée** (ex. « Tournée Romain » à l'intérieur de la
+      Tournée Ville). Aujourd'hui, dessiner une zone dans une tournée existante
+      COPIE les adresses (`adressesDansPolygone` ne filtre pas celles déjà
+      prises) : doublons sur la carte, maisons comptées deux fois, copies
+      remises « à faire ». Et réduire le contour de l'ancienne tournée
+      SUPPRIME ses points avec leurs statuts, sommes et commentaires.
+      À construire : DÉPLACER les adresses de la zone vers la nouvelle tournée
+      (changer `tournee_id`, en gardant statut, sommes, appartements, notes),
+      ajouter leurs `ban_id` aux `ban_ids_exclus` de l'ancienne pour qu'un
+      recalcul de son contour ne les recrée pas, et recalculer le contour de
+      l'ancienne sans perte. À décider avec l'utilisateur : l'argent déjà
+      encaissé chez ces maisons reste-t-il compté dans l'ancienne tournée
+      (décompte, reçu) ou part-il avec les adresses ? Penser aussi aux
+      équipes : l'équipe de l'ancienne tournée ne verra plus ces adresses.
+
 ## Limites connues (v1)
 - Chaque synchronisation relit toute la base (≈ 450 Ko compressés). Une
   lecture « seulement ce qui a changé » demande une colonne d'horodatage posée
