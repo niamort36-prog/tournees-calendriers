@@ -10,3 +10,11 @@ declare const __MODE_EMPLOI__: {
   pages: number | null;
   octets: number;
 };
+
+/** Version de l'application (outils/version-appli.mjs). */
+declare const __VERSION_APPLI__: {
+  /** identifiant court du commit mis en ligne */
+  commit: string;
+  /** date de construction (JJ/MM/AAAA HH:MM, heure de Paris) */
+  date: string;
+};

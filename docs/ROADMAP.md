@@ -174,6 +174,11 @@
       Chrome Android (≥ 135) dessine la page sous la barre du téléphone ; le
       bas de la fiche d'une maison (✏️ Renommer, 📍 Déplacer) y restait caché.
       Marge `env(safe-area-inset-bottom)` sur `.app` et les fenêtres plein écran.
+      Insuffisant sur l'Android de l'utilisateur (appli installée) : 72 px
+      d'espace sous les boutons de la fiche sur écran tactile (la barre peut
+      recouvrir l'appli sans être signalée), et bloc « 🔧 Infos pour le
+      dépannage » dans Réglages : version reçue (commit + date), mode, système,
+      écran, fenêtre, marge signalée (`outils/version-appli.mjs`).
 
 ## Après la campagne 2026 (mis de côté le 16/11/2026)
 - [ ] **Découper une tournée** (ex. « Tournée Romain » à l'intérieur de la

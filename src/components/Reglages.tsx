@@ -21,6 +21,85 @@ const INFOS_MODE_EMPLOI = [
   .filter(Boolean)
   .join(' · ');
 
+const VERSION = __VERSION_APPLI__;
+
+/** Marge du bas que le téléphone signale pour sa barre de navigation. */
+function margeBasSignalee(): number {
+  const sonde = document.createElement('div');
+  sonde.style.cssText =
+    'position:fixed;left:0;bottom:0;height:0;visibility:hidden;pointer-events:none;' +
+    'padding-bottom:env(safe-area-inset-bottom,0px)';
+  document.body.appendChild(sonde);
+  const marge = parseFloat(getComputedStyle(sonde).paddingBottom) || 0;
+  sonde.remove();
+  return Math.round(marge);
+}
+
+/** « Android 15 · Chrome 142 », lu dans l'identité du navigateur. */
+function systemeEtNavigateur(): string {
+  const ua = navigator.userAgent;
+  const morceaux: string[] = [];
+  const android = /Android ([\d.]+)/.exec(ua);
+  const ios = /(?:iPhone|iPad).*? OS (\d+)_/.exec(ua);
+  if (android) morceaux.push(`Android ${android[1]}`);
+  else if (ios) morceaux.push(`iOS ${ios[1]}`);
+  else if (/Windows/.test(ua)) morceaux.push('Windows');
+  else if (/Mac OS/.test(ua)) morceaux.push('Mac');
+  const navigateurs: [RegExp, string][] = [
+    [/SamsungBrowser\/(\d+)/, 'Samsung Internet'],
+    [/EdgA?\/(\d+)/, 'Edge'],
+    [/Firefox\/(\d+)/, 'Firefox'],
+    [/Chrome\/(\d+)/, 'Chrome'],
+    [/Version\/(\d+).*Safari/, 'Safari'],
+  ];
+  for (const [motif, nom] of navigateurs) {
+    const m = motif.exec(ua);
+    if (m) {
+      morceaux.push(`${nom} ${m[1]}`);
+      break;
+    }
+  }
+  return morceaux.join(' · ') || ua.slice(0, 60);
+}
+
+/**
+ * Infos pour le dépannage : la version reçue par l'appareil et les mesures de
+ * l'écran. Une capture de ce bloc suffit pour comprendre un souci d'affichage
+ * sur un téléphone qu'on n'a pas sous la main.
+ */
+function InfosDepannage() {
+  const installee =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const vv = window.visualViewport;
+  const lignes: [string, string][] = [
+    ['Version', `${VERSION.commit} du ${VERSION.date}`],
+    ['Mode', installee ? 'appli installée' : 'dans le navigateur'],
+    ['Système', systemeEtNavigateur()],
+    ['Écran', `${screen.width} × ${screen.height} (×${Math.round(devicePixelRatio * 100) / 100})`],
+    ['Fenêtre', `${window.innerWidth} × ${window.innerHeight}` + (vv ? ` · visible ${Math.round(vv.height)}` : '')],
+    ['Marge du bas', `${margeBasSignalee()} px`],
+  ];
+  return (
+    <details className="depannage">
+      <summary>🔧 Infos pour le dépannage</summary>
+      <p className="equipe-note">
+        En cas de souci d'affichage, faites une capture d'écran de ce bloc et envoyez-la : elle dit
+        quelle version de l'appli ce téléphone a reçue.
+      </p>
+      <dl>
+        {lignes.map(([nom, valeur]) => (
+          <div key={nom}>
+            <dt>{nom}</dt>
+            <dd>{valeur}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 /** Petit aperçu d'une icône, tel qu'elle apparaîtra sur la carte. */
 function Apercu({ icone }: { icone: IconePosition }) {
   if (icone.svg) {
@@ -113,6 +192,10 @@ export default function Reglages({ onFermer }: { onFermer: () => void }) {
           <button type="button" className="reglage-voir-position" onClick={montrerMaPosition}>
             📍 {gpsActif ? 'Voir ma position sur la carte' : 'Afficher ma position sur la carte'}
           </button>
+        </section>
+
+        <section className="reglage-bloc">
+          <InfosDepannage />
         </section>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import modeEmploi from './outils/mode-emploi.mjs';
+import versionAppli from './outils/version-appli.mjs';
 
 // (déclaration minimale : évite d'ajouter les types Node pour cette seule ligne)
 declare const process: { env: Record<string, string | undefined> };
@@ -11,6 +12,7 @@ export default defineConfig({
   plugins: [
     react(),
     modeEmploi(),
+    versionAppli(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],

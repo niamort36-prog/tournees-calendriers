@@ -680,7 +680,7 @@ p('Si plus de trois rappels tombent en même temps, l’application n’envoie '
   'qu’une seule notification de résumé (« ⏰ 6 adresses à repasser ») au lieu '
   'de faire sonner le téléphone six fois de suite.')
 
-p('2.12 — Les réglages : mode d’emploi et icône de sa position', 'h1')
+p('2.12 — Les réglages : mode d’emploi, icône de sa position, dépannage', 'h1')
 p('Le bouton <b>Réglages</b> (la roue dentée), en haut de l’écran, regroupe vos '
   'réglages personnels. Sur un téléphone, il est réduit à la <b>roue dentée seule</b>, '
   'juste à côté du nom de la campagne.')
@@ -712,6 +712,11 @@ cote_a_cote([
             'Pour revenir au point habituel, choisissez <b>Rond bleu</b>.',
             largeur=LARGEUR_TEXTE_212, ajouter=False),
 ], 'membre-reglages', 5.6, 'La fenêtre Réglages : ici, la citrouille casquée est choisie')
+p('<b>Les infos pour le dépannage.</b> Tout en bas de la fenêtre, ce bloc à déplier '
+  'indique la <b>version de l’application</b> reçue par l’appareil, avec sa date et son '
+  'heure, ainsi que quelques mesures de l’écran. Il permet de vérifier qu’un téléphone '
+  'a bien reçu la dernière mise à jour. En cas de souci d’affichage, une capture '
+  'd’écran de ce bloc, envoyée à l’administrateur, aide à comprendre ce qui se passe.')
 
 # ============================== PARTIE 3 ==============================
 titre_partie(3, 'Guide de l’administrateur')
@@ -1130,7 +1135,13 @@ tableau(['Situation', 'Que faire'], [
      'une nouvelle version et se recharge à un moment où cela ne dérange pas (aucune '
      'fiche ouverte, aucune saisie en cours). Pour forcer : sur ordinateur, '
      'Ctrl + F5 ; sur téléphone, fermez complètement l’application et rouvrez-la '
-     '<b>deux fois</b>.'],
+     '<b>deux fois</b>. Pour vérifier : <b>Réglages → Infos pour le dépannage</b> '
+     'indique la version reçue et sa date.'],
+    ['<b>Sur Android, le bas d’une fiche est caché</b>',
+     'Faites défiler la fiche jusqu’en bas : un espace est prévu sous les boutons '
+     '<b>Renommer</b> et <b>Déplacer</b> pour les remonter au-dessus de la barre de '
+     'navigation du téléphone. Si cela ne suffit pas, envoyez une capture de '
+     '<b>Réglages → Infos pour le dépannage</b>.'],
 ], [5.2 * cm, 11.2 * cm])
 
 espace(10)

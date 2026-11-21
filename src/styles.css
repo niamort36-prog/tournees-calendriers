@@ -1981,6 +1981,17 @@ body {
   gap: 8px;
 }
 
+/* Écrans tactiles : de l'espace libre sous la dernière ligne de la fiche
+   (✏️ Renommer, 📍 Déplacer). Sur certains Android, la barre de navigation
+   recouvre le bas de l'appli SANS que le téléphone le signale (marge env() à
+   0, voir .app) : en faisant défiler, ces boutons remontent quand même
+   au-dessus de la barre. */
+@media (pointer: coarse) {
+  .fiche {
+    padding-bottom: 72px;
+  }
+}
+
 .fiche-actions button {
   border: 1px solid var(--bordure);
   background: #fff;
@@ -3235,6 +3246,34 @@ body {
   color: #fff;
   font-size: 14px;
   cursor: pointer;
+}
+
+/* Réglages → infos pour le dépannage */
+.depannage summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--marine);
+}
+.depannage dl {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.depannage dl > div {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--bordure);
+}
+.depannage dt {
+  width: 92px;
+  flex-shrink: 0;
+  color: var(--texte-doux);
+}
+.depannage dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 /* Sur la carte : l'icône choisie, avec un léger contour pour rester visible
