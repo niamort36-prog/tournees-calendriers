@@ -170,6 +170,10 @@
       d'emploi est gardé une fois ouvert (NetworkFirst, lisible hors ligne).
       PDF allégé de 3,8 à 2,6 Mo (captures de carte en JPEG) ; la partie 4 ne
       laisse plus son titre seul sur une page.
+- [x] Barre de navigation Android (21/11/2026) : avec `viewport-fit=cover`,
+      Chrome Android (≥ 135) dessine la page sous la barre du téléphone ; le
+      bas de la fiche d'une maison (✏️ Renommer, 📍 Déplacer) y restait caché.
+      Marge `env(safe-area-inset-bottom)` sur `.app` et les fenêtres plein écran.
 
 ## Après la campagne 2026 (mis de côté le 16/11/2026)
 - [ ] **Découper une tournée** (ex. « Tournée Romain » à l'intérieur de la
