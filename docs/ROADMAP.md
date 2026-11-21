@@ -179,6 +179,11 @@
       recouvrir l'appli sans être signalée), et bloc « 🔧 Infos pour le
       dépannage » dans Réglages : version reçue (commit + date), mode, système,
       écran, fenêtre, marge signalée (`outils/version-appli.mjs`).
+      Puis le HAUT coupé (barre d'état sur le bouton campagne et ⚙️) : bandeau
+      prolongé sous la barre d'état, et `src/lib/margesEcran.ts` impose des
+      marges de secours (haut 32 px, bas 48 px) quand l'appli installée occupe
+      tout l'écran sans que le téléphone signale ses barres (variables CSS
+      `--marge-haut` / `--marge-bas`, sinon = env()).
 
 ## Après la campagne 2026 (mis de côté le 16/11/2026)
 - [ ] **Découper une tournée** (ex. « Tournée Romain » à l'intérieur de la

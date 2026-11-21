@@ -5,6 +5,10 @@ import 'leaflet/dist/leaflet.css';
 import './styles.css';
 import App from './App';
 import { useAppStore } from './store/useAppStore';
+import { surveillerMarges } from './lib/margesEcran';
+
+// barres du téléphone (haut / bas) : marges de secours si besoin
+surveillerMarges();
 
 // accès console en développement (débogage)
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).appStore = useAppStore;

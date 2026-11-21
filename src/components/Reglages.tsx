@@ -1,5 +1,6 @@
 import { useAppStore } from '../store/useAppStore';
 import { GROUPES_ICONES, ICONES_POSITION, type IconePosition } from '../lib/iconesPosition';
+import { etatMarges } from '../lib/margesEcran';
 
 // Mode d'emploi PDF : toujours celui de la version en ligne de l'appli (voir
 // outils/mode-emploi.mjs). L'empreinte dans l'adresse évite qu'un téléphone
@@ -22,18 +23,6 @@ const INFOS_MODE_EMPLOI = [
   .join(' · ');
 
 const VERSION = __VERSION_APPLI__;
-
-/** Marge du bas que le téléphone signale pour sa barre de navigation. */
-function margeBasSignalee(): number {
-  const sonde = document.createElement('div');
-  sonde.style.cssText =
-    'position:fixed;left:0;bottom:0;height:0;visibility:hidden;pointer-events:none;' +
-    'padding-bottom:env(safe-area-inset-bottom,0px)';
-  document.body.appendChild(sonde);
-  const marge = parseFloat(getComputedStyle(sonde).paddingBottom) || 0;
-  sonde.remove();
-  return Math.round(marge);
-}
 
 /** « Android 15 · Chrome 142 », lu dans l'identité du navigateur. */
 function systemeEtNavigateur(): string {
@@ -73,13 +62,20 @@ function InfosDepannage() {
     window.matchMedia('(display-mode: fullscreen)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const vv = window.visualViewport;
+  const marges = etatMarges();
   const lignes: [string, string][] = [
     ['Version', `${VERSION.commit} du ${VERSION.date}`],
     ['Mode', installee ? 'appli installée' : 'dans le navigateur'],
     ['Système', systemeEtNavigateur()],
     ['Écran', `${screen.width} × ${screen.height} (×${Math.round(devicePixelRatio * 100) / 100})`],
     ['Fenêtre', `${window.innerWidth} × ${window.innerHeight}` + (vv ? ` · visible ${Math.round(vv.height)}` : '')],
-    ['Marge du bas', `${margeBasSignalee()} px`],
+    ['Marges', `haut ${marges.signaleesHaut} px · bas ${marges.signaleesBas} px`],
+    [
+      'Secours',
+      marges.secoursHaut || marges.secoursBas
+        ? `oui : haut ${marges.secoursHaut} px · bas ${marges.secoursBas} px`
+        : 'non',
+    ],
   ];
   return (
     <details className="depannage">

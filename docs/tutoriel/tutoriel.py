@@ -1137,11 +1137,12 @@ tableau(['Situation', 'Que faire'], [
      'Ctrl + F5 ; sur téléphone, fermez complètement l’application et rouvrez-la '
      '<b>deux fois</b>. Pour vérifier : <b>Réglages → Infos pour le dépannage</b> '
      'indique la version reçue et sa date.'],
-    ['<b>Sur Android, le bas d’une fiche est caché</b>',
-     'Faites défiler la fiche jusqu’en bas : un espace est prévu sous les boutons '
-     '<b>Renommer</b> et <b>Déplacer</b> pour les remonter au-dessus de la barre de '
-     'navigation du téléphone. Si cela ne suffit pas, envoyez une capture de '
-     '<b>Réglages → Infos pour le dépannage</b>.'],
+    ['<b>Sur Android, le haut ou le bas de l’écran est caché</b>',
+     'L’application laisse d’elle-même la place aux barres du téléphone (l’heure et la '
+     'batterie en haut, les boutons de navigation en bas), même quand le téléphone ne '
+     'les signale pas. Dans une fiche, faites défiler jusqu’en bas : un espace est prévu '
+     'sous <b>Renommer</b> et <b>Déplacer</b>. Si quelque chose reste caché, envoyez une '
+     'capture de <b>Réglages → Infos pour le dépannage</b>.'],
 ], [5.2 * cm, 11.2 * cm])
 
 espace(10)
